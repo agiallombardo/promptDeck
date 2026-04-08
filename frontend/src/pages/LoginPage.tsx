@@ -30,7 +30,7 @@ export default function LoginPage() {
     <div className="flex min-h-dvh items-center justify-center bg-bg-void px-4 text-text-main">
       <div className="w-full max-w-md rounded-sharp border border-border bg-bg-elevated p-8 shadow-elevated">
         <h1 className="font-heading text-2xl font-semibold">Sign in</h1>
-        <p className="mt-2 text-sm text-text-muted">PresCollab · local account</p>
+        <p className="mt-2 text-sm text-text-muted">promptDeck · local account</p>
         <form className="mt-8 flex flex-col gap-4" onSubmit={onSubmit}>
           <label className="flex flex-col gap-1 font-mono text-xs uppercase tracking-wide text-text-muted">
             Email

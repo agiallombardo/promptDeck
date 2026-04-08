@@ -38,7 +38,7 @@ def _inject_probe(html: bytes) -> bytes:
     text = html.decode("utf-8", errors="replace")
     lower = text.lower()
     idx = lower.find("</head>")
-    probe = f'<script data-prescollab-probe="1">\n{_probe_js()}\n</script>'
+    probe = f'<script data-promptdeck-probe="1">\n{_probe_js()}\n</script>'
     if idx != -1:
         out = text[:idx] + probe + text[idx:]
     else:

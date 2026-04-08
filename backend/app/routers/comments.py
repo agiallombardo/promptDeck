@@ -13,7 +13,12 @@ from app.db.models.comment_thread import Comment, CommentThread, ThreadStatus
 from app.db.models.presentation import Presentation, PresentationVersion
 from app.db.models.user import User, UserRole
 from app.db.session import get_db
-from app.deps import get_current_user, get_presentation, require_non_viewer
+from app.deps import (
+    get_current_user,
+    get_presentation_owner,
+    get_presentation_reader,
+    require_non_viewer,
+)
 from app.schemas.comment import (
     CommentCreate,
     CommentRead,
@@ -80,7 +85,7 @@ def _thread_read(thread: CommentThread) -> ThreadRead:
 
 @router.get("/presentations/{presentation_id}/threads", response_model=ThreadListResponse)
 async def list_threads(
-    presentation: Annotated[Presentation, Depends(get_presentation)],
+    presentation: Annotated[Presentation, Depends(get_presentation_reader)],
     db: Annotated[AsyncSession, Depends(get_db)],
     version_id: Annotated[uuid.UUID | None, Query(description="Filter by version")] = None,
 ) -> ThreadListResponse:
@@ -112,7 +117,7 @@ async def create_thread(
     body: ThreadCreate,
     user: Annotated[User, Depends(require_non_viewer)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    presentation: Annotated[Presentation, Depends(get_presentation)],
+    presentation: Annotated[Presentation, Depends(get_presentation_owner)],
 ) -> ThreadRead:
     ver = await db.get(PresentationVersion, body.version_id)
     if ver is None or ver.presentation_id != presentation.id:

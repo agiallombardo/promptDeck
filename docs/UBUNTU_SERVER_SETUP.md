@@ -1,6 +1,6 @@
-# Ubuntu server setup (PresCollab)
+# Ubuntu server setup (promptDeck)
 
-Step-by-step notes for a **single long-lived VM** running PostgreSQL, nginx, and PresCollab (FastAPI + static Vite build), aligned with `plans/humming-bouncing-toast.md` and `docs/RUNBOOK.md`.
+Step-by-step notes for a **single long-lived VM** running PostgreSQL, nginx, and promptDeck (FastAPI + static Vite build), aligned with `plans/humming-bouncing-toast.md` and `docs/RUNBOOK.md`.
 
 **Scope:** Ubuntu **22.04 or 24.04 LTS**, `systemd`, **no Docker** for v1. Commands assume `sudo` where needed.
 
@@ -55,16 +55,16 @@ Production should expose **only nginx** (80/443), not raw uvicorn.
 ### 1.4 Optional: dedicated app user
 
 ```bash
-sudo adduser --disabled-password --gecos "" prescollab
-sudo mkdir -p /var/lib/prescollab /var/www/prescollab
-sudo chown -R prescollab:prescollab /var/lib/prescollab /var/www/prescollab
+sudo adduser --disabled-password --gecos "" promptdeck
+sudo mkdir -p /var/lib/promptdeck /var/www/promptdeck
+sudo chown -R promptdeck:promptdeck /var/lib/promptdeck /var/www/promptdeck
 ```
 
 Deploy the app and run the API as this user (see §6).
 
 ### 1.5 Kernel / limits (optional)
 
-For many concurrent connections to Postgres + nginx, you may raise file descriptors. Create `/etc/security/limits.d/99-prescollab.conf`:
+For many concurrent connections to Postgres + nginx, you may raise file descriptors. Create `/etc/security/limits.d/99-promptdeck.conf`:
 
 ```
 * soft nofile 65535
@@ -89,15 +89,15 @@ sudo apt install -y postgresql-16 postgresql-client-16
 ### 2.2 Create database and role
 
 ```bash
-sudo -u postgres psql -c "CREATE USER prescollab WITH PASSWORD 'REPLACE_WITH_STRONG_PASSWORD';"
-sudo -u postgres psql -c "CREATE DATABASE prescollab OWNER prescollab;"
-sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE prescollab TO prescollab;"
+sudo -u postgres psql -c "CREATE USER promptdeck WITH PASSWORD 'REPLACE_WITH_STRONG_PASSWORD';"
+sudo -u postgres psql -c "CREATE DATABASE promptdeck OWNER promptdeck;"
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE promptdeck TO promptdeck;"
 ```
 
 **Connection URL for the app** (asyncpg):
 
 ```text
-postgresql+asyncpg://prescollab:REPLACE_WITH_STRONG_PASSWORD@127.0.0.1:5432/prescollab
+postgresql+asyncpg://promptdeck:REPLACE_WITH_STRONG_PASSWORD@127.0.0.1:5432/promptdeck
 ```
 
 Set `DATABASE_URL` in the API environment (see §7).
@@ -112,10 +112,10 @@ Check:
 sudo grep listen_addresses /etc/postgresql/16/main/postgresql.conf
 ```
 
-For **peer auth** from `sudo -u postgres`, leave `pg_hba.conf` as shipped. The app connects over TCP as user `prescollab` using password auth (`scram-sha-256`); ensure a line like:
+For **peer auth** from `sudo -u postgres`, leave `pg_hba.conf` as shipped. The app connects over TCP as user `promptdeck` using password auth (`scram-sha-256`); ensure a line like:
 
 ```
-host    prescollab    prescollab    127.0.0.1/32    scram-sha-256
+host    promptdeck    promptdeck    127.0.0.1/32    scram-sha-256
 ```
 
 in `/etc/postgresql/16/main/pg_hba.conf`, then reload Postgres (§2.4).
@@ -145,7 +145,7 @@ sudo systemctl start nginx
 
 ### 3.2 Roles
 
-- Serve the **built frontend** from `/var/www/prescollab` (or similar).
+- Serve the **built frontend** from `/var/www/promptdeck` (or similar).
 - **Proxy** `/api` and `/a` to the FastAPI app (same origin as the SPA or a dedicated host — match `public_app_url` and CORS in `backend/app/config.py`).
 
 Example server block sketch (TLS in §3.3):
@@ -153,8 +153,8 @@ Example server block sketch (TLS in §3.3):
 ```nginx
 server {
     listen 80;
-    server_name prescollab.example.com;
-    root /var/www/prescollab;
+    server_name promptdeck.example.com;
+    root /var/www/promptdeck;
     index index.html;
 
     location / {
@@ -192,7 +192,7 @@ sudo systemctl reload nginx
 
 ```bash
 sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d prescollab.example.com
+sudo certbot --nginx -d promptdeck.example.com
 ```
 
 Set `cookie_secure=true` and `cors_origins` / `public_app_url` to `https://…` in production.
@@ -208,7 +208,7 @@ Set `cookie_secure=true` and `cors_origins` / `public_app_url` to `https://…` 
 
 ## 4. Application runtime (uv, Node, repo)
 
-Install as **root** or as `prescollab` user (recommended for the deploy tree).
+Install as **root** or as `promptdeck` user (recommended for the deploy tree).
 
 ### 4.1 uv (Python toolchains)
 
@@ -231,13 +231,13 @@ corepack prepare pnpm@9.15.4 --activate
 ### 4.3 Clone and build
 
 ```bash
-sudo -u prescollab -i
-cd /var/lib/prescollab
+sudo -u promptdeck -i
+cd /var/lib/promptdeck
 git clone https://github.com/your-org/promptDeck.git app
 cd app
 just setup
 cd frontend && pnpm run build
-sudo cp -r dist/* /var/www/prescollab/
+sudo cp -r dist/* /var/www/promptdeck/
 ```
 
 Backend: `cd backend && uv sync` and set environment (§7).
@@ -246,16 +246,16 @@ Backend: `cd backend && uv sync` and set environment (§7).
 
 ## 5. Storage and paths
 
-PresCollab stores uploads under **`STORAGE_ROOT`** (default `./data/storage` — not ideal in production).
+promptDeck stores uploads under **`STORAGE_ROOT`** (default `./data/storage` — not ideal in production).
 
 On the server:
 
 ```bash
-sudo mkdir -p /var/lib/prescollab/storage
-sudo chown prescollab:prescollab /var/lib/prescollab/storage
+sudo mkdir -p /var/lib/promptdeck/storage
+sudo chown promptdeck:promptdeck /var/lib/promptdeck/storage
 ```
 
-Set `STORAGE_ROOT=/var/lib/prescollab/storage` for the API service.
+Set `STORAGE_ROOT=/var/lib/promptdeck/storage` for the API service.
 
 ---
 
@@ -263,21 +263,21 @@ Set `STORAGE_ROOT=/var/lib/prescollab/storage` for the API service.
 
 ### 6.1 Unit file
 
-Create `/etc/systemd/system/prescollab-api.service`:
+Create `/etc/systemd/system/promptdeck-api.service`:
 
 ```ini
 [Unit]
-Description=PresCollab FastAPI (uvicorn)
+Description=promptDeck FastAPI (uvicorn)
 After=network-online.target postgresql.service
 Wants=network-online.target
 
 [Service]
 Type=simple
-User=prescollab
-Group=prescollab
-WorkingDirectory=/var/lib/prescollab/app/backend
-EnvironmentFile=/var/lib/prescollab/app/backend/.env
-ExecStart=/home/prescollab/.local/bin/uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
+User=promptdeck
+Group=promptdeck
+WorkingDirectory=/var/lib/promptdeck/app/backend
+EnvironmentFile=/var/lib/promptdeck/app/backend/.env
+ExecStart=/home/promptdeck/.local/bin/uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
 Restart=on-failure
 RestartSec=3
 # Graceful stop: let uvicorn finish in-flight requests
@@ -288,18 +288,18 @@ TimeoutStopSec=30
 WantedBy=multi-user.target
 ```
 
-Adjust `ExecStart` to the real path of `uv` (`which uv` as `prescollab`).
+Adjust `ExecStart` to the real path of `uv` (`which uv` as `promptdeck`).
 
-**Development-style reload** on a server is usually **`systemctl restart prescollab-api`** after deploy; for zero-downtime you would add multiple workers behind a process manager — v1 often accepts a short restart window.
+**Development-style reload** on a server is usually **`systemctl restart promptdeck-api`** after deploy; for zero-downtime you would add multiple workers behind a process manager — v1 often accepts a short restart window.
 
 ### 6.2 Commands
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable prescollab-api
-sudo systemctl start prescollab-api
-sudo systemctl status prescollab-api
-sudo journalctl -u prescollab-api -f
+sudo systemctl enable promptdeck-api
+sudo systemctl start promptdeck-api
+sudo systemctl status promptdeck-api
+sudo journalctl -u promptdeck-api -f
 ```
 
 ### 6.3 Graceful restart patterns
@@ -308,31 +308,31 @@ sudo journalctl -u prescollab-api -f
 |---------|----------|--------------|
 | **nginx** | `sudo systemctl reload nginx` | `sudo systemctl restart nginx` |
 | **PostgreSQL** | `sudo systemctl reload postgresql` | `sudo systemctl restart postgresql` |
-| **prescollab-api** | `sudo systemctl restart prescollab-api` (brief downtime) | same |
+| **promptdeck-api** | `sudo systemctl restart promptdeck-api` (brief downtime) | same |
 
-After editing any **`.service` file**: `sudo systemctl daemon-reload` then `sudo systemctl restart prescollab-api`.
+After editing any **`.service` file**: `sudo systemctl daemon-reload` then `sudo systemctl restart promptdeck-api`.
 
 ---
 
 ## 7. Environment variables (production)
 
-Place in `/var/lib/prescollab/app/backend/.env` (mode `600`, owner `prescollab`):
+Place in `/var/lib/promptdeck/app/backend/.env` (mode `600`, owner `promptdeck`):
 
 | Variable | Purpose |
 |----------|---------|
-| `DATABASE_URL` | `postgresql+asyncpg://…@127.0.0.1:5432/prescollab` |
+| `DATABASE_URL` | `postgresql+asyncpg://…@127.0.0.1:5432/promptdeck` |
 | `JWT_SECRET_KEY` | ≥ 32 random bytes |
-| `STORAGE_ROOT` | `/var/lib/prescollab/storage` |
-| `PUBLIC_APP_URL` | `https://prescollab.example.com` (no trailing slash) |
-| `CORS_ORIGINS` | JSON array in `.env`, e.g. `["https://prescollab.example.com"]` (matches `backend/app/config.py`) |
+| `STORAGE_ROOT` | `/var/lib/promptdeck/storage` |
+| `PUBLIC_APP_URL` | `https://promptdeck.example.com` (no trailing slash) |
+| `CORS_ORIGINS` | JSON array in `.env`, e.g. `["https://promptdeck.example.com"]` (matches `backend/app/config.py`) |
 | `COOKIE_SECURE` | `true` behind HTTPS |
 | `ENVIRONMENT` | `production` |
 
 Run migrations:
 
 ```bash
-cd /var/lib/prescollab/app/backend
-sudo -u prescollab env $(cat .env | xargs) uv run alembic upgrade head
+cd /var/lib/promptdeck/app/backend
+sudo -u promptdeck env $(cat .env | xargs) uv run alembic upgrade head
 ```
 
 (Or use `--env-file` / a small wrapper script.)
@@ -344,7 +344,7 @@ sudo -u prescollab env $(cat .env | xargs) uv run alembic upgrade head
 You can run **Postgres + nginx + systemd API** “like production” and still use **`just dev`** for rapid UI work:
 
 1. Keep PostgreSQL and nginx as above.
-2. Stop the packaged API while developing: `sudo systemctl stop prescollab-api`.
+2. Stop the packaged API while developing: `sudo systemctl stop promptdeck-api`.
 3. From the repo: `just dev` (API `:8000`, Vite `:5173`). Point browser at Vite; it proxies `/api` and `/a` per `frontend/vite.config.ts`.
 
 Or run only Vite against the **systemd** API:
@@ -362,8 +362,8 @@ cd frontend && pnpm dev
 ## 9. Optional quality-of-life
 
 - **`unattended-upgrades`** for security patches (reboot if kernel updates require it).
-- **Log rotation:** nginx logs are usually handled by `logrotate`; app logs go to **journald** (`journalctl -u prescollab-api`).
-- **Backups:** `pg_dump` for DB + tar `/var/lib/prescollab/storage` on a schedule.
+- **Log rotation:** nginx logs are usually handled by `logrotate`; app logs go to **journald** (`journalctl -u promptdeck-api`).
+- **Backups:** `pg_dump` for DB + tar `/var/lib/promptdeck/storage` on a schedule.
 
 ---
 
@@ -376,7 +376,7 @@ cd frontend && pnpm dev
 - [ ] Frontend build copied to nginx `root`.
 - [ ] nginx proxies `/api` and `/a` to `127.0.0.1:8000`.
 - [ ] TLS + `cookie_secure` + CORS + `public_app_url`.
-- [ ] `prescollab-api.service` enabled and healthy.
+- [ ] `promptdeck-api.service` enabled and healthy.
 - [ ] `just verify` passes in CI before/after deploy.
 
 For application behavior and verification commands, see **`docs/RUNBOOK.md`** and **`CLAUDE.md`**.

@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     )
 
     database_url: str = Field(
-        default="postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/prescollab",
+        default="postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/promptdeck",
         description="SQLAlchemy async URL (postgresql+asyncpg://… or sqlite+aiosqlite://…)",
     )
     jwt_secret_key: str = Field(default="dev-change-me-in-production", min_length=16)

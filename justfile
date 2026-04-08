@@ -1,4 +1,4 @@
-# PresCollab — single entry for humans and agents (see CLAUDE.md).
+# promptDeck — single entry for humans and agents (see CLAUDE.md).
 
 set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
 

@@ -253,6 +253,121 @@ export async function apiVersionUpload(accessToken: string, presentationId: stri
   }>;
 }
 
+export async function apiShareExchange(plaintextToken: string) {
+  const r = await fetch(`${API}/shares/exchange`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ token: plaintextToken }),
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error((err as { detail?: string }).detail ?? r.statusText);
+  }
+  return r.json() as Promise<{
+    access_token: string;
+    expires_in: number;
+    presentation_id: string;
+    role: string;
+  }>;
+}
+
+export type ShareLinkDto = {
+  id: string;
+  presentation_id: string;
+  role: string;
+  expires_at: string | null;
+  revoked_at: string | null;
+  note: string | null;
+  created_at: string;
+};
+
+export async function apiSharesList(accessToken: string, presentationId: string) {
+  const r = await fetch(`${API}/presentations/${presentationId}/shares`, {
+    headers: { ...authHeaders(accessToken) },
+    credentials: "include",
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error((err as { detail?: string }).detail ?? r.statusText);
+  }
+  return r.json() as Promise<{ items: ShareLinkDto[] }>;
+}
+
+export async function apiShareCreate(
+  accessToken: string,
+  presentationId: string,
+  body: { role: string; expires_at?: string | null; note?: string | null },
+) {
+  const r = await fetch(`${API}/presentations/${presentationId}/shares`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
+    credentials: "include",
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error((err as { detail?: string }).detail ?? r.statusText);
+  }
+  return r.json() as Promise<ShareLinkDto & { token: string }>;
+}
+
+export async function apiShareRevoke(accessToken: string, presentationId: string, shareId: string) {
+  const r = await fetch(`${API}/presentations/${presentationId}/shares/${shareId}`, {
+    method: "DELETE",
+    headers: { ...authHeaders(accessToken) },
+    credentials: "include",
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error((err as { detail?: string }).detail ?? r.statusText);
+  }
+}
+
+export type ExportJobDto = {
+  id: string;
+  presentation_id: string;
+  version_id: string;
+  format: string;
+  status: string;
+  output_path: string | null;
+  error: string | null;
+  progress: number;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+};
+
+export async function apiExportCreate(
+  accessToken: string,
+  presentationId: string,
+  body: { format?: string; version_id?: string | null },
+) {
+  const r = await fetch(`${API}/presentations/${presentationId}/exports`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
+    credentials: "include",
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error((err as { detail?: string }).detail ?? r.statusText);
+  }
+  return r.json() as Promise<ExportJobDto>;
+}
+
+export async function apiExportGet(accessToken: string, jobId: string) {
+  const r = await fetch(`${API}/exports/${jobId}`, {
+    headers: { ...authHeaders(accessToken) },
+    credentials: "include",
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error((err as { detail?: string }).detail ?? r.statusText);
+  }
+  return r.json() as Promise<ExportJobDto>;
+}
+
 export async function apiAdminLogs(accessToken: string, channel?: string | null) {
   const params = new URLSearchParams({ limit: "100" });
   if (channel) params.set("channel", channel);

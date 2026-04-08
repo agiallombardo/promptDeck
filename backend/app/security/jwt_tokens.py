@@ -8,7 +8,7 @@ import jwt
 from app.config import Settings
 from jwt.exceptions import InvalidTokenError
 
-TokenKind = Literal["access", "refresh"]
+TokenKind = Literal["access", "refresh", "share_access"]
 
 
 def create_access_token(
@@ -59,3 +59,28 @@ def decode_token_typed(settings: Settings, token: str, expected: TokenKind) -> d
     if data.get("type") != expected:
         raise ValueError("wrong token type")
     return data
+
+
+def create_share_access_token(
+    settings: Settings,
+    *,
+    share_link_id: uuid.UUID,
+    presentation_id: uuid.UUID,
+    role: str,
+    link_expires_at: datetime | None,
+) -> str:
+    """JWT for share-link viewers; bounded by link expiry and a 7-day cap."""
+    now = datetime.now(UTC)
+    cap = now + timedelta(days=7)
+    if link_expires_at is not None:
+        cap = min(cap, link_expires_at)
+    exp = int(cap.timestamp())
+    payload: dict[str, Any] = {
+        "sub": str(share_link_id),
+        "presentation_id": str(presentation_id),
+        "role": role,
+        "type": "share_access",
+        "iat": int(now.timestamp()),
+        "exp": exp,
+    }
+    return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)

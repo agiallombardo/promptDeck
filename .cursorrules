@@ -1,4 +1,4 @@
-# PresCollab / promptDeck — Cursor rules (compact)
+# promptDeck — Cursor rules (compact)
 
 - **Verify:** Run `just verify` (or `bash scripts/verify.sh`) before finishing a task.
 - **Backend:** Python 3.12+, `uv` in `backend/` (`uv sync --group dev`, `uv run …`). Entry: `backend/app/main.py`.

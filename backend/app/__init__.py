@@ -1,1 +1,1 @@
-"""PresCollab API package."""
+"""promptDeck API package."""

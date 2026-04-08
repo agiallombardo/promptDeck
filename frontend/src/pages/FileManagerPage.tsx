@@ -35,7 +35,7 @@ export default function FileManagerPage() {
         <header className="border-b border-border bg-bg-recessed px-6 py-4">
           <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="font-mono text-xs uppercase tracking-wide text-primary">PresCollab</p>
+              <p className="font-mono text-xs uppercase tracking-wide text-primary">promptDeck</p>
               <h1 className="font-heading text-xl font-semibold">Files</h1>
             </div>
             <nav className="flex flex-wrap gap-4 font-mono text-sm text-text-muted">

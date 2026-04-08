@@ -3,8 +3,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { SlideFrame } from "../components/canvas/SlideFrame";
 import type { PendingPin } from "../components/feedback/FeedbackSidebar";
+import { ExportModal } from "../components/ExportModal";
 import { FeedbackSidebar } from "../components/feedback/FeedbackSidebar";
-import { RequireAuth } from "../components/RequireAuth";
+import { RequireDeckAccess } from "../components/RequireDeckAccess";
+import { ShareModal } from "../components/ShareModal";
 import {
   apiCommentCreate,
   apiCommentDelete,
@@ -16,13 +18,24 @@ import {
   apiVersionUpload,
   iframeSrcForDev,
 } from "../lib/api";
+import { deckAccessToken } from "../lib/deckAuth";
 import { postSetCommentMode, postSlideGoto } from "../lib/slidePostMessage";
 import { useAuthStore } from "../stores/auth";
+import { useShareAccessStore } from "../stores/shareAccess";
 
 export default function PresentationPage() {
   const { id } = useParams<{ id: string }>();
-  const token = useAuthStore((s) => s.accessToken)!;
+  const accessToken = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
+  const shareSlice = useShareAccessStore((s) => ({
+    token: s.token,
+    presentationId: s.presentationId,
+    role: s.role,
+  }));
+  const token = deckAccessToken(id ?? "", accessToken, shareSlice)!;
+  const isShareSession = Boolean(shareSlice.token && id && shareSlice.presentationId === id);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const qc = useQueryClient();
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
@@ -34,12 +47,12 @@ export default function PresentationPage() {
   const [draftNewThread, setDraftNewThread] = useState("");
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
 
-  const canComment = user ? user.role !== "viewer" : false;
+  const canComment = !isShareSession && user ? user.role !== "viewer" : false;
 
   const pres = useQuery({
     queryKey: ["presentation", id, token],
     queryFn: () => apiPresentationGet(token, id!),
-    enabled: Boolean(id),
+    enabled: Boolean(id) && Boolean(token),
   });
 
   const embed = useQuery({
@@ -170,6 +183,8 @@ export default function PresentationPage() {
         ? String(threads.error)
         : null;
 
+  const isOwner = Boolean(user && pres.data && pres.data.owner_id === user.id);
+
   function handleReply(threadId: string) {
     const body = (replyDrafts[threadId] ?? "").trim();
     if (!body) return;
@@ -183,8 +198,16 @@ export default function PresentationPage() {
     );
   }
 
+  if (!id) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-bg-void font-mono text-sm text-accent-warning">
+        Missing presentation id
+      </div>
+    );
+  }
+
   return (
-    <RequireAuth>
+    <RequireDeckAccess presentationId={id}>
       <div className="flex min-h-dvh flex-col bg-bg-void text-text-main">
         <header className="border-b border-border bg-bg-recessed px-4 py-3">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
@@ -197,10 +220,33 @@ export default function PresentationPage() {
                 <h1 className="font-heading text-lg font-semibold leading-tight">
                   {pres.data?.title ?? "…"}
                 </h1>
+                {isShareSession ? (
+                  <p className="mt-0.5 font-mono text-[10px] text-text-muted">
+                    Shared access{shareSlice.role ? ` · ${shareSlice.role}` : ""}
+                  </p>
+                ) : null}
               </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              {isOwner && pres.data?.current_version_id && accessToken ? (
+                <>
+                  <button
+                    type="button"
+                    className="rounded-sharp border border-border px-2 py-1 font-mono text-xs hover:bg-bg-elevated"
+                    onClick={() => setShareOpen(true)}
+                  >
+                    Share
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-sharp border border-border px-2 py-1 font-mono text-xs hover:bg-bg-elevated"
+                    onClick={() => setExportOpen(true)}
+                  >
+                    Export
+                  </button>
+                </>
+              ) : null}
               <span className="font-mono text-xs text-text-muted">
                 Slide {slideCount ? slideIndex + 1 : 0} / {slideCount || "—"}
               </span>
@@ -320,6 +366,23 @@ export default function PresentationPage() {
           )}
         </main>
       </div>
-    </RequireAuth>
+      {isOwner && accessToken ? (
+        <>
+          <ShareModal
+            open={shareOpen}
+            onClose={() => setShareOpen(false)}
+            accessToken={accessToken}
+            presentationId={id}
+          />
+          <ExportModal
+            open={exportOpen}
+            onClose={() => setExportOpen(false)}
+            accessToken={accessToken}
+            presentationId={id}
+            versionId={pres.data?.current_version_id ?? null}
+          />
+        </>
+      ) : null}
+    </RequireDeckAccess>
   );
 }

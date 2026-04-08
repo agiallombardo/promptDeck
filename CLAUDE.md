@@ -1,8 +1,8 @@
-# PresCollab (promptDeck) — LLM runbook
+# promptDeck — LLM runbook
 
 ## Elevator pitch
 
-PresCollab is an internal web app for **HTML “deck” presentations**: upload `.html` or `.zip`, preview in a sandboxed iframe, leave coordinate-pinned comments (manual refresh in v1), share scoped links, and export to PDF or single-file HTML. This repo is optimized so coding agents can navigate, verify, and extend it safely.
+promptDeck is an internal web app for **HTML “deck” presentations**: upload `.html` or `.zip`, preview in a sandboxed iframe, leave coordinate-pinned comments (manual refresh in v1), share scoped links, and export to PDF or single-file HTML. This repo is optimized so coding agents can navigate, verify, and extend it safely.
 
 ## Directory map
 

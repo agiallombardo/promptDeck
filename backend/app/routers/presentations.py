@@ -13,7 +13,13 @@ from app.config import Settings, get_settings
 from app.db.models.presentation import Presentation, PresentationVersion, Slide
 from app.db.models.user import User, UserRole
 from app.db.session import get_db
-from app.deps import get_current_user, get_presentation
+from app.deps import (
+    Principal,
+    get_current_user,
+    get_presentation_owner,
+    get_presentation_reader,
+    get_principal,
+)
 from app.schemas.presentation import (
     EmbedResponse,
     PresentationCreate,
@@ -92,7 +98,7 @@ async def list_presentations(
 @router.get("/{presentation_id}", response_model=PresentationRead)
 async def get_presentation_detail(
     db: Annotated[AsyncSession, Depends(get_db)],
-    presentation: Annotated[Presentation, Depends(get_presentation)],
+    presentation: Annotated[Presentation, Depends(get_presentation_reader)],
 ) -> PresentationRead:
     result = await db.execute(
         select(Presentation)
@@ -115,7 +121,7 @@ async def get_presentation_detail(
 async def update_presentation(
     body: PresentationUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    presentation: Annotated[Presentation, Depends(get_presentation)],
+    presentation: Annotated[Presentation, Depends(get_presentation_owner)],
 ) -> PresentationRead:
     if body.title is not None:
         presentation.title = body.title
@@ -129,7 +135,7 @@ async def update_presentation(
 @router.delete("/{presentation_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_presentation(
     db: Annotated[AsyncSession, Depends(get_db)],
-    presentation: Annotated[Presentation, Depends(get_presentation)],
+    presentation: Annotated[Presentation, Depends(get_presentation_owner)],
 ) -> None:
     from datetime import UTC, datetime
 
@@ -140,9 +146,9 @@ async def delete_presentation(
 @router.get("/{presentation_id}/embed", response_model=EmbedResponse)
 async def embed_iframe(
     settings: Annotated[Settings, Depends(get_settings)],
-    user: Annotated[User, Depends(get_current_user)],
+    principal: Annotated[Principal, Depends(get_principal)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    presentation: Annotated[Presentation, Depends(get_presentation)],
+    presentation: Annotated[Presentation, Depends(get_presentation_reader)],
 ) -> EmbedResponse:
     if presentation.current_version_id is None:
         raise HTTPException(status_code=400, detail="No active version; upload HTML first")
@@ -151,20 +157,21 @@ async def embed_iframe(
         raise HTTPException(status_code=404, detail="Current version not found")
     slide_rows = await db.execute(select(Slide).where(Slide.version_id == ver.id))
     slides = slide_rows.scalars().all()
+    sub_id, role_str = principal.asset_identity()
     exp = int(time.time()) + settings.asset_url_ttl_seconds
     sig = sign_asset(
         settings,
         version_id=ver.id,
-        user_id=user.id,
-        role=user.role.value,
+        user_id=sub_id,
+        role=role_str,
         exp=exp,
     )
     qs = urlencode(
         {
             "exp": str(exp),
             "sig": sig,
-            "sub": str(user.id),
-            "role": user.role.value,
+            "sub": str(sub_id),
+            "role": role_str,
         }
     )
     parts = ver.entry_path.replace("\\", "/").split("/")

@@ -4,7 +4,7 @@ export default function App() {
   return (
     <div className="min-h-dvh bg-bg-void text-text-main font-body antialiased">
       <main className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-16">
-        <p className="font-mono text-sm text-primary">PresCollab · M1</p>
+        <p className="font-mono text-sm text-primary">promptDeck</p>
         <h1 className="font-heading text-3xl font-semibold tracking-tight text-text-main">
           Presentation canvas
         </h1>

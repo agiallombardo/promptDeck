@@ -101,7 +101,7 @@ async def test_upload_embed_and_serve_asset(editor_client: AsyncClient) -> None:
         },
     )
     assert raw.status_code == 200
-    assert b"data-prescollab-probe" in raw.content
+    assert b"data-promptdeck-probe" in raw.content
     assert b"postMessage" in raw.content
 
     bad = await c.get(

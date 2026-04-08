@@ -13,7 +13,7 @@ from app.config import Settings, get_settings
 from app.db.models.presentation import Presentation, PresentationVersion, Slide
 from app.db.models.user import User
 from app.db.session import get_db
-from app.deps import get_current_user, get_presentation
+from app.deps import get_current_user, get_presentation_owner, get_presentation_reader
 from app.logging_channels import LogChannel, channel_logger
 from app.schemas.presentation import SlideRead, VersionRead
 from app.services.app_logging import write_app_log
@@ -51,7 +51,7 @@ async def upload_html_version(
     settings: Annotated[Settings, Depends(get_settings)],
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    presentation: Annotated[Presentation, Depends(get_presentation)],
+    presentation: Annotated[Presentation, Depends(get_presentation_owner)],
 ) -> VersionRead:
     raw = await file.read()
     if len(raw) > MAX_HTML_BYTES:
@@ -144,7 +144,7 @@ async def upload_html_version(
 @router.get("", response_model=list[VersionRead])
 async def list_versions(
     db: Annotated[AsyncSession, Depends(get_db)],
-    presentation: Annotated[Presentation, Depends(get_presentation)],
+    presentation: Annotated[Presentation, Depends(get_presentation_reader)],
 ) -> list[VersionRead]:
     result = await db.execute(
         select(PresentationVersion)
@@ -160,7 +160,7 @@ async def list_versions(
 async def activate_version(
     version_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    presentation: Annotated[Presentation, Depends(get_presentation)],
+    presentation: Annotated[Presentation, Depends(get_presentation_owner)],
 ) -> VersionRead:
     result = await db.execute(
         select(PresentationVersion)

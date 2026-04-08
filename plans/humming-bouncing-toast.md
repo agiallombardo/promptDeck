@@ -1,10 +1,10 @@
-# PresCollab / Recessed Studio — Implementation Plan (v2)
+# promptDeck / Recessed Studio — Implementation Plan (v2)
 
 ## Context
 
 The repo at `/Users/agiallombardo/Repo/powerpointReplaced` currently holds only design artifacts:
 - `DESIGN.md` — "Synthetic Architecture / Tactical Obsidian" dark design system.
-- `recessed_studio_prd.html` — full PRD for PresCollab.
+- `recessed_studio_prd.html` — full PRD for promptDeck.
 - `stitch_floating_dark_modules_prd/*/code.html` — static mockups for 5 key screens.
 
 **Why build this:** AI-generated HTML "website slides" have replaced traditional PowerPoint decks inside the organization. Today there is no good way to share an in-progress deck with colleagues, collect coordinate-pinned feedback, view history, or "compile" the final deck for external distribution (zipping 100 files into email is not acceptable). This app solves that for internal corporate use.
@@ -49,7 +49,7 @@ The repo at `/Users/agiallombardo/Repo/powerpointReplaced` currently holds only 
 | Single-HTML export | Custom Python inliner (`selectolax`) — no Node dependency |
 | Slide identification | Iframe sandbox + injected `probe.js`: auto-detect `[data-slide]` → top-level `<section>` → single-slide fallback; `postMessage` protocol |
 | Logging | `structlog` JSON logs → stdout (systemd journal) + DB ring buffer (`app_logs` table, capped) surfaced in Admin UI |
-| Process mgmt | systemd units: `prescollab-api.service`, `prescollab-web.service` (nginx serves built frontend); Postgres is a system service |
+| Process mgmt | systemd units: `promptdeck-api.service`, `promptdeck-web.service` (nginx serves built frontend); Postgres is a system service |
 | Runtime | Python deps via `uv`, Node deps via `pnpm`, no containers |
 
 ## Hosting Model
@@ -67,11 +67,11 @@ Single long-lived VM (v1). Future migration target: Azure App Service / Containe
        │                            │
   static /assets              FastAPI (uvicorn)
   built frontend                    │
-  (/var/www/prescollab)             │
+  (/var/www/promptdeck)             │
                               ┌─────┴─────┐
                               │           │
                         PostgreSQL    Local FS
-                        (pg_dump      /var/lib/prescollab/
+                        (pg_dump      /var/lib/promptdeck/
                          backups)     storage/
                                       ├── presentations/
                                       │   └── {pres_id}/v{n}/...
@@ -224,10 +224,10 @@ powerpointReplaced/
 │
 ├── deploy/
 │   ├── systemd/
-│   │   ├── prescollab-api.service
-│   │   └── prescollab-web.service   # (or nginx-served static, see docs/RUNBOOK.md)
+│   │   ├── promptdeck-api.service
+│   │   └── promptdeck-web.service   # (or nginx-served static, see docs/RUNBOOK.md)
 │   ├── nginx/
-│   │   └── prescollab.conf          # serves frontend + proxies /api and /a
+│   │   └── promptdeck.conf          # serves frontend + proxies /api and /a
 │   └── postgres/
 │       └── init.sql
 │
@@ -491,8 +491,8 @@ Root / LLM / ops:
 - `scripts/verify.sh`, `scripts/e2e_smoke.py`, `scripts/dev.sh`, `scripts/seed.py`
 - `docs/{CONVENTIONS,RUNBOOK,PROBE_PROTOCOL,ROADMAP,SECURITY}.md`
 - `docs/adr/0001…0003*.md`
-- `deploy/systemd/prescollab-api.service`
-- `deploy/nginx/prescollab.conf`
+- `deploy/systemd/promptdeck-api.service`
+- `deploy/nginx/promptdeck.conf`
 - `.github/workflows/verify.yml` (or `.gitlab-ci.yml`)
 
 ## Verification
