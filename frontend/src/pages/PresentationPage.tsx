@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { PresentationCanvas } from "../components/canvas/PresentationCanvas";
+import { PresentationDeckHeader } from "../components/layout/PresentationDeckHeader";
 import { ExportModal } from "../components/ExportModal";
 import { FeedbackSidebar } from "../components/feedback/FeedbackSidebar";
 import { RequireDeckAccess } from "../components/RequireDeckAccess";
@@ -147,68 +148,19 @@ export default function PresentationPage() {
   return (
     <RequireDeckAccess presentationId={id}>
       <div className="flex min-h-dvh flex-col bg-bg-void text-text-main">
-        <header className="border-b border-border bg-bg-recessed px-4 py-3">
-          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <Link className="font-mono text-sm text-text-muted hover:text-primary" to="/files">
-                ← Files
-              </Link>
-              <div>
-                <p className="font-mono text-[10px] uppercase tracking-wide text-primary">Deck</p>
-                <h1 className="font-heading text-lg font-semibold leading-tight">
-                  {pres.data?.title ?? "…"}
-                </h1>
-                {isShareSession ? (
-                  <p className="mt-0.5 font-mono text-[10px] text-text-muted">
-                    Shared access{shareSlice.role ? ` · ${shareSlice.role}` : ""}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              {isOwner && pres.data?.current_version_id && accessToken ? (
-                <>
-                  <button
-                    type="button"
-                    className="rounded-sharp border border-border px-2 py-1 font-mono text-xs hover:bg-bg-elevated"
-                    onClick={() => setShareOpen(true)}
-                  >
-                    Share
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-sharp border border-border px-2 py-1 font-mono text-xs hover:bg-bg-elevated"
-                    onClick={() => setExportOpen(true)}
-                  >
-                    Export
-                  </button>
-                </>
-              ) : null}
-              <span className="font-mono text-xs text-text-muted">
-                Slide {slideCount ? slideIndex + 1 : 0} / {slideCount || "—"}
-              </span>
-              <div className="flex gap-1">
-                <button
-                  type="button"
-                  className="rounded-sharp border border-border px-2 py-1 font-mono text-xs hover:bg-bg-elevated disabled:opacity-40"
-                  disabled={!embed.data || slideIndex <= 0}
-                  onClick={() => go(slideIndex - 1)}
-                >
-                  Prev
-                </button>
-                <button
-                  type="button"
-                  className="rounded-sharp border border-border px-2 py-1 font-mono text-xs hover:bg-bg-elevated disabled:opacity-40"
-                  disabled={!embed.data || slideIndex >= slideCount - 1}
-                  onClick={() => go(slideIndex + 1)}
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          </div>
-        </header>
+        <PresentationDeckHeader
+          title={pres.data?.title ?? "…"}
+          isShareSession={isShareSession}
+          shareRole={shareSlice.role ?? null}
+          showOwnerActions={Boolean(isOwner && pres.data?.current_version_id && accessToken)}
+          onShare={() => setShareOpen(true)}
+          onExport={() => setExportOpen(true)}
+          slideIndex={slideIndex}
+          slideCount={slideCount}
+          canNavigate={Boolean(embed.data)}
+          onPrev={() => go(slideIndex - 1)}
+          onNext={() => go(slideIndex + 1)}
+        />
 
         <main className="flex min-h-0 flex-1 flex-col md:flex-row">
           {!pres.data?.current_version_id ? (
