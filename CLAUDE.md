@@ -96,7 +96,8 @@ cd backend && uv run python -m app.scripts.check_openapi_snapshot
 - Run **`just verify`** before claiming work is done.
 - Do **not** hand-edit generated API typings — regenerate with **`just api-contract`** after `openapi.json` changes.
 - New endpoints: schemas + router + test + updated `backend/openapi.json`.
-- Prefer editing existing files over adding new ones; keep files under ~400 LOC where practical.
+- Prefer editing existing files over adding new ones when it stays clear.
+- **File size:** There is no fixed line-count target (e.g. 300 or 400 LOC). Split or extract modules when a file mixes unrelated concerns or becomes hard to follow — not to hit an arbitrary cap. If one cohesive unit reads well at a higher length, that is fine.
 
 ## Debugging flow (target state)
 

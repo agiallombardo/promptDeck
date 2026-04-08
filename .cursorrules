@@ -7,3 +7,4 @@
 - **Tests:** Mirror structure under `backend/tests/` and `frontend/src/**/*.test.tsx`.
 - **Plans:** Milestones and architecture live in `plans/humming-bouncing-toast.md`; defer out-of-scope items to `docs/ROADMAP.md`.
 - **Style:** Match existing patterns; avoid drive-by refactors and unsolicited new docs.
+- **File length:** No hard LOC limit (e.g. 300). Refactor or split when boundaries are logical (separate concerns, testability, readability) — do not force splits just to satisfy a number.
