@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>RECESSED_STUDIO | Secure Access</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style type="text/tailwindcss">
+        :root {
+            --primary-cyan: #00E5FF;
+            --bg-dark: #050507;
+            --surface-dark: #16181D;
+            --card-dark: #1E2026;
+        }
+        body {
+            background-color: var(--bg-dark);
+            color: #e5e1e5;
+            font-family: 'Geist', sans-serif;
+        }
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .recessed-field {
+            background-color: #0A0B0E;
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.4);
+        }
+        .guided-card {
+            background-color: var(--card-dark);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: transform 0.2s ease, border-color 0.2s ease;
+        }
+        .guided-card:focus-within {
+            border-color: rgba(0, 229, 255, 0.3);
+            transform: translateY(-2px);
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Geist', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="flex items-center justify-center min-h-screen bg-[#050507] selection:bg-[#00E5FF] selection:text-[#00363d]">
+<div class="fixed inset-0 pointer-events-none opacity-10">
+<div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,#16181D_0%,transparent_70%)]"></div>
+</div>
+<main class="relative z-10 w-full max-w-lg px-6 py-12">
+<div class="bg-[#16181D] rounded-2xl p-8 md:p-10 shadow-xl border border-white/5">
+<div class="flex flex-col items-center mb-10">
+<div class="mb-6 flex items-center justify-center w-14 h-14 bg-[#0A0B0E] rounded-xl border border-white/10 relative">
+<span class="material-symbols-outlined text-[#00E5FF] text-2xl" style="font-variation-settings: 'FILL' 1;">shield_person</span>
+</div>
+<h1 class="text-2xl font-semibold tracking-tight text-white text-center">Welcome Back</h1>
+<p class="text-sm text-gray-400 mt-2 text-center max-w-xs">Please sign in to your Recessed Studio corporate account to continue.</p>
+</div>
+<div class="mb-10">
+<button class="w-full h-12 flex items-center justify-center gap-3 bg-white/5 hover:bg-white/10 rounded-xl border border-white/10 transition-all group px-4">
+<span class="material-symbols-outlined text-gray-400 group-hover:text-[#00E5FF] text-xl">admin_panel_settings</span>
+<span class="text-sm font-medium">Single Sign-On (SSO)</span>
+</button>
+<div class="relative flex items-center gap-4 my-8">
+<div class="h-px flex-1 bg-white/5"></div>
+<span class="text-[11px] font-mono text-gray-500 uppercase tracking-widest">or use credentials</span>
+<div class="h-px flex-1 bg-white/5"></div>
+</div>
+</div>
+<form class="space-y-4">
+<div class="guided-card rounded-2xl p-5 group">
+<div class="flex items-center gap-3 mb-4">
+<div class="w-8 h-8 rounded-lg bg-[#00E5FF]/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-[#00E5FF] text-lg">mail</span>
+</div>
+<div>
+<label class="block text-xs font-mono text-gray-400 uppercase tracking-wider" for="email">Email Address</label>
+<p class="text-[11px] text-gray-500">Your corporate email</p>
+</div>
+</div>
+<div class="relative">
+<input class="w-full h-12 rounded-xl recessed-field border-transparent text-white px-4 text-sm focus:ring-1 focus:ring-[#00E5FF]/30 focus:border-[#00E5FF]/30 transition-all placeholder:text-gray-600" id="email" placeholder="name@company.com" required="" type="email"/>
+</div>
+</div>
+<div class="guided-card rounded-2xl p-5 group">
+<div class="flex items-center justify-between mb-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-[#00E5FF]/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-[#00E5FF] text-lg">lock</span>
+</div>
+<div>
+<label class="block text-xs font-mono text-gray-400 uppercase tracking-wider" for="password">Password</label>
+<p class="text-[11px] text-gray-500">Secure access token</p>
+</div>
+</div>
+<a class="text-[10px] font-mono text-gray-500 hover:text-[#00E5FF] transition-colors" href="#">Forgot?</a>
+</div>
+<div class="relative">
+<input class="w-full h-12 rounded-xl recessed-field border-transparent text-white px-4 text-sm focus:ring-1 focus:ring-[#00E5FF]/30 focus:border-[#00E5FF]/30 transition-all placeholder:text-gray-600" id="password" placeholder="••••••••••••" required="" type="password"/>
+</div>
+</div>
+<div class="px-2 pt-2">
+<div class="flex gap-3 items-start opacity-70">
+<span class="material-symbols-outlined text-gray-500 text-sm mt-0.5">info</span>
+<p class="text-[11px] text-gray-400 leading-normal">
+                        Your connection is encrypted. Unauthorized access attempts are monitored for security purposes.
+                    </p>
+</div>
+</div>
+<div class="pt-4">
+<button class="w-full h-14 bg-[#00E5FF] text-[#00363D] rounded-xl font-semibold text-base flex items-center justify-center gap-2 hover:brightness-105 hover:shadow-lg hover:shadow-[#00E5FF]/10 active:scale-[0.98] transition-all" type="submit">
+                    Sign In
+                    <span class="material-symbols-outlined text-xl">login</span>
+</button>
+</div>
+</form>
+<div class="mt-10 pt-6 border-t border-white/5 flex flex-col sm:flex-row justify-between items-center gap-4">
+<button class="text-[11px] font-mono text-gray-500 hover:text-white flex items-center gap-2 transition-colors">
+<span class="material-symbols-outlined text-base">contact_support</span>
+                Contact Support
+            </button>
+<div class="flex items-center gap-4 opacity-50">
+<div class="flex items-center gap-1.5">
+<div class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+<span class="text-[10px] font-mono uppercase tracking-widest text-gray-400">System Ready</span>
+</div>
+<span class="text-[10px] font-mono text-gray-500">v2.0.4-LTS</span>
+</div>
+</div>
+</div>
+<div class="mt-8 flex justify-center">
+<div class="flex gap-2 items-center">
+<div class="w-2 h-2 rounded-full bg-white/5"></div>
+<div class="w-8 h-1 rounded-full bg-[#00E5FF]/20"></div>
+<div class="w-2 h-2 rounded-full bg-white/5"></div>
+</div>
+</div>
+</main>
+
+</body></html>

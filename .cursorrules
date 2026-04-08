@@ -1,0 +1,9 @@
+# PresCollab / promptDeck — Cursor rules (compact)
+
+- **Verify:** Run `just verify` (or `bash scripts/verify.sh`) before finishing a task.
+- **Backend:** Python 3.12+, `uv` in `backend/` (`uv sync --group dev`, `uv run …`). Entry: `backend/app/main.py`.
+- **Frontend:** `frontend/` uses Vite, React, TS, Tailwind 4. Prefer `pnpm`; scripts fall back to `npx pnpm@9.15.4` if `pnpm` is missing.
+- **OpenAPI:** After API changes: `cd backend && uv run python -m app.scripts.dump_openapi`. CI checks drift via `check_openapi_snapshot`.
+- **Tests:** Mirror structure under `backend/tests/` and `frontend/src/**/*.test.tsx`.
+- **Plans:** Milestones and architecture live in `plans/humming-bouncing-toast.md`; defer out-of-scope items to `docs/ROADMAP.md`.
+- **Style:** Match existing patterns; avoid drive-by refactors and unsolicited new docs.

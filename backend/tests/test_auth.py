@@ -1,0 +1,97 @@
+import uuid
+
+import pytest
+from app.db.models.user import User, UserRole
+from app.db.session import session_factory
+from app.security.passwords import hash_password
+from httpx import AsyncClient
+from sqlalchemy import select
+
+
+@pytest.mark.asyncio
+async def test_login_invalid_credentials(client: AsyncClient) -> None:
+    r = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "nope@example.com", "password": "wrong"},
+    )
+    assert r.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_login_and_me(client: AsyncClient) -> None:
+    uid = uuid.uuid4()
+    async with session_factory()() as session:
+        session.add(
+            User(
+                id=uid,
+                email="editor@example.com",
+                display_name="Ed",
+                password_hash=hash_password("secret-pass-1"),
+                role=UserRole.editor,
+            )
+        )
+        await session.commit()
+
+    r = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "editor@example.com", "password": "secret-pass-1"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["user"]["email"] == "editor@example.com"
+    token = body["access_token"]
+
+    me = await client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert me.status_code == 200
+    assert me.json()["id"] == str(uid)
+
+
+@pytest.mark.asyncio
+async def test_refresh_rotates_cookie(client: AsyncClient) -> None:
+    uid = uuid.uuid4()
+    async with session_factory()() as session:
+        session.add(
+            User(
+                id=uid,
+                email="admin@example.com",
+                display_name="Admin",
+                password_hash=hash_password("admin-pass-1"),
+                role=UserRole.admin,
+            )
+        )
+        await session.commit()
+
+    login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "admin@example.com", "password": "admin-pass-1"},
+    )
+    assert login.status_code == 200
+    assert "refresh_token" in client.cookies
+
+    refresh = await client.post("/api/v1/auth/refresh")
+    assert refresh.status_code == 200
+    assert refresh.json()["user"]["email"] == "admin@example.com"
+
+
+@pytest.mark.asyncio
+async def test_last_login_updated(client: AsyncClient) -> None:
+    uid = uuid.uuid4()
+    async with session_factory()() as session:
+        session.add(
+            User(
+                id=uid,
+                email="viewer@example.com",
+                password_hash=hash_password("v"),
+                role=UserRole.viewer,
+            )
+        )
+        await session.commit()
+
+    await client.post(
+        "/api/v1/auth/login",
+        json={"email": "viewer@example.com", "password": "v"},
+    )
+
+    async with session_factory()() as session:
+        row = (await session.execute(select(User).where(User.id == uid))).scalar_one()
+        assert row.last_login_at is not None

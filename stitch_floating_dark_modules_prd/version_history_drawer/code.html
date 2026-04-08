@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Recessed Studio - Version History</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&amp;family=JetBrains+Mono:wght@400&amp;family=Geist:wght@400;500&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "primary": "#00E5FF",
+          "background-void": "#050507",
+          "background-recessed": "#0A0B0E",
+          "background-elevated": "#16181D",
+          "border-dark": "#1E2128",
+          "text-main": "#E2E4E9",
+          "text-muted": "#828796",
+          "accent-warning": "#FF2A55"
+        },
+        fontFamily: {
+          "heading": ["Space Grotesk", "sans-serif"],
+          "ui": ["JetBrains Mono", "monospace"],
+          "body": ["Geist", "sans-serif"],
+        },
+        boxShadow: {
+          "recessed": "inset 0 0 20px rgba(0,0,0,0.8)",
+          "elevated": "0 0 0 1px #2A2D35, 0 20px 40px rgba(0,0,0,0.9)",
+        },
+        borderRadius: {
+          "sharp": "4px",
+        }
+      },
+    },
+  }
+</script>
+<style>
+  body {
+    background-color: var(--color-bg-void, #050507);
+    color: var(--color-text-main, #E2E4E9);
+  }
+</style>
+</head>
+<body class="bg-background-void text-text-main font-body h-screen w-full flex overflow-hidden">
+<!-- Version History Drawer (Left Panel) -->
+<aside class="w-[280px] h-full bg-background-recessed shadow-recessed border-r border-border-dark flex flex-col shrink-0">
+<!-- Drawer Header -->
+<div class="px-5 py-4 border-b border-border-dark flex items-center justify-between">
+<h2 class="font-heading font-semibold text-[20px] text-text-main leading-none">Version History</h2>
+<button class="text-text-muted hover:text-text-main transition-colors flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]" data-icon="close">close</span>
+</button>
+</div>
+<!-- Timeline Container -->
+<div class="flex-1 overflow-y-auto px-5 py-6">
+<!-- Current Version (Active) -->
+<div class="relative flex gap-4 pb-8 group cursor-pointer">
+<!-- Timeline Line -->
+<div class="absolute left-[5px] top-4 bottom-0 w-[2px] bg-border-dark"></div>
+<!-- Node -->
+<div class="relative z-10 flex-shrink-0 mt-1">
+<div class="w-3 h-3 rounded-full bg-primary shadow-[0_0_8px_rgba(0,229,255,0.5)]"></div>
+</div>
+<!-- Content -->
+<div class="flex-1 flex flex-col gap-1">
+<div class="flex items-center justify-between">
+<span class="font-body font-medium text-[14px] text-primary">AI Generation v4</span>
+<span class="px-2 py-0.5 rounded-sharp bg-primary/10 text-primary text-[10px] font-ui tracking-wider uppercase">Active</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px] text-text-muted" data-icon="robot_2">robot_2</span>
+<span class="font-ui text-[12px] text-text-muted">14:02:44 UTC</span>
+</div>
+</div>
+</div>
+<!-- Past Version 1 -->
+<div class="relative flex gap-4 pb-8 group cursor-pointer hover:opacity-100 opacity-70 transition-opacity">
+<div class="absolute left-[5px] top-4 bottom-0 w-[2px] bg-border-dark"></div>
+<div class="relative z-10 flex-shrink-0 mt-1">
+<div class="w-3 h-3 rounded-full bg-border-dark border-2 border-background-recessed group-hover:border-primary transition-colors"></div>
+</div>
+<div class="flex-1 flex flex-col gap-1">
+<span class="font-body font-medium text-[14px] text-text-main group-hover:text-primary transition-colors">Security Analyst Edit</span>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px] text-text-muted" data-icon="person">person</span>
+<span class="font-ui text-[12px] text-text-muted">13:45:12 UTC</span>
+</div>
+</div>
+</div>
+<!-- Past Version 2 -->
+<div class="relative flex gap-4 pb-8 group cursor-pointer hover:opacity-100 opacity-70 transition-opacity">
+<div class="absolute left-[5px] top-4 bottom-0 w-[2px] bg-border-dark"></div>
+<div class="relative z-10 flex-shrink-0 mt-1">
+<div class="w-3 h-3 rounded-full bg-border-dark border-2 border-background-recessed group-hover:border-primary transition-colors"></div>
+</div>
+<div class="flex-1 flex flex-col gap-1">
+<span class="font-body font-medium text-[14px] text-text-main group-hover:text-primary transition-colors">AI Generation v3</span>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px] text-text-muted" data-icon="robot_2">robot_2</span>
+<span class="font-ui text-[12px] text-text-muted">13:30:00 UTC</span>
+</div>
+</div>
+</div>
+<!-- Past Version 3 (Initial) -->
+<div class="relative flex gap-4 group cursor-pointer hover:opacity-100 opacity-70 transition-opacity">
+<!-- No bottom line for the last item -->
+<div class="relative z-10 flex-shrink-0 mt-1">
+<div class="w-3 h-3 rounded-full bg-border-dark border-2 border-background-recessed group-hover:border-primary transition-colors"></div>
+</div>
+<div class="flex-1 flex flex-col gap-1">
+<span class="font-body font-medium text-[14px] text-text-main group-hover:text-primary transition-colors">AI Generation v2</span>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px] text-text-muted" data-icon="robot_2">robot_2</span>
+<span class="font-ui text-[12px] text-text-muted">13:15:00 UTC</span>
+</div>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Canvas Area (Placeholder for context) -->
+<main class="flex-1 h-full bg-black relative flex flex-col">
+<!-- Top Nav Placeholder -->
+<header class="h-[48px] bg-background-recessed border-b border-border-dark flex items-center px-6 shadow-recessed shrink-0">
+<h1 class="font-heading font-semibold text-[16px]">Q3 Threat Landscape Review</h1>
+</header>
+<!-- Canvas Area -->
+<div class="flex-1 flex items-center justify-center p-8 relative">
+<!-- Grid Background pattern for canvas -->
+<div class="absolute inset-0" style="background-image: radial-gradient(circle at center, #1E2128 1px, transparent 1px); background-size: 24px 24px; opacity: 0.5;"></div>
+<!-- Elevated Slide Container -->
+<div class="w-full max-w-[960px] aspect-video bg-background-elevated shadow-elevated rounded-sharp border border-border-dark relative z-10 flex items-center justify-center overflow-hidden">
+<img alt="Presentation Slide Background" class="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-screen" data-alt="abstract dark network nodes and glowing data streams in cyan and deep blue cybersecurity concept" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBG4kSf1z1BUifbhOXwwYoGPXhczJCZHcsWw2V5q5QA4arBn_3WiaydD0yPG42r4q0VHDlM2V38oL3mO9hR0iOCQoR-M9UbDuhY25p0UhT_CsK46nfoB8wr_CsoKgR3tiupyjoQ-_wr7SQ0Ky8t2KDljCD71KLMBDHNy4kUfhA3TefcBKID2IUUPQWjhvRVA_ybaI8iXzqNb4IqsLFdiRYp4tpvV7nHxevKx-RRhTly7Wz8D9smnZLBxcwlAwxr46aKGNjJY2LaOKpC"/>
+<div class="relative z-20 text-center px-12">
+<h2 class="font-heading text-[32px] font-semibold text-text-main mb-4">Emerging Attack Vectors</h2>
+<p class="font-body text-text-muted text-[16px] max-w-2xl mx-auto">Analysis of sophisticated phishing campaigns targeting financial infrastructure during the last quarter.</p>
+</div>
+</div>
+</div>
+</main>
+</body></html>

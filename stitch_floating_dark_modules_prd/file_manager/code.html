@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>RECESSED_STUDIO | Creative Workflow</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style type="text/tailwindcss">
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #050507;
+            color: #e5e1e5;
+            font-family: 'Inter', sans-serif;
+        }
+        .recessed-pit {
+            background-color: #0A0B0E;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+        }
+        .elevated-surface {
+            background-color: #16181D;
+            border: 1px solid rgba(132, 147, 150, 0.15);
+        }
+        .cyan-glow {
+            box-shadow: 0 0 24px rgba(0, 229, 255, 0.04);
+        }
+        .cyan-glow-intense:hover {
+            box-shadow: 0 0 30px rgba(0, 229, 255, 0.12);
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary": "#c3f5ff",
+                        "primary-container": "#00e5ff",
+                        "on-primary": "#00363d",
+                        "surface": "#131316",
+                        "on-surface": "#e5e1e5",
+                        "outline-variant": "#3b494c",
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "4px",
+                        "lg": "4px",
+                        "xl": "8px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "mono": ["JetBrains Mono", "monospace"]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-[#050507] text-on-surface selection:bg-primary-container selection:text-on-primary-container">
+<nav class="bg-[#0A0B0E] flex justify-between items-center w-full px-6 py-3 h-16 fixed top-0 left-0 z-50 border-b border-[#16181D]">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold tracking-tighter text-[#00E5FF] font-headline uppercase">RECESSED_STUDIO</span>
+<div class="hidden md:flex items-center gap-6">
+<a class="text-[#00E5FF] border-b-2 border-[#00E5FF] pb-1 font-headline tracking-tighter uppercase text-sm" href="#">Studio</a>
+<a class="text-slate-400 font-medium hover:text-white transition-colors font-headline tracking-tighter uppercase text-sm" href="#">Library</a>
+<a class="text-slate-400 font-medium hover:text-white transition-colors font-headline tracking-tighter uppercase text-sm" href="#">Analytics</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden lg:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">search</span>
+<input class="bg-[#0A0B0E] border border-outline-variant/30 text-xs font-mono py-2 pl-10 pr-4 w-64 focus:outline-none focus:border-[#00E5FF] focus:ring-1 focus:ring-[#00E5FF] placeholder:text-slate-600" placeholder="SEARCH_WORK..." type="text"/>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 hover:bg-[#16181D] text-slate-400 hover:text-[#00E5FF] transition-all">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-[#16181D] border border-outline-variant/30 flex items-center justify-center">
+<span class="material-symbols-outlined text-sm">person</span>
+</div>
+</div>
+</div>
+</nav>
+<aside class="fixed left-0 top-16 bottom-0 w-64 bg-[#050507] border-r border-[#16181D] flex flex-col z-40">
+<div class="p-6">
+<div class="flex items-center gap-3 mb-1">
+<div class="w-8 h-8 bg-[#16181D] flex items-center justify-center border border-outline-variant/20">
+<span class="material-symbols-outlined text-[#00E5FF] text-lg">bolt</span>
+</div>
+<div>
+<h2 class="font-headline font-black text-[#00E5FF] text-sm tracking-tight">IDEATION_LAB</h2>
+<p class="font-mono text-[10px] text-slate-500 tracking-tighter">MODE: ACTIVE_WORK</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 space-y-1 px-2">
+<a class="bg-[#16181D] text-[#00E5FF] border-l-4 border-[#00E5FF] flex items-center px-4 py-3 group" href="#">
+<span class="material-symbols-outlined mr-3 text-sm">dashboard</span>
+<span class="font-mono text-xs tracking-tight uppercase">Dashboard</span>
+</a>
+<a class="text-slate-500 flex items-center px-4 py-3 hover:bg-[#0A0B0E] hover:text-[#00E5FF] transition-all group" href="#">
+<span class="material-symbols-outlined mr-3 text-sm">edit_square</span>
+<span class="font-mono text-xs tracking-tight uppercase">Active Drafts</span>
+</a>
+<a class="text-slate-500 flex items-center px-4 py-3 hover:bg-[#0A0B0E] hover:text-[#00E5FF] transition-all group" href="#">
+<span class="material-symbols-outlined mr-3 text-sm">auto_awesome_motion</span>
+<span class="font-mono text-xs tracking-tight uppercase">Templates</span>
+</a>
+<a class="text-slate-500 flex items-center px-4 py-3 hover:bg-[#0A0B0E] hover:text-[#00E5FF] transition-all group" href="#">
+<span class="material-symbols-outlined mr-3 text-sm">inventory_2</span>
+<span class="font-mono text-xs tracking-tight uppercase">Archives</span>
+</a>
+</nav>
+<div class="mt-auto border-t border-[#16181D]/50 px-2 py-4">
+<div class="bg-[#16181D]/50 p-4 mb-4">
+<p class="font-mono text-[9px] text-slate-500 uppercase mb-2">System Status</p>
+<div class="flex items-center gap-2">
+<div class="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]"></div>
+<span class="font-mono text-[10px] text-slate-300">ENGINES_READY</span>
+</div>
+</div>
+</div>
+</aside>
+<main class="ml-64 pt-16 min-h-screen bg-[#050507]">
+<section class="px-8 py-10 border-b border-[#16181D] bg-gradient-to-b from-[#0A0B0E] to-transparent">
+<div class="mb-8">
+<span class="font-mono text-[10px] text-[#00E5FF] tracking-[0.3em] uppercase mb-2 block">IDEATION / WORKFLOW</span>
+<h1 class="font-headline font-bold text-4xl tracking-tighter text-on-surface">Creative Command</h1>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<button class="group elevated-surface p-6 border-l-4 border-l-slate-600 hover:border-l-[#00E5FF] transition-all text-left cyan-glow-intense">
+<span class="material-symbols-outlined text-[#00E5FF] mb-4 text-3xl">add_circle</span>
+<h3 class="font-headline font-bold text-lg mb-1">Start from Scratch</h3>
+<p class="text-xs text-slate-500 font-mono">INITIALIZE_NULL_STATE</p>
+</button>
+<button class="group elevated-surface p-6 border-l-4 border-l-slate-600 hover:border-l-[#00E5FF] transition-all text-left cyan-glow-intense">
+<span class="material-symbols-outlined text-[#00E5FF] mb-4 text-3xl">style</span>
+<h3 class="font-headline font-bold text-lg mb-1">Use Template</h3>
+<p class="text-xs text-slate-500 font-mono">LOAD_PRESET_LIBRARY</p>
+</button>
+<button class="group bg-[#16181D] p-6 border-l-4 border-l-[#00E5FF] transition-all text-left cyan-glow relative overflow-hidden">
+<div class="absolute top-0 right-0 p-2">
+<span class="bg-[#00E5FF]/20 text-[#00E5FF] text-[8px] px-2 py-0.5 font-mono uppercase">Enhanced</span>
+</div>
+<span class="material-symbols-outlined text-[#00E5FF] mb-4 text-3xl">psychology</span>
+<h3 class="font-headline font-bold text-lg mb-1">AI Assist</h3>
+<p class="text-xs text-slate-500 font-mono">GENERATE_FROM_PROMPT</p>
+</button>
+</div>
+</section>
+<section class="px-8 py-12">
+<div class="flex justify-between items-end mb-6">
+<div>
+<h2 class="font-headline font-bold text-xl tracking-tight uppercase flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-[#00E5FF]"></span>
+                    Active Drafts
+                </h2>
+<p class="font-mono text-[10px] text-slate-500 mt-1 uppercase">Rapid Iteration Mode (4 Active)</p>
+</div>
+<div class="flex gap-2">
+<button class="w-8 h-8 rounded border border-[#16181D] flex items-center justify-center hover:bg-[#16181D] text-slate-500"><span class="material-symbols-outlined text-sm">chevron_left</span></button>
+<button class="w-8 h-8 rounded border border-[#16181D] flex items-center justify-center hover:bg-[#16181D] text-slate-500"><span class="material-symbols-outlined text-sm">chevron_right</span></button>
+</div>
+</div>
+<div class="flex gap-6 overflow-x-auto pb-4 hide-scrollbar">
+<div class="min-w-[320px] w-[320px] elevated-surface group cursor-pointer overflow-hidden transition-all duration-300">
+<div class="aspect-[16/10] relative bg-[#0A0B0E] border-b border-[#16181D]">
+<img alt="Draft" class="w-full h-full object-cover opacity-40 group-hover:opacity-60 transition-opacity" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBSCt6Rr2Z4VkjDA5-eqWPRYLmpP2SatsHz-QptyIGxLzD7ga7A18v22cL6w6XoI2qO-AUusJb8yr53APLao8RK8-aGyn5-ZIbNewGZD9nXNDJIAd0P_Lt_5V66agY7lAiRywZoJFqvi0A0GcDjOoNjlq5ix8RkACJnsvsEBzH3LfbYOOxJInzJjJVlFVOCE0JgAVIzkLUZKmjlN89Q5QLha6QYTjI57BjRFP3INHKuiuhUqa8MQAS2EtAXkE5xX0F8dZv-57HnTqy_"/>
+<div class="absolute top-3 right-3">
+<span class="bg-[#00E5FF]/10 text-[#00E5FF] text-[9px] px-2 py-1 font-mono uppercase border border-[#00E5FF]/20 backdrop-blur-sm">Editing_Now</span>
+</div>
+</div>
+<div class="p-4">
+<h3 class="font-headline font-bold text-base mb-2 group-hover:text-[#00E5FF] transition-colors">Vision_Protocol_X</h3>
+<div class="flex justify-between items-center">
+<span class="font-mono text-[10px] text-slate-500 uppercase">Last Edit: 2m ago</span>
+<div class="flex -space-x-1.5">
+<div class="w-5 h-5 rounded-full bg-[#00E5FF] flex items-center justify-center text-[8px] font-bold text-[#00363D]">ME</div>
+</div>
+</div>
+</div>
+</div>
+<div class="min-w-[320px] w-[320px] elevated-surface group cursor-pointer overflow-hidden transition-all duration-300">
+<div class="aspect-[16/10] relative bg-[#0A0B0E] border-b border-[#16181D]">
+<img alt="Draft" class="w-full h-full object-cover opacity-40" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBdVbsTZ5fLWshcmn3ROKsygOhCqNvPksR6mu-wS6A8E5WRB-ljkfBcfFXverq9WfNOmcE8f3JMPMcyIzF2wFH33qwPebKmB1dhWdDNAZwuQaoL-__SSpLR-ZaNNL1BnTg_UPdQOAVg7CHDWhve00DnxQL8kDbm2m9FSgpfW3LYZnyv5jl5dLDY-mcJkULBy8gri4IJ_QML8r0ahlN57tXI58e_SZPoMsRC5y4Yz102lGXcB_cgSryaayj2_GW67Vio69Aw5jICrCwg"/>
+<div class="absolute top-3 right-3">
+<span class="bg-slate-800 text-slate-400 text-[9px] px-2 py-1 font-mono uppercase border border-slate-700">DRAFT_V2</span>
+</div>
+</div>
+<div class="p-4">
+<h3 class="font-headline font-bold text-base mb-2 group-hover:text-[#00E5FF] transition-colors">Neural_Interface_Deck</h3>
+<div class="flex justify-between items-center">
+<span class="font-mono text-[10px] text-slate-500 uppercase">Last Edit: 1h ago</span>
+<div class="flex -space-x-1.5">
+<div class="w-5 h-5 rounded-full bg-slate-700 flex items-center justify-center text-[8px]">JD</div>
+</div>
+</div>
+</div>
+</div>
+<div class="min-w-[320px] w-[320px] elevated-surface group cursor-pointer overflow-hidden transition-all duration-300">
+<div class="aspect-[16/10] relative bg-[#0A0B0E] border-b border-[#16181D]">
+<img alt="Draft" class="w-full h-full object-cover opacity-40" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC1JyuNtumjMwr3qP3fLg1FaJbLWy1RtzCzI6o64Mfjl7z78snH_u2ASdsosoF4X0EfTxZoyZPVT8-Jtf9Q-jVsG02q1Af_obJ7t8K6kq1h9ezpG3x2h5p1jtFBAi9SdWm8S9zvjHvItoxVZFSZod3PGNYTDizk-7DyiVUGqeDfWBpx-iaJ330vFARahcMwL2Drxjtr6yj2wE1UlV_HVvZvr1Vb1cE7dP2dx2cJyDZxZFcDBW9LCVpBQUXy9DLYQ9E7JkYjImvtLfOD"/>
+</div>
+<div class="p-4">
+<h3 class="font-headline font-bold text-base mb-2 group-hover:text-[#00E5FF] transition-colors">Market_Analysis_2024</h3>
+<div class="flex justify-between items-center">
+<span class="font-mono text-[10px] text-slate-500 uppercase">Last Edit: 4h ago</span>
+<div class="flex -space-x-1.5">
+<div class="w-5 h-5 rounded-full bg-slate-700 flex items-center justify-center text-[8px]">SK</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section class="px-8 py-12 bg-[#0A0B0E]/50">
+<div class="flex justify-between items-center mb-8">
+<div>
+<h2 class="font-headline font-bold text-xl tracking-tight uppercase">Template Library</h2>
+<p class="font-mono text-[10px] text-slate-500 mt-1 uppercase">Curated layouts for rapid deployment</p>
+</div>
+<button class="text-xs font-mono text-[#00E5FF] hover:underline uppercase tracking-widest">View All Components</button>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+<div class="group cursor-pointer">
+<div class="aspect-[3/4] bg-[#16181D] border border-outline-variant/20 group-hover:border-[#00E5FF]/50 transition-all overflow-hidden relative">
+<div class="absolute inset-0 bg-gradient-to-tr from-[#00E5FF]/5 to-transparent"></div>
+<div class="p-4 space-y-2">
+<div class="h-1 w-2/3 bg-slate-700"></div>
+<div class="h-1 w-full bg-slate-800"></div>
+<div class="h-20 w-full bg-slate-800/50 mt-4 border border-dashed border-slate-700"></div>
+</div>
+<div class="absolute bottom-0 left-0 right-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform bg-[#00E5FF]">
+<p class="font-headline font-bold text-[10px] text-[#00363D] uppercase text-center">Load Template</p>
+</div>
+</div>
+<p class="mt-3 font-mono text-[10px] text-center uppercase text-slate-400 group-hover:text-white transition-colors">Minimalist Deck</p>
+</div>
+<div class="group cursor-pointer">
+<div class="aspect-[3/4] bg-[#16181D] border border-outline-variant/20 group-hover:border-[#00E5FF]/50 transition-all overflow-hidden relative">
+<div class="absolute inset-0 bg-gradient-to-tr from-purple-500/5 to-transparent"></div>
+<div class="p-4 flex flex-col items-center justify-center h-full space-y-3">
+<div class="w-12 h-12 rounded-full border border-slate-700"></div>
+<div class="h-1 w-1/2 bg-slate-700"></div>
+</div>
+<div class="absolute bottom-0 left-0 right-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform bg-[#00E5FF]">
+<p class="font-headline font-bold text-[10px] text-[#00363D] uppercase text-center">Load Template</p>
+</div>
+</div>
+<p class="mt-3 font-mono text-[10px] text-center uppercase text-slate-400 group-hover:text-white">Profile Showcase</p>
+</div>
+<div class="group cursor-pointer">
+<div class="aspect-[3/4] bg-[#16181D] border border-outline-variant/20 group-hover:border-[#00E5FF]/50 transition-all overflow-hidden relative">
+<div class="p-4 grid grid-cols-2 gap-2 h-full">
+<div class="bg-slate-800/50 border border-slate-700"></div>
+<div class="bg-slate-800/50 border border-slate-700"></div>
+<div class="bg-slate-800/50 border border-slate-700"></div>
+<div class="bg-slate-800/50 border border-slate-700"></div>
+</div>
+<div class="absolute bottom-0 left-0 right-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform bg-[#00E5FF]">
+<p class="font-headline font-bold text-[10px] text-[#00363D] uppercase text-center">Load Template</p>
+</div>
+</div>
+<p class="mt-3 font-mono text-[10px] text-center uppercase text-slate-400 group-hover:text-white">Grid Layout</p>
+</div>
+<div class="group cursor-pointer">
+<div class="aspect-[3/4] bg-[#16181D] border border-outline-variant/20 group-hover:border-[#00E5FF]/50 transition-all overflow-hidden relative">
+<div class="p-4 h-full flex flex-col justify-end">
+<div class="h-1/2 w-full bg-[#00E5FF]/10 border-t border-t-[#00E5FF]/30"></div>
+</div>
+<div class="absolute bottom-0 left-0 right-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform bg-[#00E5FF]">
+<p class="font-headline font-bold text-[10px] text-[#00363D] uppercase text-center">Load Template</p>
+</div>
+</div>
+<p class="mt-3 font-mono text-[10px] text-center uppercase text-slate-400 group-hover:text-white">Impact Slide</p>
+</div>
+<div class="group cursor-pointer">
+<div class="aspect-[3/4] bg-[#16181D] border border-outline-variant/20 group-hover:border-[#00E5FF]/50 transition-all overflow-hidden relative flex flex-col items-center justify-center">
+<span class="material-symbols-outlined text-slate-700 text-3xl">add</span>
+<div class="absolute bottom-0 left-0 right-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform bg-[#00E5FF]">
+<p class="font-headline font-bold text-[10px] text-[#00363D] uppercase text-center">Browse Community</p>
+</div>
+</div>
+<p class="mt-3 font-mono text-[10px] text-center uppercase text-slate-400 group-hover:text-white">More...</p>
+</div>
+</div>
+</section>
+<section class="p-8">
+<div class="recessed-pit p-6 border border-[#16181D]">
+<div class="flex justify-between items-center mb-6">
+<h4 class="font-headline font-bold text-xs tracking-widest uppercase flex items-center gap-2">
+<span class="material-symbols-outlined text-sm text-[#00E5FF]">hub</span>
+                    Team Velocity
+                </h4>
+<span class="font-mono text-[9px] text-slate-500 uppercase">System_Load: Nominal</span>
+</div>
+<div class="h-24 flex items-end gap-1">
+<div class="flex-1 bg-[#16181D] h-[40%] hover:bg-[#00E5FF]/20 border-t border-[#00E5FF]/20 transition-all"></div>
+<div class="flex-1 bg-[#16181D] h-[60%] hover:bg-[#00E5FF]/20 border-t border-[#00E5FF]/20 transition-all"></div>
+<div class="flex-1 bg-[#16181D] h-[85%] hover:bg-[#00E5FF]/20 border-t border-[#00E5FF]/20 transition-all"></div>
+<div class="flex-1 bg-[#16181D] h-[45%] hover:bg-[#00E5FF]/20 border-t border-[#00E5FF]/20 transition-all"></div>
+<div class="flex-1 bg-[#16181D] h-[95%] hover:bg-[#00E5FF]/20 border-t border-[#00E5FF]/20 transition-all"></div>
+<div class="flex-1 bg-[#16181D] h-[30%] hover:bg-[#00E5FF]/20 border-t border-[#00E5FF]/20 transition-all"></div>
+<div class="flex-1 bg-[#16181D] h-[70%] hover:bg-[#00E5FF]/20 border-t border-[#00E5FF]/20 transition-all"></div>
+</div>
+</div>
+</section>
+</main>
+<div class="fixed bottom-8 right-8 z-50">
+<button class="w-14 h-14 bg-[#00E5FF] text-[#00363D] shadow-[0_0_30px_rgba(0,229,255,0.4)] flex items-center justify-center hover:scale-110 active:scale-95 transition-all">
+<span class="material-symbols-outlined font-bold">add</span>
+</button>
+</div>
+
+</body></html>
