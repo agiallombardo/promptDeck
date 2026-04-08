@@ -328,12 +328,14 @@ Place in `/var/lib/promptdeck/app/backend/.env` (mode `600`, owner `promptdeck`)
 | `COOKIE_SECURE` | `true` behind HTTPS |
 | `ENVIRONMENT` | `production` |
 
-Run migrations:
+Run migrations (one command for both **first install** on an empty database and **upgrades** when new revisions exist):
 
 ```bash
 cd /var/lib/promptdeck/app/backend
 sudo -u promptdeck env $(cat .env | xargs) uv run alembic upgrade head
 ```
+
+On a fresh database, `upgrade head` applies every revision in order—no extra steps per table. When you deploy new app code that adds `alembic/versions/*.py`, run the same command again.
 
 (Or use `--env-file` / a small wrapper script.)
 

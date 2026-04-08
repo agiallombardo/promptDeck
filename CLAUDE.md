@@ -13,7 +13,7 @@ promptDeck is an internal web app for **HTML “deck” presentations**: upload 
 | `scripts/` | `verify.sh` (all checks), `dev.sh` (API + Vite), `e2e_smoke.py`, `seed.py` (admin user) |
 | `plans/` | Product/implementation plans (source of truth for milestones) |
 | `docs/` | Conventions, runbook, ADRs, roadmap, `API.md` (generated from OpenAPI) |
-| `deploy/` | Reserved for systemd/nginx (M7) |
+| `deploy/` | Sample systemd unit + nginx site (`systemd/promptdeck-api.service`, `nginx/promptdeck.conf.sample`) |
 
 ### Files most often modified
 
@@ -39,7 +39,7 @@ just test-frontend      # vitest run
 just smoke              # in-process ASGI smoke
 just lint               # ruff + frontend lint
 just types              # pyright + tsc
-just db-migrate         # Alembic upgrade head (Postgres)
+just db-migrate         # Alembic upgrade head (Postgres); empty DB = full chain in one run — see docs/RUNBOOK.md
 just api-contract       # regen `schema.d.ts` + `docs/API.md` from `backend/openapi.json`
 just db-reset           # Alembic downgrade base + upgrade head + `scripts/seed.py` (destructive)
 ```

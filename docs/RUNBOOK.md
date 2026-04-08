@@ -7,6 +7,8 @@
 3. From repo root: `just setup`, then `just db-migrate`, then `cd backend && uv run python ../scripts/seed.py` to create the default admin (`admin@example.com` / `changeme123` unless overridden by env).
 4. `just dev` — API at `http://127.0.0.1:8000`, frontend at `http://127.0.0.1:5173` (Vite proxies `/api` to the API).
 
+**Database schema:** `just db-migrate` runs `alembic upgrade head`. On a **new, empty** Postgres database, that single command applies the **entire** revision chain (all tables, including e.g. `audit_log`)—there are no separate per-feature migration steps. After `git pull` when new files appear under `backend/alembic/versions/`, run `just db-migrate` again.
+
 Automated tests use an in-memory SQLite database and do not require Postgres.
 
 ## Health checks
@@ -31,4 +33,4 @@ v1 targets a single VM with systemd units and nginx (see plan milestone M7).
 - **Reverse proxy:** `deploy/nginx/promptdeck.conf.sample` — TLS, static `frontend/dist`, proxy `/api/` and `/a/` to uvicorn on `127.0.0.1:8000`.
 - **Backups:** `scripts/backup_pg.sh` — gzip `pg_dump` using `DATABASE_URL` (async URL is rewritten to `postgresql://` for libpq).
 
-After deploy: `alembic upgrade head`, run `scripts/seed.py` once if needed, reload nginx, `systemctl restart promptdeck-api`.
+After deploy: `alembic upgrade head` (same as `just db-migrate` from `backend/`; on a **fresh** DB this one pass creates the full schema). Run `scripts/seed.py` once if you need the default admin, reload nginx, `systemctl restart promptdeck-api`.
