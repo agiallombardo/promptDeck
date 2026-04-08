@@ -186,9 +186,16 @@
             "title": "Author Display Name"
           },
           "author_id": {
-            "format": "uuid",
-            "title": "Author Id",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Id"
           },
           "body": {
             "title": "Body",
@@ -223,7 +230,6 @@
         },
         "required": [
           "id",
-          "author_id",
           "body",
           "body_format",
           "created_at",
@@ -999,9 +1005,16 @@
             "type": "string"
           },
           "created_by": {
-            "format": "uuid",
-            "title": "Created By",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
           },
           "id": {
             "format": "uuid",
@@ -1046,7 +1059,6 @@
           "anchor_x",
           "anchor_y",
           "status",
-          "created_by",
           "created_at",
           "resolved_at"
         ],

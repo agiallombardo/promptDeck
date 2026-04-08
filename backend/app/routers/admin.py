@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -39,7 +39,14 @@ async def list_logs(
     stmt = select(AppLog).order_by(AppLog.id.desc())
     if level:
         stmt = stmt.where(AppLog.level == level)
-    if channel:
+    if channel is not None:
+        try:
+            LogChannel(channel)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid channel filter",
+            ) from e
         stmt = stmt.where(AppLog.logger == channel)
     if request_id:
         stmt = stmt.where(AppLog.request_id == request_id)

@@ -1,23 +1,13 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { SlideFrame } from "../components/canvas/SlideFrame";
-import type { PendingPin } from "../components/feedback/FeedbackSidebar";
+import { PresentationCanvas } from "../components/canvas/PresentationCanvas";
 import { ExportModal } from "../components/ExportModal";
 import { FeedbackSidebar } from "../components/feedback/FeedbackSidebar";
 import { RequireDeckAccess } from "../components/RequireDeckAccess";
 import { ShareModal } from "../components/ShareModal";
-import {
-  apiCommentCreate,
-  apiCommentDelete,
-  apiPresentationEmbed,
-  apiPresentationGet,
-  apiThreadCreate,
-  apiThreadPatch,
-  apiThreadsList,
-  apiVersionUpload,
-  iframeSrcForDev,
-} from "../lib/api";
+import { useComments } from "../hooks/useComments";
+import { usePresentation } from "../hooks/usePresentation";
+import { ApiError } from "../lib/api";
 import { deckAccessToken } from "../lib/deckAuth";
 import { postSetCommentMode, postSlideGoto } from "../lib/slidePostMessage";
 import { useAuthStore } from "../stores/auth";
@@ -36,116 +26,54 @@ export default function PresentationPage() {
   const isShareSession = Boolean(shareSlice.token && id && shareSlice.presentationId === id);
   const [shareOpen, setShareOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
-  const qc = useQueryClient();
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   const [slideIndex, setSlideIndex] = useState(0);
   const [slideCount, setSlideCount] = useState(1);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const [commentMode, setCommentMode] = useState(false);
-  const [pendingPin, setPendingPin] = useState<PendingPin | null>(null);
-  const [draftNewThread, setDraftNewThread] = useState("");
-  const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
 
-  const canComment = !isShareSession && user ? user.role !== "viewer" : false;
+  const canComment = isShareSession
+    ? shareSlice.role === "commenter" || shareSlice.role === "editor"
+    : Boolean(user && user.role !== "viewer");
 
-  const pres = useQuery({
-    queryKey: ["presentation", id, token],
-    queryFn: () => apiPresentationGet(token, id!),
-    enabled: Boolean(id) && Boolean(token),
-  });
+  const { pres, embed, upload, uploadError, iframeSrc, qc } = usePresentation(id, token);
+  const versionId = pres.data?.current_version_id;
 
-  const embed = useQuery({
-    queryKey: ["presentation-embed", id, token, pres.data?.current_version_id],
-    queryFn: () => apiPresentationEmbed(token, id!),
-    enabled: Boolean(id) && Boolean(pres.data?.current_version_id),
-  });
+  const {
+    threads,
+    commentMode,
+    setCommentMode,
+    pendingPin,
+    setPendingPin,
+    draftNewThread,
+    setDraftNewThread,
+    replyDrafts,
+    setReplyDrafts,
+    createThread,
+    addReply,
+    resolveThread,
+    deleteComment,
+  } = useComments(id ?? "", token, versionId);
 
-  const threads = useQuery({
-    queryKey: ["threads", id, token, pres.data?.current_version_id],
-    queryFn: () => apiThreadsList(token, id!, pres.data?.current_version_id ?? null),
-    enabled: Boolean(id) && Boolean(pres.data?.current_version_id),
-  });
-
-  const upload = useMutation({
-    mutationFn: (file: File) => apiVersionUpload(token, id!, file),
-    onSuccess: async () => {
-      setUploadError(null);
-      await qc.invalidateQueries({ queryKey: ["presentation", id, token] });
-      await qc.invalidateQueries({ queryKey: ["presentation-embed", id, token] });
+  const onManifest = useCallback(
+    (count: number) => {
+      setSlideCount(Math.max(1, count));
+      setSlideIndex(0);
+      queueMicrotask(() => postSetCommentMode(iframeRef.current, commentMode));
     },
-    onError: (err: Error) => setUploadError(err.message),
-  });
-
-  const createThread = useMutation({
-    mutationFn: () => {
-      if (!pendingPin || !embed.data) {
-        throw new Error("Missing pin or version");
-      }
-      return apiThreadCreate(token, id!, {
-        version_id: embed.data.version_id,
-        slide_index: pendingPin.slide,
-        anchor_x: pendingPin.x,
-        anchor_y: pendingPin.y,
-        first_comment: draftNewThread.trim(),
-      });
-    },
-    onSuccess: async () => {
-      setPendingPin(null);
-      setDraftNewThread("");
-      setCommentMode(false);
-      await qc.invalidateQueries({ queryKey: ["threads", id, token] });
-    },
-  });
-
-  const addReply = useMutation({
-    mutationFn: ({ threadId, body }: { threadId: string; body: string }) =>
-      apiCommentCreate(token, threadId, body),
-    onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ["threads", id, token] });
-    },
-  });
-
-  const resolveThread = useMutation({
-    mutationFn: (threadId: string) => apiThreadPatch(token, threadId, "resolved"),
-    onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ["threads", id, token] });
-    },
-  });
-
-  const deleteComment = useMutation({
-    mutationFn: (commentId: string) => apiCommentDelete(token, commentId),
-    onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ["threads", id, token] });
-    },
-  });
-
-  const onManifest = useCallback((count: number) => {
-    setSlideCount(Math.max(1, count));
-    setSlideIndex(0);
-  }, []);
+    [commentMode],
+  );
 
   const onSlideClick = useCallback(
     (payload: { slide: number; x: number; y: number }) => {
       if (!commentMode || !canComment) return;
       setPendingPin({ slide: payload.slide, x: payload.x, y: payload.y });
     },
-    [canComment, commentMode],
+    [canComment, commentMode, setPendingPin],
   );
-
-  const iframeSrc = embed.data ? iframeSrcForDev(embed.data.iframe_src) : "";
 
   useEffect(() => {
     postSetCommentMode(iframeRef.current, commentMode);
   }, [commentMode, iframeSrc]);
-
-  useEffect(() => {
-    function onFocus() {
-      void qc.invalidateQueries({ queryKey: ["threads", id, token] });
-    }
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, [qc, id, token]);
 
   useEffect(() => {
     function onKey(ev: KeyboardEvent) {
@@ -177,11 +105,14 @@ export default function PresentationPage() {
   };
 
   const threadsError =
-    threads.error instanceof Error
-      ? threads.error.message
-      : threads.error
-        ? String(threads.error)
-        : null;
+    threads.error instanceof ApiError
+      ? threads.error.message +
+        (threads.error.requestId ? ` · Request ID: ${threads.error.requestId}` : "")
+      : threads.error instanceof Error
+        ? threads.error.message
+        : threads.error
+          ? String(threads.error)
+          : null;
 
   const isOwner = Boolean(user && pres.data && pres.data.owner_id === user.id);
 
@@ -196,6 +127,13 @@ export default function PresentationPage() {
         },
       },
     );
+  }
+
+  function scrollThreadIntoView(threadId: string) {
+    document.getElementById(`thread-card-${threadId}`)?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+    });
   }
 
   if (!id) {
@@ -304,36 +242,31 @@ export default function PresentationPage() {
             </div>
           ) : pres.isError ? (
             <p className="flex-1 p-6 text-center text-sm text-accent-warning">
-              {(pres.error as Error).message}
+              {pres.error instanceof Error ? pres.error.message : String(pres.error)}
             </p>
           ) : embed.isError ? (
             <p className="flex-1 p-6 text-center text-sm text-accent-warning">
-              {(embed.error as Error).message}
+              {embed.error instanceof Error ? embed.error.message : String(embed.error)}
             </p>
           ) : (
             <>
               <div className="flex min-h-0 flex-1 flex-col px-4 py-6">
-                <div
-                  className="relative mx-auto w-full max-w-6xl flex-1 overflow-hidden rounded-sharp shadow-elevated ring-1 ring-border"
-                  style={{ aspectRatio: "16 / 9" }}
-                >
-                  {iframeSrc ? (
-                    <SlideFrame
-                      ref={iframeRef}
-                      src={iframeSrc}
-                      onManifest={onManifest}
-                      onSlideClick={onSlideClick}
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center bg-bg-recessed font-mono text-sm text-text-muted">
-                      Loading canvas…
-                    </div>
-                  )}
-                </div>
+                <PresentationCanvas
+                  iframeSrc={iframeSrc}
+                  iframeRef={iframeRef}
+                  onManifest={onManifest}
+                  onSlideClick={onSlideClick}
+                  commentMode={commentMode}
+                  canComment={canComment}
+                  threads={threads.data?.items ?? []}
+                  slideIndex={slideIndex}
+                  onSelectThread={scrollThreadIntoView}
+                />
               </div>
               <FeedbackSidebar
                 threads={threads.data?.items ?? []}
                 isLoading={threads.isLoading}
+                isRefreshing={threads.isFetching && !threads.isLoading}
                 error={threadsError}
                 canComment={canComment}
                 currentUserId={user?.id ?? null}
@@ -346,8 +279,12 @@ export default function PresentationPage() {
                 draftNewThread={draftNewThread}
                 onDraftNewThread={setDraftNewThread}
                 onSubmitNewThread={() => {
-                  if (!draftNewThread.trim()) return;
-                  createThread.mutate();
+                  if (!draftNewThread.trim() || !pendingPin || !embed.data) return;
+                  createThread.mutate({
+                    pin: pendingPin,
+                    versionId: embed.data.version_id,
+                    body: draftNewThread.trim(),
+                  });
                 }}
                 onClearPending={() => {
                   setPendingPin(null);

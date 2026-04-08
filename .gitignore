@@ -116,3 +116,6 @@ frontend/.vite/
 
 # uv (lockfile is committed)
 .python-version.local
+
+# Local storage (dev default under backend/)
+backend/data/

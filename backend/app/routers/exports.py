@@ -38,7 +38,7 @@ async def create_export_job(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
     presentation: Annotated[Presentation, Depends(get_presentation_owner)],
-) -> ExportJob:
+) -> ExportJobRead:
     vid = body.version_id or presentation.current_version_id
     if vid is None:
         raise HTTPException(status_code=400, detail="No version to export; upload a deck first")
@@ -59,7 +59,7 @@ async def create_export_job(
     await db.commit()
     await db.refresh(job)
     background_tasks.add_task(run_export_job, job.id)
-    return job
+    return ExportJobRead.model_validate(job)
 
 
 @router.get("/exports/{job_id}", response_model=ExportJobRead)
@@ -67,7 +67,7 @@ async def get_export_job(
     job_id: uuid.UUID,
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> ExportJob:
+) -> ExportJobRead:
     job = await db.get(ExportJob, job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Export job not found")
@@ -76,4 +76,4 @@ async def get_export_job(
         raise HTTPException(status_code=404, detail="Presentation not found")
     if not _can_view_job(user, pres, job):
         raise HTTPException(status_code=403, detail="Forbidden")
-    return job
+    return ExportJobRead.model_validate(job)

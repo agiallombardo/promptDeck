@@ -12,7 +12,8 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" index.html",
     "test": "vitest",
     "test:run": "vitest run",
-    "tsc": "tsc --noEmit"
+    "tsc": "tsc --noEmit",
+    "api:contract": "openapi-typescript ../backend/openapi.json -o src/lib/api/schema.d.ts"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.62.8",
@@ -33,6 +34,7 @@
     "eslint-plugin-react-refresh": "^0.4.16",
     "globals": "^15.14.0",
     "jsdom": "^25.0.1",
+    "openapi-typescript": "^7.4.4",
     "prettier": "^3.4.2",
     "tailwindcss": "^4.0.0",
     "typescript": "~5.6.3",

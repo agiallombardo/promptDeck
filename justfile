@@ -34,10 +34,12 @@ db-migrate:
     cd backend && uv run alembic upgrade head
 
 db-reset:
-    @echo "Not implemented — M1"
+    cd backend && uv run alembic downgrade base && uv run alembic upgrade head && uv run python ../scripts/seed.py
 
 api-contract:
-    @echo "openapi-typescript not wired yet — run after M1+ when /api/v1 exists"
+    cd frontend && (command -v pnpm >/dev/null 2>&1 && pnpm exec openapi-typescript ../backend/openapi.json -o src/lib/api/schema.d.ts || npx --yes pnpm@9.15.4 exec openapi-typescript ../backend/openapi.json -o src/lib/api/schema.d.ts)
+    cd frontend && (command -v pnpm >/dev/null 2>&1 && pnpm exec prettier --write src/lib/api/schema.d.ts || npx --yes pnpm@9.15.4 exec prettier --write src/lib/api/schema.d.ts)
+    uv run python scripts/gen_api_md.py
 
 smoke:
     cd backend && uv run python ../scripts/e2e_smoke.py

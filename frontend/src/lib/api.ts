@@ -1,3 +1,6 @@
+import type { components } from "./api/schema";
+import { pushToastFromApiError } from "../stores/toasts";
+
 const API = "/api/v1";
 
 export type AuthUser = {
@@ -6,6 +9,55 @@ export type AuthUser = {
   display_name: string | null;
   role: string;
 };
+
+export type PresentationSummary = components["schemas"]["PresentationRead"];
+export type ThreadDto = components["schemas"]["ThreadRead"];
+export type CommentDto = components["schemas"]["CommentRead"];
+export type ShareLinkDto = components["schemas"]["ShareRead"];
+export type ExportJobDto = components["schemas"]["ExportJobRead"];
+
+export class ApiError extends Error {
+  readonly status: number;
+  readonly detail: string | undefined;
+  readonly requestId: string | null;
+
+  constructor(args: { status: number; detail?: string; requestId: string | null }) {
+    super(args.detail?.trim() ? args.detail : `Request failed (${args.status})`);
+    this.name = "ApiError";
+    this.status = args.status;
+    this.detail = args.detail;
+    this.requestId = args.requestId;
+  }
+}
+
+function authHeaders(accessToken: string) {
+  return { Authorization: `Bearer ${accessToken}` };
+}
+
+type JsonFetchOpts = {
+  /** Set true for flows that handle errors inline (e.g. login form). */
+  skipErrorToast?: boolean;
+};
+
+async function jsonFetch<T>(
+  path: string,
+  init: RequestInit = {},
+  opts?: JsonFetchOpts,
+): Promise<T> {
+  const r = await fetch(path, { credentials: "include", ...init });
+  const requestId = r.headers.get("x-request-id");
+  if (!r.ok) {
+    const body = await r.json().catch(() => ({}));
+    const detail = (body as { detail?: string }).detail;
+    const err = new ApiError({ status: r.status, detail, requestId });
+    if (!opts?.skipErrorToast) {
+      pushToastFromApiError(err);
+    }
+    throw err;
+  }
+  if (r.status === 204) return undefined as T;
+  return (await r.json()) as T;
+}
 
 export function iframeSrcForDev(iframeSrc: string): string {
   if (!import.meta.env.DEV) return iframeSrc;
@@ -20,25 +72,19 @@ export function iframeSrcForDev(iframeSrc: string): string {
   return iframeSrc;
 }
 
-function authHeaders(accessToken: string) {
-  return { Authorization: `Bearer ${accessToken}` };
-}
-
 export async function apiLogin(email: string, password: string) {
-  const r = await fetch(`${API}/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({ email, password }),
-  });
-  if (!r.ok) {
-    const err = await r.json().catch(() => ({}));
-    throw new Error((err as { detail?: string }).detail ?? r.statusText);
-  }
-  return r.json() as Promise<{
+  return jsonFetch<{
     access_token: string;
     user: AuthUser;
-  }>;
+  }>(
+    `${API}/auth/login`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    },
+    { skipErrorToast: true },
+  );
 }
 
 export async function apiRefresh() {
@@ -58,27 +104,10 @@ export async function apiLogout() {
   await fetch(`${API}/auth/logout`, { method: "POST", credentials: "include" });
 }
 
-export type PresentationSummary = {
-  id: string;
-  owner_id: string;
-  title: string;
-  description: string | null;
-  current_version_id: string | null;
-  created_at: string;
-  updated_at: string;
-  current_version: unknown | null;
-};
-
 export async function apiPresentationsList(accessToken: string) {
-  const r = await fetch(`${API}/presentations`, {
+  return jsonFetch<{ items: PresentationSummary[] }>(`${API}/presentations`, {
     headers: { ...authHeaders(accessToken) },
-    credentials: "include",
   });
-  if (!r.ok) {
-    const err = await r.json().catch(() => ({}));
-    throw new Error((err as { detail?: string }).detail ?? r.statusText);
-  }
-  return r.json() as Promise<{ items: PresentationSummary[] }>;
 }
 
 export async function apiPresentationCreate(
@@ -86,66 +115,27 @@ export async function apiPresentationCreate(
   title: string,
   description?: string,
 ) {
-  const r = await fetch(`${API}/presentations`, {
+  return jsonFetch<PresentationSummary>(`${API}/presentations`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
-    credentials: "include",
     body: JSON.stringify({ title, description: description ?? null }),
   });
-  if (!r.ok) {
-    const err = await r.json().catch(() => ({}));
-    throw new Error((err as { detail?: string }).detail ?? r.statusText);
-  }
-  return r.json() as Promise<PresentationSummary>;
 }
 
 export async function apiPresentationGet(accessToken: string, presentationId: string) {
-  const r = await fetch(`${API}/presentations/${presentationId}`, {
+  return jsonFetch<PresentationSummary>(`${API}/presentations/${presentationId}`, {
     headers: { ...authHeaders(accessToken) },
-    credentials: "include",
   });
-  if (!r.ok) {
-    const err = await r.json().catch(() => ({}));
-    throw new Error((err as { detail?: string }).detail ?? r.statusText);
-  }
-  return r.json() as Promise<PresentationSummary>;
 }
 
 export async function apiPresentationEmbed(accessToken: string, presentationId: string) {
-  const r = await fetch(`${API}/presentations/${presentationId}/embed`, {
-    headers: { ...authHeaders(accessToken) },
-    credentials: "include",
-  });
-  if (!r.ok) {
-    const err = await r.json().catch(() => ({}));
-    throw new Error((err as { detail?: string }).detail ?? r.statusText);
-  }
-  return r.json() as Promise<{ iframe_src: string; version_id: string; slide_count: number }>;
+  return jsonFetch<{ iframe_src: string; version_id: string; slide_count: number }>(
+    `${API}/presentations/${presentationId}/embed`,
+    {
+      headers: { ...authHeaders(accessToken) },
+    },
+  );
 }
-
-export type CommentDto = {
-  id: string;
-  author_id: string;
-  author_display_name: string | null;
-  body: string;
-  body_format: string;
-  created_at: string;
-  edited_at: string | null;
-};
-
-export type ThreadDto = {
-  id: string;
-  presentation_id: string;
-  version_id: string;
-  slide_index: number;
-  anchor_x: number;
-  anchor_y: number;
-  status: string;
-  created_by: string;
-  created_at: string;
-  resolved_at: string | null;
-  comments: CommentDto[];
-};
 
 export async function apiThreadsList(
   accessToken: string,
@@ -155,15 +145,12 @@ export async function apiThreadsList(
   const params = new URLSearchParams();
   if (versionId) params.set("version_id", versionId);
   const qs = params.toString();
-  const r = await fetch(`${API}/presentations/${presentationId}/threads${qs ? `?${qs}` : ""}`, {
-    headers: { ...authHeaders(accessToken) },
-    credentials: "include",
-  });
-  if (!r.ok) {
-    const err = await r.json().catch(() => ({}));
-    throw new Error((err as { detail?: string }).detail ?? r.statusText);
-  }
-  return r.json() as Promise<{ items: ThreadDto[] }>;
+  return jsonFetch<{ items: ThreadDto[] }>(
+    `${API}/presentations/${presentationId}/threads${qs ? `?${qs}` : ""}`,
+    {
+      headers: { ...authHeaders(accessToken) },
+    },
+  );
 }
 
 export async function apiThreadCreate(
@@ -177,31 +164,19 @@ export async function apiThreadCreate(
     first_comment: string;
   },
 ) {
-  const r = await fetch(`${API}/presentations/${presentationId}/threads`, {
+  return jsonFetch<ThreadDto>(`${API}/presentations/${presentationId}/threads`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
-    credentials: "include",
     body: JSON.stringify(body),
   });
-  if (!r.ok) {
-    const err = await r.json().catch(() => ({}));
-    throw new Error((err as { detail?: string }).detail ?? r.statusText);
-  }
-  return r.json() as Promise<ThreadDto>;
 }
 
 export async function apiCommentCreate(accessToken: string, threadId: string, body: string) {
-  const r = await fetch(`${API}/threads/${threadId}/comments`, {
+  return jsonFetch<CommentDto>(`${API}/threads/${threadId}/comments`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
-    credentials: "include",
     body: JSON.stringify({ body }),
   });
-  if (!r.ok) {
-    const err = await r.json().catch(() => ({}));
-    throw new Error((err as { detail?: string }).detail ?? r.statusText);
-  }
-  return r.json() as Promise<CommentDto>;
 }
 
 export async function apiThreadPatch(
@@ -209,89 +184,50 @@ export async function apiThreadPatch(
   threadId: string,
   status: "open" | "resolved",
 ) {
-  const r = await fetch(`${API}/threads/${threadId}`, {
+  return jsonFetch<ThreadDto>(`${API}/threads/${threadId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
-    credentials: "include",
     body: JSON.stringify({ status }),
   });
-  if (!r.ok) {
-    const err = await r.json().catch(() => ({}));
-    throw new Error((err as { detail?: string }).detail ?? r.statusText);
-  }
-  return r.json() as Promise<ThreadDto>;
 }
 
 export async function apiCommentDelete(accessToken: string, commentId: string) {
-  const r = await fetch(`${API}/comments/${commentId}`, {
+  await jsonFetch<void>(`${API}/comments/${commentId}`, {
     method: "DELETE",
     headers: { ...authHeaders(accessToken) },
-    credentials: "include",
   });
-  if (!r.ok) {
-    const err = await r.json().catch(() => ({}));
-    throw new Error((err as { detail?: string }).detail ?? r.statusText);
-  }
 }
 
 export async function apiVersionUpload(accessToken: string, presentationId: string, file: File) {
   const fd = new FormData();
   fd.append("file", file);
-  const r = await fetch(`${API}/presentations/${presentationId}/versions`, {
-    method: "POST",
-    headers: { ...authHeaders(accessToken) },
-    credentials: "include",
-    body: fd,
-  });
-  if (!r.ok) {
-    const err = await r.json().catch(() => ({}));
-    throw new Error((err as { detail?: string }).detail ?? r.statusText);
-  }
-  return r.json() as Promise<{
+  return jsonFetch<{
     id: string;
     slides: Array<{ slide_index: number; selector: string; title: string | null }>;
-  }>;
+  }>(`${API}/presentations/${presentationId}/versions`, {
+    method: "POST",
+    headers: { ...authHeaders(accessToken) },
+    body: fd,
+  });
 }
 
 export async function apiShareExchange(plaintextToken: string) {
-  const r = await fetch(`${API}/shares/exchange`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({ token: plaintextToken }),
-  });
-  if (!r.ok) {
-    const err = await r.json().catch(() => ({}));
-    throw new Error((err as { detail?: string }).detail ?? r.statusText);
-  }
-  return r.json() as Promise<{
+  return jsonFetch<{
     access_token: string;
     expires_in: number;
     presentation_id: string;
     role: string;
-  }>;
+  }>(`${API}/shares/exchange`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token: plaintextToken }),
+  });
 }
 
-export type ShareLinkDto = {
-  id: string;
-  presentation_id: string;
-  role: string;
-  expires_at: string | null;
-  revoked_at: string | null;
-  note: string | null;
-  created_at: string;
-};
-
 export async function apiSharesList(accessToken: string, presentationId: string) {
-  const r = await fetch(`${API}/presentations/${presentationId}/shares`, {
+  return jsonFetch<{ items: ShareLinkDto[] }>(`${API}/presentations/${presentationId}/shares`, {
     headers: { ...authHeaders(accessToken) },
-    credentials: "include",
   });
-  if (!r.ok) {
-    const err = await r.json().catch(() => ({}));
-    throw new Error((err as { detail?: string }).detail ?? r.statusText);
-  }
-  return r.json() as Promise<{ items: ShareLinkDto[] }>;
 }
 
 export async function apiShareCreate(
@@ -299,87 +235,45 @@ export async function apiShareCreate(
   presentationId: string,
   body: { role: string; expires_at?: string | null; note?: string | null },
 ) {
-  const r = await fetch(`${API}/presentations/${presentationId}/shares`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
-    credentials: "include",
-    body: JSON.stringify(body),
-  });
-  if (!r.ok) {
-    const err = await r.json().catch(() => ({}));
-    throw new Error((err as { detail?: string }).detail ?? r.statusText);
-  }
-  return r.json() as Promise<ShareLinkDto & { token: string }>;
+  return jsonFetch<ShareLinkDto & { token: string }>(
+    `${API}/presentations/${presentationId}/shares`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
+      body: JSON.stringify(body),
+    },
+  );
 }
 
 export async function apiShareRevoke(accessToken: string, presentationId: string, shareId: string) {
-  const r = await fetch(`${API}/presentations/${presentationId}/shares/${shareId}`, {
+  await jsonFetch<void>(`${API}/presentations/${presentationId}/shares/${shareId}`, {
     method: "DELETE",
     headers: { ...authHeaders(accessToken) },
-    credentials: "include",
   });
-  if (!r.ok) {
-    const err = await r.json().catch(() => ({}));
-    throw new Error((err as { detail?: string }).detail ?? r.statusText);
-  }
 }
-
-export type ExportJobDto = {
-  id: string;
-  presentation_id: string;
-  version_id: string;
-  format: string;
-  status: string;
-  output_path: string | null;
-  error: string | null;
-  progress: number;
-  created_at: string;
-  started_at: string | null;
-  finished_at: string | null;
-};
 
 export async function apiExportCreate(
   accessToken: string,
   presentationId: string,
   body: { format?: string; version_id?: string | null },
 ) {
-  const r = await fetch(`${API}/presentations/${presentationId}/exports`, {
+  return jsonFetch<ExportJobDto>(`${API}/presentations/${presentationId}/exports`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
-    credentials: "include",
     body: JSON.stringify(body),
   });
-  if (!r.ok) {
-    const err = await r.json().catch(() => ({}));
-    throw new Error((err as { detail?: string }).detail ?? r.statusText);
-  }
-  return r.json() as Promise<ExportJobDto>;
 }
 
 export async function apiExportGet(accessToken: string, jobId: string) {
-  const r = await fetch(`${API}/exports/${jobId}`, {
+  return jsonFetch<ExportJobDto>(`${API}/exports/${jobId}`, {
     headers: { ...authHeaders(accessToken) },
-    credentials: "include",
   });
-  if (!r.ok) {
-    const err = await r.json().catch(() => ({}));
-    throw new Error((err as { detail?: string }).detail ?? r.statusText);
-  }
-  return r.json() as Promise<ExportJobDto>;
 }
 
 export async function apiAdminLogs(accessToken: string, channel?: string | null) {
   const params = new URLSearchParams({ limit: "100" });
   if (channel) params.set("channel", channel);
-  const r = await fetch(`${API}/admin/logs?${params.toString()}`, {
-    headers: { ...authHeaders(accessToken) },
-    credentials: "include",
-  });
-  if (!r.ok) {
-    const err = await r.json().catch(() => ({}));
-    throw new Error((err as { detail?: string }).detail ?? r.statusText);
-  }
-  return r.json() as Promise<{
+  return jsonFetch<{
     items: Array<{
       id: number;
       ts: string;
@@ -393,5 +287,7 @@ export async function apiAdminLogs(accessToken: string, channel?: string | null)
       latency_ms: number | null;
     }>;
     next_cursor: number | null;
-  }>;
+  }>(`${API}/admin/logs?${params.toString()}`, {
+    headers: { ...authHeaders(accessToken) },
+  });
 }

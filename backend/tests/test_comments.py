@@ -53,7 +53,7 @@ async def editor_client(tmp_path, monkeypatch):
         assert login.status_code == 200
         token = login.json()["access_token"]
         ac.headers.update({"Authorization": f"Bearer {token}"})
-        yield ac
+        yield ac, transport
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
@@ -62,8 +62,8 @@ async def editor_client(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_threads_create_list_reply_resolve_delete(editor_client: AsyncClient) -> None:
-    c = editor_client
+async def test_threads_create_list_reply_resolve_delete(editor_client) -> None:
+    c, _transport = editor_client
     r0 = await c.post("/api/v1/presentations", json={"title": "Comment deck"})
     assert r0.status_code == 201
     pid = r0.json()["id"]
@@ -188,3 +188,55 @@ async def test_viewer_cannot_create_thread(tmp_path, monkeypatch):
         await conn.run_sync(Base.metadata.drop_all)
     await dispose_engine()
     get_settings.cache_clear()
+
+
+@pytest.mark.asyncio
+async def test_share_commenter_can_post_thread_and_reply(editor_client) -> None:
+    c, transport = editor_client
+    r0 = await c.post("/api/v1/presentations", json={"title": "Share comments"})
+    assert r0.status_code == 201
+    pid = r0.json()["id"]
+
+    up = await c.post(
+        f"/api/v1/presentations/{pid}/versions",
+        files={"file": ("deck.html", SAMPLE_HTML, "text/html")},
+    )
+    assert up.status_code == 201
+    version_id = up.json()["id"]
+
+    sh = await c.post(
+        f"/api/v1/presentations/{pid}/shares",
+        json={"role": "commenter"},
+    )
+    assert sh.status_code == 201
+    secret = sh.json()["token"]
+
+    async with AsyncClient(transport=transport, base_url="http://test") as exc:
+        ex = await exc.post("/api/v1/shares/exchange", json={"token": secret})
+    assert ex.status_code == 200
+    share_token = ex.json()["access_token"]
+
+    async with AsyncClient(transport=transport, base_url="http://test") as share_client:
+        share_client.headers.update({"Authorization": f"Bearer {share_token}"})
+        create = await share_client.post(
+            f"/api/v1/presentations/{pid}/threads",
+            json={
+                "version_id": version_id,
+                "slide_index": 0,
+                "anchor_x": 0.5,
+                "anchor_y": 0.5,
+                "first_comment": "from share",
+            },
+        )
+        assert create.status_code == 201, create.text
+        tid = create.json()["id"]
+        assert create.json()["created_by"] is None
+        assert create.json()["comments"][0]["author_id"] is None
+        assert create.json()["comments"][0]["author_display_name"] == "Shared commenter"
+
+        rep = await share_client.post(
+            f"/api/v1/threads/{tid}/comments",
+            json={"body": "reply from share"},
+        )
+        assert rep.status_code == 201
+        assert rep.json()["author_display_name"] == "Shared commenter"

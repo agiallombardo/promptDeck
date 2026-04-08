@@ -5,6 +5,7 @@ export type PendingPin = { slide: number; x: number; y: number };
 type FeedbackSidebarProps = {
   threads: ThreadDto[];
   isLoading: boolean;
+  isRefreshing?: boolean;
   error: string | null;
   canComment: boolean;
   currentUserId: string | null;
@@ -26,6 +27,7 @@ type FeedbackSidebarProps = {
 export function FeedbackSidebar({
   threads,
   isLoading,
+  isRefreshing = false,
   error,
   canComment,
   currentUserId,
@@ -53,10 +55,11 @@ export function FeedbackSidebar({
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            className="rounded-sharp border border-border px-2 py-1 font-mono text-xs hover:bg-bg-recessed"
+            className="rounded-sharp border border-border px-2 py-1 font-mono text-xs hover:bg-bg-recessed disabled:opacity-40"
+            disabled={isRefreshing}
             onClick={onRefresh}
           >
-            Refresh
+            {isRefreshing ? "Refreshing…" : "Refresh"}
           </button>
           <button
             type="button"
@@ -122,6 +125,7 @@ export function FeedbackSidebar({
         {threads.map((t) => (
           <ThreadCard
             key={t.id}
+            domId={`thread-card-${t.id}`}
             thread={t}
             currentUserId={currentUserId}
             replyDraft={replyDrafts[t.id] ?? ""}
@@ -137,6 +141,7 @@ export function FeedbackSidebar({
 }
 
 function ThreadCard({
+  domId,
   thread,
   currentUserId,
   replyDraft,
@@ -145,6 +150,7 @@ function ThreadCard({
   onResolve,
   onDeleteComment,
 }: {
+  domId: string;
   thread: ThreadDto;
   currentUserId: string | null;
   replyDraft: string;
@@ -154,7 +160,7 @@ function ThreadCard({
   onDeleteComment: (id: string) => void;
 }) {
   return (
-    <article className="rounded-sharp border border-border bg-bg-recessed p-3">
+    <article id={domId} className="rounded-sharp border border-border bg-bg-recessed p-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="font-mono text-xs text-text-muted">
@@ -213,13 +219,16 @@ function CommentLine({
   currentUserId: string | null;
   onDelete: () => void;
 }) {
-  const mine = currentUserId && comment.author_id === currentUserId;
+  const mine = Boolean(
+    currentUserId && comment.author_id != null && comment.author_id === currentUserId,
+  );
+  const label =
+    comment.author_display_name ??
+    (comment.author_id ? comment.author_id.slice(0, 8) : "Shared commenter");
   return (
     <li className="rounded-sharp border border-border/60 bg-bg-void/40 px-2 py-2">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <p className="font-mono text-[10px] text-text-muted">
-          {comment.author_display_name ?? comment.author_id.slice(0, 8)}
-        </p>
+        <p className="font-mono text-[10px] text-text-muted">{label}</p>
         {mine ? (
           <button
             type="button"

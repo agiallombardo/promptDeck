@@ -90,8 +90,12 @@ export function ExportModal({ open, onClose, accessToken, presentationId, versio
       role="dialog"
       aria-modal="true"
       aria-labelledby="export-modal-title"
+      onClick={onClose}
     >
-      <div className="w-full max-w-lg rounded-sharp border border-border bg-bg-elevated p-6 shadow-elevated">
+      <div
+        className="w-full max-w-lg rounded-sharp border border-border bg-bg-elevated p-6 shadow-elevated"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 id="export-modal-title" className="font-heading text-lg font-semibold">
@@ -115,6 +119,7 @@ export function ExportModal({ open, onClose, accessToken, presentationId, versio
           type="button"
           className="mt-4 rounded-sharp border border-primary bg-primary/10 px-3 py-2 font-mono text-xs text-primary hover:bg-primary/20 disabled:opacity-40"
           disabled={!versionId || start.isPending}
+          autoFocus
           onClick={() => {
             setJobId(null);
             setPoll(null);

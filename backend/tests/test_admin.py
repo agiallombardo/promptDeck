@@ -56,3 +56,28 @@ async def test_logs_ok_for_admin(client: AsyncClient) -> None:
     assert "items" in data
     assert isinstance(data["items"], list)
     assert len(data["items"]) >= 1
+
+
+@pytest.mark.asyncio
+async def test_logs_invalid_channel_rejected(client: AsyncClient) -> None:
+    async with session_factory()() as session:
+        session.add(
+            User(
+                id=uuid.uuid4(),
+                email="super2@example.com",
+                password_hash=hash_password("z"),
+                role=UserRole.admin,
+            )
+        )
+        await session.commit()
+
+    login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "super2@example.com", "password": "z"},
+    )
+    token = login.json()["access_token"]
+    r = await client.get(
+        "/api/v1/admin/logs?channel=not_a_real_channel",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 400

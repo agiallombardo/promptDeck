@@ -1,4 +1,5 @@
-import { forwardRef, useEffect } from "react";
+import { forwardRef, useEffect, useMemo } from "react";
+import { parseSlideInboundMessage } from "../../lib/slidePostMessage";
 
 export type SlideFrameProps = {
   src: string;
@@ -10,26 +11,28 @@ export const SlideFrame = forwardRef<HTMLIFrameElement, SlideFrameProps>(functio
   { src, onManifest, onSlideClick },
   ref,
 ) {
+  const expectedOrigin = useMemo(() => {
+    try {
+      return new URL(src, window.location.href).origin;
+    } catch {
+      return window.location.origin;
+    }
+  }, [src]);
+
   useEffect(() => {
     function onMessage(ev: MessageEvent) {
-      const d = ev.data;
-      if (!d || typeof d !== "object") return;
-      if (d.type === "manifest" && typeof d.count === "number") {
-        const titles = Array.isArray(d.titles) ? (d.titles as string[]) : [];
-        onManifest?.(d.count, titles);
-      }
-      if (
-        d.type === "slide-click" &&
-        typeof d.slide === "number" &&
-        typeof d.x === "number" &&
-        typeof d.y === "number"
-      ) {
-        onSlideClick?.({ slide: d.slide, x: d.x, y: d.y });
+      if (ev.origin !== expectedOrigin) return;
+      const msg = parseSlideInboundMessage(ev.data);
+      if (!msg) return;
+      if (msg.type === "manifest") {
+        onManifest?.(msg.count, msg.titles);
+      } else if (msg.type === "slide-click") {
+        onSlideClick?.({ slide: msg.slide, x: msg.x, y: msg.y });
       }
     }
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [onManifest, onSlideClick]);
+  }, [expectedOrigin, onManifest, onSlideClick]);
 
   return (
     <iframe

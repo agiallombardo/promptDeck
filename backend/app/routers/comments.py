@@ -11,13 +11,12 @@ from sqlalchemy.orm import selectinload
 
 from app.db.models.comment_thread import Comment, CommentThread, ThreadStatus
 from app.db.models.presentation import Presentation, PresentationVersion
-from app.db.models.user import User, UserRole
 from app.db.session import get_db
 from app.deps import (
-    get_current_user,
-    get_presentation_owner,
+    Principal,
+    get_presentation_comment_writer,
     get_presentation_reader,
-    require_non_viewer,
+    get_principal,
 )
 from app.schemas.comment import (
     CommentCreate,
@@ -27,13 +26,16 @@ from app.schemas.comment import (
     ThreadPatch,
     ThreadRead,
 )
+from app.services.acl import PresentationAccess, can_write_comments, effective_access
 
 router = APIRouter(tags=["comments"])
 
+SHARED_COMMENTER_LABEL = "Shared commenter"
 
-async def _get_thread_for_user(
+
+async def _get_thread_for_comment_write(
     thread_id: uuid.UUID,
-    user: Annotated[User, Depends(get_current_user)],
+    principal: Annotated[Principal, Depends(get_principal)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> CommentThread:
     result = await db.execute(
@@ -47,13 +49,18 @@ async def _get_thread_for_user(
     pres = await db.get(Presentation, thread.presentation_id)
     if pres is None or pres.deleted_at is not None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Presentation not found")
-    if user.role != UserRole.admin and pres.owner_id != user.id:
+    if not can_write_comments(pres, user=principal.user, share_link=principal.share_link):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     return thread
 
 
 def _comment_read(c: Comment) -> CommentRead:
-    name = c.author.display_name if c.author is not None else None
+    if c.author is not None:
+        name = c.author.display_name
+    elif c.author_id is None:
+        name = SHARED_COMMENTER_LABEL
+    else:
+        name = None
     return CommentRead(
         id=c.id,
         author_id=c.author_id,
@@ -115,13 +122,16 @@ async def list_threads(
 )
 async def create_thread(
     body: ThreadCreate,
-    user: Annotated[User, Depends(require_non_viewer)],
+    principal: Annotated[Principal, Depends(get_principal)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    presentation: Annotated[Presentation, Depends(get_presentation_owner)],
+    presentation: Annotated[Presentation, Depends(get_presentation_comment_writer)],
 ) -> ThreadRead:
     ver = await db.get(PresentationVersion, body.version_id)
     if ver is None or ver.presentation_id != presentation.id:
         raise HTTPException(status_code=400, detail="Invalid version for this presentation")
+
+    author_id = principal.user.id if principal.user is not None else None
+    created_by = author_id
 
     thread = CommentThread(
         presentation_id=presentation.id,
@@ -130,14 +140,14 @@ async def create_thread(
         anchor_x=body.anchor_x,
         anchor_y=body.anchor_y,
         status=ThreadStatus.open,
-        created_by=user.id,
+        created_by=created_by,
     )
     db.add(thread)
     await db.flush()
     db.add(
         Comment(
             thread_id=thread.id,
-            author_id=user.id,
+            author_id=author_id,
             body=body.first_comment,
             body_format="markdown",
         )
@@ -155,13 +165,14 @@ async def create_thread(
 @router.post("/threads/{thread_id}/comments", response_model=CommentRead, status_code=201)
 async def add_comment(
     body: CommentCreate,
-    user: Annotated[User, Depends(require_non_viewer)],
+    principal: Annotated[Principal, Depends(get_principal)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    thread: Annotated[CommentThread, Depends(_get_thread_for_user)],
+    thread: Annotated[CommentThread, Depends(_get_thread_for_comment_write)],
 ) -> CommentRead:
+    author_id = principal.user.id if principal.user is not None else None
     c = Comment(
         thread_id=thread.id,
-        author_id=user.id,
+        author_id=author_id,
         body=body.body,
         body_format="markdown",
     )
@@ -177,9 +188,9 @@ async def add_comment(
 @router.patch("/threads/{thread_id}", response_model=ThreadRead)
 async def patch_thread(
     body: ThreadPatch,
-    user: Annotated[User, Depends(require_non_viewer)],
+    principal: Annotated[Principal, Depends(get_principal)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    thread: Annotated[CommentThread, Depends(_get_thread_for_user)],
+    thread: Annotated[CommentThread, Depends(_get_thread_for_comment_write)],
 ) -> ThreadRead:
     thread.status = body.status
     if body.status == ThreadStatus.resolved:
@@ -199,7 +210,7 @@ async def patch_thread(
 @router.delete("/comments/{comment_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_comment(
     comment_id: uuid.UUID,
-    user: Annotated[User, Depends(get_current_user)],
+    principal: Annotated[Principal, Depends(get_principal)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> None:
     result = await db.execute(
@@ -211,7 +222,19 @@ async def delete_comment(
     pres = await db.get(Presentation, comment.thread.presentation_id)
     if pres is None or pres.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Presentation not found")
-    if user.role != UserRole.admin and pres.owner_id != user.id and comment.author_id != user.id:
+
+    access = effective_access(pres, user=principal.user, share_link=principal.share_link)
+    if access is None:
         raise HTTPException(status_code=403, detail="Forbidden")
+
+    is_owner_or_admin = access in (PresentationAccess.admin, PresentationAccess.owner)
+    is_author = (
+        principal.user is not None
+        and comment.author_id is not None
+        and comment.author_id == principal.user.id
+    )
+    if not is_owner_or_admin and not is_author:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
     comment.deleted_at = datetime.now(UTC)
     await db.commit()

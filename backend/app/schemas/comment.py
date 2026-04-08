@@ -25,7 +25,7 @@ class ThreadPatch(BaseModel):
 
 class CommentRead(BaseModel):
     id: uuid.UUID
-    author_id: uuid.UUID
+    author_id: uuid.UUID | None = None
     author_display_name: str | None = None
     body: str
     body_format: str
@@ -43,7 +43,7 @@ class ThreadRead(BaseModel):
     anchor_x: float
     anchor_y: float
     status: ThreadStatus
-    created_by: uuid.UUID
+    created_by: uuid.UUID | None = None
     created_at: datetime
     resolved_at: datetime | None
     comments: list[CommentRead] = []

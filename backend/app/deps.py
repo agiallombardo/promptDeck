@@ -17,6 +17,12 @@ from app.db.models.share_link import ShareLink
 from app.db.models.user import User, UserRole
 from app.db.session import get_db
 from app.security.jwt_tokens import decode_token, decode_token_typed
+from app.services.acl import (
+    PresentationAccess,
+    can_read_presentation,
+    can_write_comments,
+    effective_access,
+)
 
 security = HTTPBearer(auto_error=False)
 
@@ -178,7 +184,8 @@ async def get_presentation_owner(
     row = await _load_presentation_row(db, presentation_id)
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Presentation not found")
-    if user.role != UserRole.admin and row.owner_id != user.id:
+    access = effective_access(row, user=user, share_link=None)
+    if access not in (PresentationAccess.admin, PresentationAccess.owner):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     return row
 
@@ -191,13 +198,24 @@ async def get_presentation_reader(
     row = await _load_presentation_row(db, presentation_id)
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Presentation not found")
-    if principal.user is not None:
-        if principal.user.role == UserRole.admin or row.owner_id == principal.user.id:
-            return row
+    if not can_read_presentation(
+        row,
+        user=principal.user,
+        share_link=principal.share_link,
+    ):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-    if principal.share_link is not None:
-        sl = principal.share_link
-        if sl.presentation_id != row.id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-        return row
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+    return row
+
+
+async def get_presentation_comment_writer(
+    presentation_id: uuid.UUID,
+    principal: Annotated[Principal, Depends(get_principal)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> Presentation:
+    """Presentation row if the principal may create threads / comments / resolve threads."""
+    row = await _load_presentation_row(db, presentation_id)
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Presentation not found")
+    if not can_write_comments(row, user=principal.user, share_link=principal.share_link):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    return row

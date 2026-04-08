@@ -39,10 +39,10 @@ class CommentThread(Base):
         nullable=False,
         default=ThreadStatus.open,
     )
-    created_by: Mapped[uuid.UUID] = mapped_column(
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("users.id", ondelete="RESTRICT"),
-        nullable=False,
+        nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -69,10 +69,10 @@ class Comment(Base):
         nullable=False,
         index=True,
     )
-    author_id: Mapped[uuid.UUID] = mapped_column(
+    author_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("users.id", ondelete="RESTRICT"),
-        nullable=False,
+        nullable=True,
     )
     body: Mapped[str] = mapped_column(Text(), nullable=False)
     body_format: Mapped[str] = mapped_column(String(32), nullable=False, default="markdown")
