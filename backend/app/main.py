@@ -1,13 +1,17 @@
 from contextlib import asynccontextmanager
 
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from starlette.responses import Response
 
 from app.config import get_settings
 from app.db.session import dispose_engine
 from app.logging_conf import configure_logging
 from app.middleware.access_log import AccessLogMiddleware
 from app.middleware.auth_context import AuthContextMiddleware
+from app.rate_limit import limiter
 from app.routers import admin, assets, auth, comments, exports, presentations, shares, versions
 
 settings = get_settings()
@@ -26,6 +30,15 @@ app = FastAPI(
     description="Internal presentation collaboration API (v1 scaffold).",
     lifespan=lifespan,
 )
+app.state.limiter = limiter
+
+
+def _rate_limit_exc(request: Request, exc: Exception) -> Response:
+    assert isinstance(exc, RateLimitExceeded)
+    return _rate_limit_exceeded_handler(request, exc)
+
+
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exc)
 
 app.add_middleware(
     CORSMiddleware,

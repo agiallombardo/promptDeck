@@ -40,6 +40,13 @@ class Settings(BaseSettings):
             "Origin for absolute embed URLs (no trailing slash); defaults to Vite dev server"
         ),
     )
+    argon2_time_cost: int = Field(default=3, ge=1, le=10, description="Argon2id time cost")
+    argon2_memory_cost: int = Field(
+        default=65536,
+        ge=8192,
+        description="Argon2id memory cost (KiB)",
+    )
+    argon2_parallelism: int = Field(default=1, ge=1, le=8, description="Argon2id parallelism")
 
 
 @lru_cache

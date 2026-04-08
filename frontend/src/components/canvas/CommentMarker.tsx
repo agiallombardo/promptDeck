@@ -14,7 +14,7 @@ export function CommentMarker({ threads, slideIndex, onSelectThread }: Props) {
         <button
           key={t.id}
           type="button"
-          className="absolute z-10 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primary bg-primary/90 shadow-md ring-2 ring-bg-void hover:scale-110"
+          className="absolute z-10 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primary bg-primary/90 shadow-md ring-2 ring-bg-void hover:scale-110 md:h-3 md:w-3"
           style={{
             left: `${t.anchor_x * 100}%`,
             top: `${t.anchor_y * 100}%`,

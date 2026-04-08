@@ -16,6 +16,7 @@ dependencies = [
     "pyjwt[crypto]>=2.10.0,<3",
     "selectolax>=0.3.21,<1",
     "sqlalchemy[asyncio]>=2.0.36,<3",
+    "slowapi>=0.1.9,<1",
     "structlog>=24.4.0,<26",
     "uvicorn[standard]>=0.32.0,<1",
 ]

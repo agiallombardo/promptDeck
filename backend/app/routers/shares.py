@@ -5,7 +5,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +15,7 @@ from app.db.models.share_link import ShareLink
 from app.db.models.user import User
 from app.db.session import get_db
 from app.deps import get_current_user, get_presentation_owner
+from app.rate_limit import limiter
 from app.schemas.share import (
     ShareCreate,
     ShareCreated,
@@ -24,6 +25,7 @@ from app.schemas.share import (
     ShareRead,
 )
 from app.security.jwt_tokens import create_share_access_token, decode_token
+from app.services.audit import client_ip_from_request, record_audit
 from app.services.share_tokens import hash_share_token
 
 router = APIRouter(tags=["shares"])
@@ -35,6 +37,7 @@ router = APIRouter(tags=["shares"])
     status_code=201,
 )
 async def create_share_link(
+    request: Request,
     body: ShareCreate,
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -52,6 +55,15 @@ async def create_share_link(
     db.add(link)
     await db.commit()
     await db.refresh(link)
+    await record_audit(
+        db,
+        actor_id=user.id,
+        action="share_link.created",
+        target_kind="share_link",
+        target_id=link.id,
+        metadata={"presentation_id": str(presentation.id), "role": link.role.value},
+        client_ip=client_ip_from_request(request),
+    )
     data = ShareRead.model_validate(link).model_dump()
     data["token"] = plaintext
     return ShareCreated.model_validate(data)
@@ -76,7 +88,9 @@ async def list_share_links(
     status_code=status.HTTP_204_NO_CONTENT,
 )
 async def revoke_share_link(
+    request: Request,
     share_id: uuid.UUID,
+    user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
     presentation: Annotated[Presentation, Depends(get_presentation_owner)],
 ) -> None:
@@ -85,10 +99,21 @@ async def revoke_share_link(
         raise HTTPException(status_code=404, detail="Share link not found")
     link.revoked_at = datetime.now(UTC)
     await db.commit()
+    await record_audit(
+        db,
+        actor_id=user.id,
+        action="share_link.revoked",
+        target_kind="share_link",
+        target_id=link.id,
+        metadata={"presentation_id": str(presentation.id)},
+        client_ip=client_ip_from_request(request),
+    )
 
 
 @router.post("/shares/exchange", response_model=ShareExchangeResponse)
+@limiter.limit("10/minute")
 async def exchange_share_token(
+    request: Request,
     body: ShareExchangeRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
     settings: Annotated[Settings, Depends(get_settings)],
@@ -114,6 +139,15 @@ async def exchange_share_token(
     data = decode_token(settings, access)
     exp = int(data["exp"])
     expires_in = max(0, exp - int(now.timestamp()))
+    await record_audit(
+        db,
+        actor_id=None,
+        action="share_link.exchanged",
+        target_kind="share_link",
+        target_id=link.id,
+        metadata={"presentation_id": str(link.presentation_id)},
+        client_ip=client_ip_from_request(request),
+    )
     return ShareExchangeResponse(
         access_token=access,
         expires_in=expires_in,

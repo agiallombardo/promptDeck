@@ -5,7 +5,12 @@ Regenerate with `just api-contract` after changing `backend/openapi.json`.
 | Method | Path | Summary |
 |--------|------|---------|
 | GET | `/a/{version_id}/{file_path}` | Serve Asset |
+| GET | `/api/v1/admin/audit` | List Audit |
+| GET | `/api/v1/admin/jobs` | List Export Jobs Admin |
 | GET | `/api/v1/admin/logs` | List Logs |
+| GET | `/api/v1/admin/presentations` | List Presentations Admin |
+| GET | `/api/v1/admin/stats` | Admin Stats |
+| GET | `/api/v1/admin/users` | List Users |
 | POST | `/api/v1/auth/login` | Login |
 | POST | `/api/v1/auth/logout` | Logout |
 | GET | `/api/v1/auth/me` | Me |

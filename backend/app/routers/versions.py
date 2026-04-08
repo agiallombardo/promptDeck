@@ -17,6 +17,7 @@ from app.deps import get_current_user, get_presentation_owner, get_presentation_
 from app.logging_channels import LogChannel, channel_logger
 from app.schemas.presentation import SlideRead, VersionRead
 from app.services.app_logging import write_app_log
+from app.services.audit import client_ip_from_request, record_audit
 from app.services.slide_manifest import build_slide_manifest
 from app.storage.local import presentation_prefix, sanitize_filename, write_bytes_under
 
@@ -136,6 +137,19 @@ async def upload_html_version(
             "version_number": ver2.version_number,
             "slide_count": len(manifest),
         },
+    )
+    await record_audit(
+        db,
+        actor_id=user.id,
+        action="presentation.version.uploaded",
+        target_kind="presentation_version",
+        target_id=ver2.id,
+        metadata={
+            "presentation_id": str(presentation.id),
+            "version_number": ver2.version_number,
+            "slide_count": len(manifest),
+        },
+        client_ip=client_ip_from_request(request),
     )
 
     return _version_read(ver2)

@@ -270,24 +270,113 @@ export async function apiExportGet(accessToken: string, jobId: string) {
   });
 }
 
-export async function apiAdminLogs(accessToken: string, channel?: string | null) {
-  const params = new URLSearchParams({ limit: "100" });
-  if (channel) params.set("channel", channel);
+export type AdminAppLogRow = {
+  id: number;
+  ts: string;
+  level: string;
+  event: string | null;
+  channel: string;
+  request_id: string | null;
+  user_id: string | null;
+  path: string;
+  method: string;
+  status_code: number | null;
+  latency_ms: number | null;
+  payload: Record<string, unknown> | null;
+};
+
+export async function apiAdminLogs(
+  accessToken: string,
+  opts?: {
+    limit?: number;
+    channel?: string | null;
+    request_id?: string | null;
+    level?: string | null;
+    path_prefix?: string | null;
+    since?: string | null;
+    cursor?: number | null;
+  },
+) {
+  const params = new URLSearchParams({ limit: String(opts?.limit ?? 100) });
+  if (opts?.channel) params.set("channel", opts.channel);
+  if (opts?.request_id?.trim()) params.set("request_id", opts.request_id.trim());
+  if (opts?.level?.trim()) params.set("level", opts.level.trim());
+  if (opts?.path_prefix?.trim()) params.set("path_prefix", opts.path_prefix.trim());
+  if (opts?.since?.trim()) params.set("since", opts.since.trim());
+  if (opts?.cursor != null) params.set("cursor", String(opts.cursor));
+  return jsonFetch<{ items: AdminAppLogRow[]; next_cursor: number | null }>(
+    `${API}/admin/logs?${params.toString()}`,
+    { headers: { ...authHeaders(accessToken) } },
+  );
+}
+
+export async function apiAdminStats(accessToken: string) {
+  return jsonFetch<{
+    users: number;
+    presentations: number;
+    versions: number;
+    export_jobs: number;
+    audit_events_24h: number;
+    app_log_rows_24h: number;
+  }>(`${API}/admin/stats`, { headers: { ...authHeaders(accessToken) } });
+}
+
+export async function apiAdminAudit(accessToken: string, limit = 100) {
   return jsonFetch<{
     items: Array<{
       id: number;
       ts: string;
-      level: string;
-      event: string | null;
-      channel: string;
-      request_id: string | null;
-      path: string;
-      method: string;
-      status_code: number | null;
-      latency_ms: number | null;
+      actor_id: string | null;
+      action: string;
+      target_kind: string | null;
+      target_id: string | null;
+      metadata: Record<string, unknown> | null;
+      ip: string | null;
     }>;
-    next_cursor: number | null;
-  }>(`${API}/admin/logs?${params.toString()}`, {
-    headers: { ...authHeaders(accessToken) },
-  });
+  }>(`${API}/admin/audit?limit=${limit}`, { headers: { ...authHeaders(accessToken) } });
+}
+
+export async function apiAdminUsers(accessToken: string) {
+  return jsonFetch<{
+    items: Array<{
+      id: string;
+      email: string;
+      display_name: string | null;
+      role: string;
+      last_login_at: string | null;
+      created_at: string;
+    }>;
+  }>(`${API}/admin/users`, { headers: { ...authHeaders(accessToken) } });
+}
+
+export async function apiAdminPresentations(accessToken: string) {
+  return jsonFetch<{
+    items: Array<{
+      id: string;
+      title: string;
+      owner_id: string;
+      owner_email: string;
+      current_version_id: string | null;
+      version_count: number;
+      updated_at: string;
+    }>;
+  }>(`${API}/admin/presentations`, { headers: { ...authHeaders(accessToken) } });
+}
+
+export async function apiAdminJobs(accessToken: string) {
+  return jsonFetch<{
+    items: Array<{
+      id: string;
+      presentation_id: string;
+      presentation_title: string;
+      version_id: string;
+      format: string;
+      status: string;
+      progress: number;
+      error: string | null;
+      created_by: string;
+      created_at: string;
+      finished_at: string | null;
+    }>;
+  }>(`${API}/admin/jobs`, { headers: { ...authHeaders(accessToken) } });
 }

@@ -57,7 +57,7 @@ export function PresentationDeckHeader({
               </button>
               <button
                 type="button"
-                className="rounded-sharp border border-border px-2 py-1 font-mono text-xs hover:bg-bg-elevated"
+                className="hidden rounded-sharp border border-border px-2 py-1 font-mono text-xs hover:bg-bg-elevated md:inline-flex"
                 onClick={onExport}
               >
                 Export

@@ -22,6 +22,8 @@ type FeedbackSidebarProps = {
   onReply: (threadId: string) => void;
   onResolve: (threadId: string) => void;
   onDeleteComment: (commentId: string) => void;
+  /** When true, drop desktop-only left border (e.g. mobile drawer). */
+  embedded?: boolean;
 };
 
 export function FeedbackSidebar({
@@ -44,9 +46,14 @@ export function FeedbackSidebar({
   onReply,
   onResolve,
   onDeleteComment,
+  embedded = false,
 }: FeedbackSidebarProps) {
   return (
-    <aside className="flex w-full flex-col border-border bg-bg-elevated md:max-w-sm md:border-l">
+    <aside
+      className={`flex w-full flex-col bg-bg-elevated md:max-w-sm ${
+        embedded ? "border-0" : "border-border md:border-l"
+      }`}
+    >
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
         <div>
           <p className="font-mono text-[10px] uppercase tracking-wide text-primary">Feedback</p>

@@ -13,10 +13,12 @@ from app.db.models.user import User
 from app.db.session import get_db
 from app.deps import get_current_user
 from app.logging_channels import LogChannel, channel_logger
+from app.rate_limit import limiter
 from app.schemas.auth import LoginRequest, LoginResponse, MessageResponse, UserPublic
 from app.security.jwt_tokens import create_access_token, create_refresh_token, decode_token_typed
 from app.security.passwords import verify_password
 from app.services.app_logging import write_app_log
+from app.services.audit import client_ip_from_request, record_audit
 
 router = APIRouter()
 log = channel_logger(LogChannel.auth)
@@ -49,6 +51,7 @@ async def _persist_auth_log(
 
 
 @router.post("/login", response_model=LoginResponse)
+@limiter.limit("5/minute")
 async def login(
     request: Request,
     body: LoginRequest,
@@ -69,6 +72,13 @@ async def login(
             user_id=None,
             status_code=401,
             payload={"email": email},
+        )
+        await record_audit(
+            db,
+            actor_id=None,
+            action="auth.login.failure",
+            metadata={"email": email},
+            client_ip=client_ip_from_request(request),
         )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -107,6 +117,13 @@ async def login(
         status_code=200,
         payload={"email": user.email},
     )
+    await record_audit(
+        db,
+        actor_id=user.id,
+        action="auth.login.success",
+        metadata={"email": user.email},
+        client_ip=client_ip_from_request(request),
+    )
     return LoginResponse(
         access_token=access,
         expires_in=settings.access_token_expire_minutes * 60,
@@ -115,6 +132,7 @@ async def login(
 
 
 @router.post("/refresh", response_model=LoginResponse)
+@limiter.limit("60/minute")
 async def refresh(
     request: Request,
     response: Response,

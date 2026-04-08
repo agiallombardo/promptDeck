@@ -1,0 +1,16 @@
+[Unit]
+Description=promptDeck FastAPI (uvicorn)
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=promptdeck
+Group=promptdeck
+WorkingDirectory=/opt/promptdeck/backend
+EnvironmentFile=/etc/promptdeck/api.env
+ExecStart=/opt/promptdeck/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --proxy-headers
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

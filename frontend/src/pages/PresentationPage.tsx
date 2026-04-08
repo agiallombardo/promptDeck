@@ -1,3 +1,4 @@
+import { Drawer } from "vaul";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { PresentationCanvas } from "../components/canvas/PresentationCanvas";
@@ -27,6 +28,7 @@ export default function PresentationPage() {
   const isShareSession = Boolean(shareSlice.token && id && shareSlice.presentationId === id);
   const [shareOpen, setShareOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [mobileFeedbackOpen, setMobileFeedbackOpen] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   const [slideIndex, setSlideIndex] = useState(0);
@@ -56,7 +58,8 @@ export default function PresentationPage() {
   } = useComments(id ?? "", token, versionId);
 
   const onManifest = useCallback(
-    (count: number) => {
+    (count: number, _titles?: string[]) => {
+      void _titles;
       setSlideCount(Math.max(1, count));
       setSlideIndex(0);
       queueMicrotask(() => postSetCommentMode(iframeRef.current, commentMode));
@@ -130,12 +133,62 @@ export default function PresentationPage() {
     );
   }
 
-  function scrollThreadIntoView(threadId: string) {
+  const scrollThreadIntoView = useCallback((threadId: string) => {
     document.getElementById(`thread-card-${threadId}`)?.scrollIntoView({
       behavior: "smooth",
       block: "nearest",
     });
-  }
+  }, []);
+
+  const onThreadSelectFromCanvas = useCallback(
+    (threadId: string) => {
+      const narrow =
+        typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
+      if (narrow) {
+        setMobileFeedbackOpen(true);
+        requestAnimationFrame(() => scrollThreadIntoView(threadId));
+      } else {
+        scrollThreadIntoView(threadId);
+      }
+    },
+    [scrollThreadIntoView],
+  );
+
+  const feedbackSidebarProps = {
+    threads: threads.data?.items ?? [],
+    isLoading: threads.isLoading,
+    isRefreshing: threads.isFetching && !threads.isLoading,
+    error: threadsError,
+    canComment,
+    currentUserId: user?.id ?? null,
+    commentMode,
+    onToggleCommentMode: () => {
+      setCommentMode((v) => !v);
+      setPendingPin(null);
+    },
+    pendingPin,
+    draftNewThread,
+    onDraftNewThread: setDraftNewThread,
+    onSubmitNewThread: () => {
+      if (!draftNewThread.trim() || !pendingPin || !embed.data) return;
+      createThread.mutate({
+        pin: pendingPin,
+        versionId: embed.data.version_id,
+        body: draftNewThread.trim(),
+      });
+    },
+    onClearPending: () => {
+      setPendingPin(null);
+      setDraftNewThread("");
+    },
+    onRefresh: () => void qc.invalidateQueries({ queryKey: ["threads", id, token] }),
+    replyDrafts,
+    onReplyDraft: (threadId: string, value: string) =>
+      setReplyDrafts((prev) => ({ ...prev, [threadId]: value })),
+    onReply: handleReply,
+    onResolve: (threadId: string) => resolveThread.mutate(threadId),
+    onDeleteComment: (commentId: string) => deleteComment.mutate(commentId),
+  };
 
   if (!id) {
     return (
@@ -212,45 +265,41 @@ export default function PresentationPage() {
                   canComment={canComment}
                   threads={threads.data?.items ?? []}
                   slideIndex={slideIndex}
-                  onSelectThread={scrollThreadIntoView}
+                  onSelectThread={onThreadSelectFromCanvas}
+                  onLongPressCommentMode={
+                    canComment
+                      ? () => {
+                          setCommentMode(true);
+                          setPendingPin(null);
+                        }
+                      : undefined
+                  }
                 />
               </div>
-              <FeedbackSidebar
-                threads={threads.data?.items ?? []}
-                isLoading={threads.isLoading}
-                isRefreshing={threads.isFetching && !threads.isLoading}
-                error={threadsError}
-                canComment={canComment}
-                currentUserId={user?.id ?? null}
-                commentMode={commentMode}
-                onToggleCommentMode={() => {
-                  setCommentMode((v) => !v);
-                  setPendingPin(null);
-                }}
-                pendingPin={pendingPin}
-                draftNewThread={draftNewThread}
-                onDraftNewThread={setDraftNewThread}
-                onSubmitNewThread={() => {
-                  if (!draftNewThread.trim() || !pendingPin || !embed.data) return;
-                  createThread.mutate({
-                    pin: pendingPin,
-                    versionId: embed.data.version_id,
-                    body: draftNewThread.trim(),
-                  });
-                }}
-                onClearPending={() => {
-                  setPendingPin(null);
-                  setDraftNewThread("");
-                }}
-                onRefresh={() => void qc.invalidateQueries({ queryKey: ["threads", id, token] })}
-                replyDrafts={replyDrafts}
-                onReplyDraft={(threadId, value) =>
-                  setReplyDrafts((prev) => ({ ...prev, [threadId]: value }))
-                }
-                onReply={handleReply}
-                onResolve={(threadId) => resolveThread.mutate(threadId)}
-                onDeleteComment={(commentId) => deleteComment.mutate(commentId)}
-              />
+              <div className="hidden min-h-0 md:flex md:max-w-sm md:flex-shrink-0 md:flex-col">
+                <FeedbackSidebar {...feedbackSidebarProps} />
+              </div>
+              <div className="md:hidden">
+                <Drawer.Root open={mobileFeedbackOpen} onOpenChange={setMobileFeedbackOpen}>
+                  <Drawer.Trigger asChild>
+                    <button
+                      type="button"
+                      className="fixed bottom-5 right-5 z-30 rounded-sharp border border-border bg-bg-elevated px-4 py-2 font-mono text-xs shadow-elevated"
+                    >
+                      Threads
+                    </button>
+                  </Drawer.Trigger>
+                  <Drawer.Portal>
+                    <Drawer.Overlay className="fixed inset-0 z-40 bg-black/50" />
+                    <Drawer.Content className="fixed inset-x-0 bottom-0 z-50 flex max-h-[90vh] flex-col rounded-t-2xl border border-border bg-bg-elevated pb-4">
+                      <Drawer.Handle className="mx-auto mt-3 mb-2 h-1.5 w-10 rounded-full bg-border" />
+                      <div className="min-h-0 flex-1 overflow-y-auto">
+                        <FeedbackSidebar {...feedbackSidebarProps} embedded />
+                      </div>
+                    </Drawer.Content>
+                  </Drawer.Portal>
+                </Drawer.Root>
+              </div>
             </>
           )}
         </main>

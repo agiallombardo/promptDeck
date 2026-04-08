@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.export_job import ExportJob, ExportStatus
@@ -13,6 +13,7 @@ from app.db.session import get_db
 from app.deps import get_current_user, get_presentation_owner
 from app.jobs.export_runner import run_export_job
 from app.schemas.export import ExportCreate, ExportJobRead
+from app.services.audit import client_ip_from_request, record_audit
 
 router = APIRouter(tags=["exports"])
 
@@ -33,6 +34,7 @@ def _can_view_job(user: User, pres: Presentation, job: ExportJob) -> bool:
     status_code=status.HTTP_202_ACCEPTED,
 )
 async def create_export_job(
+    request: Request,
     body: ExportCreate,
     background_tasks: BackgroundTasks,
     user: Annotated[User, Depends(get_current_user)],
@@ -58,6 +60,15 @@ async def create_export_job(
     db.add(job)
     await db.commit()
     await db.refresh(job)
+    await record_audit(
+        db,
+        actor_id=user.id,
+        action="export_job.created",
+        target_kind="export_job",
+        target_id=job.id,
+        metadata={"presentation_id": str(presentation.id), "format": str(job.format)},
+        client_ip=client_ip_from_request(request),
+    )
     background_tasks.add_task(run_export_job, job.id)
     return ExportJobRead.model_validate(job)
 

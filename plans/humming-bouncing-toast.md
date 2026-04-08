@@ -3,6 +3,7 @@
 ## Context
 
 The repo at `/Users/agiallombardo/Repo/powerpointReplaced` currently holds only design artifacts:
+
 - `DESIGN.md` — "Synthetic Architecture / Tactical Obsidian" dark design system.
 - `recessed_studio_prd.html` — full PRD for promptDeck.
 - `stitch_floating_dark_modules_prd/*/code.html` — static mockups for 5 key screens.
@@ -14,6 +15,7 @@ The repo at `/Users/agiallombardo/Repo/powerpointReplaced` currently holds only 
 ## v1 Scope — locked via Q&A
 
 **In scope**
+
 - Upload (single `.html` OR `.zip` bundle)
 - Display (iframe canvas, prev/next, version selector)
 - Review / comment (coordinate-pinned, threaded; **manual refresh**, not real-time)
@@ -25,6 +27,7 @@ The repo at `/Users/agiallombardo/Repo/powerpointReplaced` currently holds only 
 - CLAUDE.md, `.cursorrules`, and a conventions doc driving LLM-assisted development
 
 **Explicitly roadmap / not in v1**
+
 - Real-time updates (SSE / WebSockets / live comments)
 - AI regeneration ("Force Refresh" via LiteLLM → Claude or GPT)
 - Entra ID / Azure AD OIDC SSO
@@ -36,21 +39,23 @@ The repo at `/Users/agiallombardo/Repo/powerpointReplaced` currently holds only 
 
 ## Technology Decisions
 
-| Area | Decision |
-|---|---|
-| Backend | Python 3.12 + FastAPI 0.115 + SQLAlchemy 2.0 async + asyncpg + Alembic |
-| DB | PostgreSQL 16 (single local install on the host) |
-| Frontend | React 18 + Vite 5 + TypeScript 5 + **Tailwind CSS 4** (CSS-first `@theme` config) |
-| State | TanStack Query v5 (server state) + Zustand 4 (UI state) |
-| Jobs (v1) | FastAPI `BackgroundTasks` + DB `export_jobs` table, frontend polls status |
-| Storage | Abstraction with drivers: `LocalFSStorage` (v1), `AzureBlobStorage` (roadmap stub) |
-| Auth | Local email+password (argon2), JWT access + HttpOnly refresh cookie; Entra ID OIDC = roadmap |
-| PDF export | Playwright (Python) + `pypdf` merge |
-| Single-HTML export | Custom Python inliner (`selectolax`) — no Node dependency |
+
+| Area                 | Decision                                                                                                                                 |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Backend              | Python 3.12 + FastAPI 0.115 + SQLAlchemy 2.0 async + asyncpg + Alembic                                                                   |
+| DB                   | PostgreSQL 16 (single local install on the host)                                                                                         |
+| Frontend             | React 18 + Vite 5 + TypeScript 5 + **Tailwind CSS 4** (CSS-first `@theme` config)                                                        |
+| State                | TanStack Query v5 (server state) + Zustand 4 (UI state)                                                                                  |
+| Jobs (v1)            | FastAPI `BackgroundTasks` + DB `export_jobs` table, frontend polls status                                                                |
+| Storage              | Abstraction with drivers: `LocalFSStorage` (v1), `AzureBlobStorage` (roadmap stub)                                                       |
+| Auth                 | Local email+password (argon2), JWT access + HttpOnly refresh cookie; Entra ID OIDC = roadmap                                             |
+| PDF export           | Playwright (Python) + `pypdf` merge                                                                                                      |
+| Single-HTML export   | Custom Python inliner (`selectolax`) — no Node dependency                                                                                |
 | Slide identification | Iframe sandbox + injected `probe.js`: auto-detect `[data-slide]` → top-level `<section>` → single-slide fallback; `postMessage` protocol |
-| Logging | `structlog` JSON logs → stdout (systemd journal) + DB ring buffer (`app_logs` table, capped) surfaced in Admin UI |
-| Process mgmt | systemd units: `promptdeck-api.service`, `promptdeck-web.service` (nginx serves built frontend); Postgres is a system service |
-| Runtime | Python deps via `uv`, Node deps via `pnpm`, no containers |
+| Logging              | `structlog` JSON logs → stdout (systemd journal) + DB ring buffer (`app_logs` table, capped) surfaced in Admin UI                        |
+| Process mgmt         | systemd units: `promptdeck-api.service`, `promptdeck-web.service` (nginx serves built frontend); Postgres is a system service            |
+| Runtime              | Python deps via `uv`, Node deps via `pnpm`, no containers                                                                                |
+
 
 ## Hosting Model
 
@@ -277,6 +282,7 @@ Every HTTP request gets a `X-Request-ID` (generated if absent) which is set as a
 ## Frontend Architecture
 
 **Tailwind 4** (CSS-first). `src/styles/tailwind.css`:
+
 ```css
 @import "tailwindcss";
 
@@ -301,6 +307,7 @@ Every HTTP request gets a `X-Request-ID` (generated if absent) which is set as a
   --radius-sharp: 4px;
 }
 ```
+
 No `tailwind.config.ts`. `<html class="dark">` permanently; no light mode.
 
 **State:** TanStack Query for server state. Zustand for UI state only (`commentMode`, `activeSlideIndex`, drawer visibility, connection health indicator — reused later for real-time). Because v1 is not real-time, caches are invalidated by: (a) route change, (b) window focus, (c) explicit Refresh button in the top nav, (d) after a successful mutation.
@@ -324,6 +331,7 @@ No `tailwind.config.ts`. `<html class="dark">` permanently; no light mode.
 **Goal:** enable a non-developer admin (or a coding LLM during development) to figure out "what happened" without SSHing into the box.
 
 **Log sources** all funneled through `structlog`:
+
 1. HTTP access middleware — method, path, status, latency, request ID, user ID, IP.
 2. Business events — `presentation.uploaded`, `comment.created`, `share.exchanged`, `export.completed`, etc., with structured payloads.
 3. Errors — exception class, traceback (truncated), request ID.
@@ -332,6 +340,7 @@ No `tailwind.config.ts`. `<html class="dark">` permanently; no light mode.
 Each log record is dual-written: stdout JSON (for systemd journal / future log aggregators) and a row in `app_logs` (capped ring buffer).
 
 **Admin UI surfaces:**
+
 - **Logs tab** — live-ish table (refreshed on demand + auto every 10s), filter by level/user/request ID/path/date range, click a row to expand the full `payload` JSON, "Copy request ID" button. Keyboard shortcut `/` focuses filter.
 - **Jobs tab** — list of `export_jobs` with status, progress, error, re-run button for `failed`.
 - **Presentations tab** — recent uploads with file size, storage path, slide count, link to view.
@@ -349,7 +358,7 @@ The Admin page is the primary "debugger" for v1. Any bug report from a user shou
 - Share tokens: 32 random bytes, stored as sha256 hash, plaintext shown once.
 - Passwords: argon2id via `argon2-cffi`.
 - Sessions: JWT access (15 min) + HttpOnly refresh cookie (14 d), rotation on refresh.
-- Rate limits (slowapi): `/auth/*` 5/min/IP, uploads 20/hr/user, `/shares/exchange` 10/min/IP.
+- Rate limits (slowapi): `/auth/`* 5/min/IP, uploads 20/hr/user, `/shares/exchange` 10/min/IP.
 - ACL middleware resolves role from user JWT OR share JWT and applies per-presentation checks.
 - Audit log writes on: login, login fail, share create/revoke/exchange, version create, export, role change, admin-page access.
 
@@ -357,11 +366,12 @@ The Admin page is the primary "debugger" for v1. Any bug report from a user shou
 
 This is first-class. The code must be built so an LLM (Claude Code, Cursor) can extend it reliably on its own.
 
-**`CLAUDE.md` (repo root)** contains:
+`**CLAUDE.md` (repo root)** contains:
+
 1. **Project elevator pitch** — 5 lines.
 2. **Directory map** — annotated tree (key files, where to add things).
 3. **Command cheat sheet** — every verified command in one place:
-   ```
+  ```
    just setup            # install deps (uv sync, pnpm install, playwright install)
    just dev              # run api + web concurrently
    just verify           # run ALL checks; exit 0 or print fix hints
@@ -374,31 +384,31 @@ This is first-class. The code must be built so an LLM (Claude Code, Cursor) can 
    just db-migrate       # alembic upgrade head
    just db-reset         # drop+recreate, apply migrations, seed
    just api-contract     # regenerate frontend/src/lib/api/ from /openapi.json
-   ```
+  ```
 4. **"How to add X" recipes** — one section each, with exact files to touch:
-   - Add a new API endpoint
-   - Add a new DB field
-   - Add a new frontend page
-   - Add a new component
-   - Add a new test
-   - Add a new log event
-   - Add a new admin log filter
+  - Add a new API endpoint
+  - Add a new DB field
+  - Add a new frontend page
+  - Add a new component
+  - Add a new test
+  - Add a new log event
+  - Add a new admin log filter
 5. **Non-negotiable rules** —
-   - Always run `just verify` before declaring work done.
-   - Never hand-edit `frontend/src/lib/api/*` — regenerate via `just api-contract`.
-   - Every new endpoint needs: pydantic schemas, router function, test, OpenAPI re-gen.
-   - Every new business event must emit a `structlog` event and be visible in Admin Logs.
-   - Every new background job writes status + progress to its job table row.
-   - Prefer editing an existing file over creating a new one.
+  - Always run `just verify` before declaring work done.
+  - Never hand-edit `frontend/src/lib/api/*` — regenerate via `just api-contract`.
+  - Every new endpoint needs: pydantic schemas, router function, test, OpenAPI re-gen.
+  - Every new business event must emit a `structlog` event and be visible in Admin Logs.
+  - Every new background job writes status + progress to its job table row.
+  - Prefer editing an existing file over creating a new one.
 6. **Debugging flow** — "find the request ID in the UI toast → open `/admin/logs` → filter by request ID → inspect payload → fix → add a regression test."
 7. **Scope boundaries** — link to `docs/ROADMAP.md`; list what NOT to build.
 8. **File size budget** — soft cap 400 LOC per file to keep LLM context-friendly.
 
-**`.cursorrules`** — a compact (≤120 line) mirror of CLAUDE.md's rules section for Cursor users.
+`**.cursorrules`** — a compact (≤120 line) mirror of CLAUDE.md's rules section for Cursor users.
 
-**`docs/CONVENTIONS.md`** — naming, typing discipline (no `any`, no untyped dicts at boundaries), error handling (domain exceptions → problem+json), pydantic schema split (Create/Read/Update), FastAPI router layering (router → service → repo/db), tests mirror source tree 1:1.
+`**docs/CONVENTIONS.md**` — naming, typing discipline (no `any`, no untyped dicts at boundaries), error handling (domain exceptions → problem+json), pydantic schema split (Create/Read/Update), FastAPI router layering (router → service → repo/db), tests mirror source tree 1:1.
 
-**`docs/adr/`** — one ADR per material decision (stack, no-realtime-v1, iframe model, logging design, LLM-first layout).
+`**docs/adr/**` — one ADR per material decision (stack, no-realtime-v1, iframe model, logging design, LLM-first layout).
 
 **OpenAPI-driven frontend client** — `openapi-typescript` generates `frontend/src/lib/api/types.ts` and `client.ts` from a committed `backend/openapi.json` snapshot. CI fails if the snapshot is stale. This gives the LLM a single source of truth and fails loudly on contract drift.
 
@@ -409,6 +419,7 @@ This is first-class. The code must be built so an LLM (Claude Code, Cursor) can 
 This is explicitly designed so an LLM can **write code → run one command → get deterministic, labeled pass/fail output → iterate**.
 
 ### Backend
+
 - **pytest** + `pytest-asyncio` + `httpx.AsyncClient` against a real Postgres template DB.
 - Fixtures via `polyfactory` for all models (`backend/app/tests/factories.py`).
 - `conftest.py` provides `client`, `authed_client`, `admin_client`, `sample_deck_path`, `tmp_storage`.
@@ -418,6 +429,7 @@ This is explicitly designed so an LLM can **write code → run one command → g
 - **Smoke test `scripts/e2e_smoke.py`** — fully self-contained, reset DB → seed → upload fixture → create thread → create share link → exchange → export PDF → assert 3-page PDF. Prints `PASS` / `FAIL: <reason>`.
 
 ### Frontend
+
 - **vitest** + `@testing-library/react` for unit/component tests.
 - **msw** to mock the backend in component tests using the generated OpenAPI types (so tests break when contracts break).
 - **Playwright** for e2e (`just test-e2e`) — runs against a locally started api + web; includes golden-path scenario matching the smoke script.
@@ -425,6 +437,7 @@ This is explicitly designed so an LLM can **write code → run one command → g
 - **Visual sanity:** `@playwright/test` screenshot of `PresentationPage` vs a baseline (tolerance 0.1%) so design-token drift fails CI.
 
 ### Single-entry verification — `scripts/verify.sh`
+
 ```
 #!/usr/bin/env bash
 set -euo pipefail
@@ -440,26 +453,30 @@ section "openapi contract"      ; (cd backend && uv run python -m app.scripts.ch
 section "smoke test"            ; (cd backend && uv run python ../scripts/e2e_smoke.py)
 echo -e "\n✅ verify passed"
 ```
+
 LLM workflow: after any change, `just verify`. First failure section = next thing to fix.
 
 ## Milestones
 
-| # | Name | Deliverable |
-|---|---|---|
-| M0 | Repo + LLM scaffolding | `CLAUDE.md`, `.cursorrules`, `docs/`, `justfile`, `scripts/verify.sh` stub, empty backend/frontend projects that boot, one dummy test, CI green. |
-| M1 | Auth + DB + logging | Users table, local email+password, JWT, admin seed, `app_logs` ring buffer + structlog middleware, basic Admin Logs tab showing live entries. |
-| M2 | Upload + Canvas | Presentations/versions/slides, single-HTML upload, local storage driver, assets router + CSP + signed URLs + `probe.js`, `SlideFrame`, `PresentationPage` with TopNav + 16:9 elevated canvas + floating ActionBar + prev/next. |
-| M3 | Comments (manual refresh) | Threads + comments tables, endpoints, FeedbackSidebar, CommentMarker overlay, comment-mode crosshair, refresh button. |
-| M4 | Share + Export | Share links + exchange flow, ShareModal, ExportModal, Playwright PDF exporter, `export_jobs` table + polling, single-HTML inliner, download route. Zip upload support added here so the inliner has something to chew on. |
-| M5 | Admin page full | Jobs, Presentations, Users, Audit, Stats tabs. Filters + request-ID search on Logs. |
-| M6 | Mobile + polish | vaul drawers below `md`, long-press comment flow, hide Export on mobile, large touch markers, Playwright mobile viewport tests. |
-| M7 | Hardening | Zip-slip fuzz, CSP audit, rate limits, argon2 tuning, backup script, systemd unit files + nginx config, deploy runbook. |
+
+| #   | Name                      | Deliverable                                                                                                                                                                                                                    |
+| --- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| M0  | Repo + LLM scaffolding    | `CLAUDE.md`, `.cursorrules`, `docs/`, `justfile`, `scripts/verify.sh` stub, empty backend/frontend projects that boot, one dummy test, CI green.                                                                               |
+| M1  | Auth + DB + logging       | Users table, local email+password, JWT, admin seed, `app_logs` ring buffer + structlog middleware, basic Admin Logs tab showing live entries.                                                                                  |
+| M2  | Upload + Canvas           | Presentations/versions/slides, single-HTML upload, local storage driver, assets router + CSP + signed URLs + `probe.js`, `SlideFrame`, `PresentationPage` with TopNav + 16:9 elevated canvas + floating ActionBar + prev/next. |
+| M3  | Comments (manual refresh) | Threads + comments tables, endpoints, FeedbackSidebar, CommentMarker overlay, comment-mode crosshair, refresh button.                                                                                                          |
+| M4  | Share + Export            | Share links + exchange flow, ShareModal, ExportModal, Playwright PDF exporter, `export_jobs` table + polling, single-HTML inliner, download route. Zip upload support added here so the inliner has something to chew on.      |
+| M5  | Admin page full           | Jobs, Presentations, Users, Audit, Stats tabs. Filters + request-ID search on Logs.                                                                                                                                            |
+| M6  | Mobile + polish           | vaul drawers below `md`, long-press comment flow, hide Export on mobile, large touch markers, Playwright mobile viewport tests.                                                                                                |
+| M7  | Hardening                 | Zip-slip fuzz, CSP audit, rate limits, argon2 tuning, backup script, systemd unit files + nginx config, deploy runbook.                                                                                                        |
+
 
 Roadmap items (separate track, explicit in `docs/ROADMAP.md`): real-time via SSE, LiteLLM-based AI regen, Entra ID OIDC, Azure Blob driver, GitLab/GitHub sync.
 
 ## Critical Files to Create
 
 Backend:
+
 - `backend/app/main.py`
 - `backend/app/config.py`
 - `backend/app/logging_conf.py`
@@ -474,6 +491,7 @@ Backend:
 - `backend/app/tests/conftest.py` + factories + router tests
 
 Frontend:
+
 - `frontend/src/styles/tailwind.css` (Tailwind 4 `@theme`)
 - `frontend/src/components/canvas/SlideFrame.tsx`
 - `frontend/src/components/feedback/FeedbackSidebar.tsx`
@@ -485,6 +503,7 @@ Frontend:
 - `frontend/src/hooks/{usePresentation,useComments,useAdminLogs}.ts`
 
 Root / LLM / ops:
+
 - `CLAUDE.md`
 - `.cursorrules`
 - `justfile`
