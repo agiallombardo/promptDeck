@@ -1,4 +1,4 @@
-import type { RefObject } from "react";
+import type { Ref, RefObject } from "react";
 import type { ThreadDto } from "../../lib/api";
 import { CommentMarker } from "./CommentMarker";
 import { SlideFrame } from "./SlideFrame";
@@ -37,7 +37,7 @@ export function PresentationCanvas({
       {iframeSrc ? (
         <>
           <SlideFrame
-            ref={iframeRef}
+            ref={iframeRef as Ref<HTMLIFrameElement>}
             src={iframeSrc}
             onManifest={onManifest}
             onSlideClick={onSlideClick}
