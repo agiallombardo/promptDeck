@@ -46,18 +46,6 @@ db-migrate:
 db-reset:
     cd backend && uv run alembic downgrade base && uv run alembic upgrade head && uv run python ../scripts/seed.py
 
-docker-up:
-    docker compose up --build -d
-
-docker-down:
-    docker compose down
-
-docker-logs *ARGS:
-    docker compose logs -f {{ARGS}}
-
-docker-migrate:
-    docker compose exec backend uv run alembic upgrade head
-
 api-contract:
     just _pnpm exec openapi-typescript ../backend/openapi.json -o src/lib/api/schema.d.ts
     just _pnpm exec prettier --write src/lib/api/schema.d.ts

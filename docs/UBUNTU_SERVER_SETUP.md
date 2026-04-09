@@ -1,6 +1,6 @@
 # Ubuntu server setup (promptDeck)
 
-Step-by-step notes for a **single long-lived VM** running PostgreSQL, nginx, and promptDeck (FastAPI + static Vite build), aligned with `plans/humming-bouncing-toast.md` and `docs/RUNBOOK.md`.
+Step-by-step notes for a **single long-lived VM** running PostgreSQL, nginx, and promptDeck (FastAPI + static Vite build), aligned with `docs/RUNBOOK.md`.
 
 **Scope:** Ubuntu **22.04 or 24.04 LTS**, `systemd`, **no Docker** for v1. Commands assume `sudo` where needed.
 
@@ -75,7 +75,7 @@ And ensure `DefaultLimitNOFILE=65535` in `/etc/systemd/system.conf` if needed, t
 
 ---
 
-## 2. PostgreSQL 16
+## 2. PostgreSQL 18
 
 ### 2.1 Install (Ubuntu PGDG)
 
@@ -83,7 +83,7 @@ And ensure `DefaultLimitNOFILE=65535` in `/etc/systemd/system.conf` if needed, t
 sudo apt install -y postgresql-common
 sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
 sudo apt update
-sudo apt install -y postgresql-16 postgresql-client-16
+sudo apt install -y postgresql-18 postgresql-client-18
 ```
 
 ### 2.2 Create database and role
@@ -109,7 +109,7 @@ Default: Postgres listens on `localhost` only — correct for a single host with
 Check:
 
 ```bash
-sudo grep listen_addresses /etc/postgresql/16/main/postgresql.conf
+sudo grep listen_addresses /etc/postgresql/18/main/postgresql.conf
 ```
 
 For **peer auth** from `sudo -u postgres`, leave `pg_hba.conf` as shipped. The app connects over TCP as user `promptdeck` using password auth (`scram-sha-256`); ensure a line like:
@@ -118,7 +118,7 @@ For **peer auth** from `sudo -u postgres`, leave `pg_hba.conf` as shipped. The a
 host    promptdeck    promptdeck    127.0.0.1/32    scram-sha-256
 ```
 
-in `/etc/postgresql/16/main/pg_hba.conf`, then reload Postgres (§2.4).
+in `/etc/postgresql/18/main/pg_hba.conf`, then reload Postgres (§2.4).
 
 ### 2.4 Graceful reload vs restart
 
@@ -372,7 +372,7 @@ cd frontend && pnpm dev
 ## 10. Quick checklist
 
 - [ ] UFW: SSH + 80/443 (and optional restricted dev ports).
-- [ ] PostgreSQL 16: DB + user + `DATABASE_URL`.
+- [ ] PostgreSQL 18: DB + user + `DATABASE_URL`.
 - [ ] `alembic upgrade head` + `scripts/seed.py` if needed.
 - [ ] `STORAGE_ROOT` on disk with correct ownership.
 - [ ] Frontend build copied to nginx `root`.

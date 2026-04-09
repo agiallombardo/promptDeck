@@ -11,7 +11,6 @@ promptDeck is an internal web app for **HTML “deck” presentations**: upload 
 | `backend/` | FastAPI app (`app/main.py`), future routers, Alembic, `openapi.json` snapshot |
 | `frontend/` | Vite + React + TypeScript + Tailwind 4 (`src/styles/tailwind.css` `@theme`) |
 | `scripts/` | `verify.sh` (all checks), `dev.sh` (API + Vite), `e2e_smoke.py`, `seed.py` (admin user) |
-| `plans/` | Product/implementation plans (source of truth for milestones) |
 | `docs/` | Conventions, runbook, ADRs, roadmap, `API.md` (generated from OpenAPI) |
 | `deploy/` | Sample systemd unit + nginx site (`systemd/promptdeck-api.service`, `nginx/promptdeck.conf.sample`) |
 
@@ -105,4 +104,4 @@ User copies **request ID** from a toast → Admin logs filter → inspect payloa
 
 ## Scope
 
-Deferred items and rationale: `docs/ROADMAP.md`. Full v1 spec: `plans/humming-bouncing-toast.md`.
+Deferred items and rationale: `docs/ROADMAP.md`.

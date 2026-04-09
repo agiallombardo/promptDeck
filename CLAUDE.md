@@ -11,7 +11,6 @@ Internal app: **HTML deck** presentations — upload `.html` / `.zip`, sandboxed
 | `backend/` | FastAPI (`app/main.py`), routers, Alembic, `openapi.json` |
 | `frontend/` | Vite + React + TS + Tailwind 4 (`src/styles/tailwind.css` `@theme`) |
 | `scripts/` | `verify.sh`, `dev.sh`, `e2e_smoke.py`, `seed.py` |
-| `plans/` | Milestones / product plans |
 | `docs/` | Conventions, runbook, ADRs, `docs/ROADMAP.md`, `API.md` (OpenAPI) |
 | `deploy/` | Samples: `systemd/promptdeck-api.service`, `nginx/promptdeck.conf.sample` |
 
@@ -105,4 +104,4 @@ Toast **request ID** → Admin logs filter → payload → fix → regression te
 
 ## Scope
 
-Deferred: `docs/ROADMAP.md`. v1 spec: `plans/humming-bouncing-toast.md`.
+Deferred: `docs/ROADMAP.md`.
