@@ -2,12 +2,22 @@
 
 set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
 
+[private]
+_pnpm *ARGS:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ROOT="{{justfile_directory()}}"
+    # shellcheck source=scripts/pnpm.sh
+    source "$ROOT/scripts/pnpm.sh"
+    cd "$ROOT/frontend"
+    run_pnpm {{ARGS}}
+
 default:
     @just --list
 
 setup:
     cd backend && uv sync --group dev
-    cd frontend && (command -v pnpm >/dev/null 2>&1 && pnpm install || npx --yes pnpm@9.15.4 install)
+    just _pnpm install
     @echo "Run: cd backend && uv run playwright install chromium"  # when PDF export lands
 
 dev:
@@ -20,15 +30,15 @@ test-backend:
     cd backend && uv run pytest -q
 
 test-frontend:
-    cd frontend && (command -v pnpm >/dev/null 2>&1 && pnpm run test:run || npx --yes pnpm@9.15.4 run test:run)
+    just _pnpm run test:run
 
 lint:
     cd backend && uv run ruff check . && uv run ruff format --check .
-    cd frontend && (command -v pnpm >/dev/null 2>&1 && pnpm lint || npx --yes pnpm@9.15.4 lint)
+    just _pnpm lint
 
 types:
     cd backend && uv run pyright
-    cd frontend && (command -v pnpm >/dev/null 2>&1 && pnpm tsc || npx --yes pnpm@9.15.4 tsc)
+    just _pnpm tsc
 
 db-migrate:
     cd backend && uv run alembic upgrade head
@@ -36,9 +46,21 @@ db-migrate:
 db-reset:
     cd backend && uv run alembic downgrade base && uv run alembic upgrade head && uv run python ../scripts/seed.py
 
+docker-up:
+    docker compose up --build -d
+
+docker-down:
+    docker compose down
+
+docker-logs *ARGS:
+    docker compose logs -f {{ARGS}}
+
+docker-migrate:
+    docker compose exec backend uv run alembic upgrade head
+
 api-contract:
-    cd frontend && (command -v pnpm >/dev/null 2>&1 && pnpm exec openapi-typescript ../backend/openapi.json -o src/lib/api/schema.d.ts || npx --yes pnpm@9.15.4 exec openapi-typescript ../backend/openapi.json -o src/lib/api/schema.d.ts)
-    cd frontend && (command -v pnpm >/dev/null 2>&1 && pnpm exec prettier --write src/lib/api/schema.d.ts || npx --yes pnpm@9.15.4 exec prettier --write src/lib/api/schema.d.ts)
+    just _pnpm exec openapi-typescript ../backend/openapi.json -o src/lib/api/schema.d.ts
+    just _pnpm exec prettier --write src/lib/api/schema.d.ts
     uv run python scripts/gen_api_md.py
 
 smoke:

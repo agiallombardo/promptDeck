@@ -111,7 +111,7 @@ async def list_threads(
         .options(selectinload(CommentThread.comments).selectinload(Comment.author))
         .order_by(CommentThread.created_at.desc())
     )
-    rows = result.scalars().unique().all()
+    rows = result.scalars().all()
     return ThreadListResponse(items=[_thread_read(t) for t in rows])
 
 

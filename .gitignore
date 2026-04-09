@@ -1,3 +1,6 @@
+# Local agent / IDE (never commit)
+.claude/
+
 # General OS
 .DS_Store
 Thumbs.db

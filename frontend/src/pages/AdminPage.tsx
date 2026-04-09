@@ -238,35 +238,43 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border font-mono text-xs text-text-main">
-                    {logs.data?.items.map((row) => (
-                      <tr key={row.id} className="align-top hover:bg-bg-recessed/60">
-                        <td className="whitespace-nowrap px-3 py-2 text-text-muted">{row.ts}</td>
-                        <td className="px-3 py-2 text-primary">{row.channel}</td>
-                        <td className="px-3 py-2">{row.level}</td>
-                        <td className="px-3 py-2">{row.method}</td>
-                        <td className="max-w-[220px] truncate px-3 py-2" title={row.path}>
-                          {row.path}
-                        </td>
-                        <td className="px-3 py-2">{row.status_code ?? "—"}</td>
-                        <td
-                          className="max-w-[160px] truncate px-3 py-2"
-                          title={row.request_id ?? ""}
-                        >
-                          {row.request_id ?? "—"}
-                        </td>
-                        <td className="px-3 py-2">
-                          {row.request_id ? (
-                            <button
-                              type="button"
-                              className="text-primary underline"
-                              onClick={() => void copyText(row.request_id!)}
-                            >
-                              Copy
-                            </button>
-                          ) : null}
+                    {logs.data?.items.length ? (
+                      logs.data.items.map((row) => (
+                        <tr key={row.id} className="align-top hover:bg-bg-recessed/60">
+                          <td className="whitespace-nowrap px-3 py-2 text-text-muted">{row.ts}</td>
+                          <td className="px-3 py-2 text-primary">{row.channel}</td>
+                          <td className="px-3 py-2">{row.level}</td>
+                          <td className="px-3 py-2">{row.method}</td>
+                          <td className="max-w-[220px] truncate px-3 py-2" title={row.path}>
+                            {row.path}
+                          </td>
+                          <td className="px-3 py-2">{row.status_code ?? "—"}</td>
+                          <td
+                            className="max-w-[160px] truncate px-3 py-2"
+                            title={row.request_id ?? ""}
+                          >
+                            {row.request_id ?? "—"}
+                          </td>
+                          <td className="px-3 py-2">
+                            {row.request_id ? (
+                              <button
+                                type="button"
+                                className="text-primary underline"
+                                onClick={() => void copyText(row.request_id!)}
+                              >
+                                Copy
+                              </button>
+                            ) : null}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td className="px-3 py-6 text-text-muted" colSpan={8}>
+                          No log rows match the current filters.
                         </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -292,15 +300,23 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border font-mono text-xs">
-                  {jobs.data?.items.map((j) => (
-                    <tr key={j.id}>
-                      <td className="px-3 py-2 text-text-muted">{j.created_at}</td>
-                      <td className="px-3 py-2">{j.presentation_title}</td>
-                      <td className="px-3 py-2">{j.format}</td>
-                      <td className="px-3 py-2">{j.status}</td>
-                      <td className="px-3 py-2">{j.progress}%</td>
+                  {jobs.data?.items.length ? (
+                    jobs.data.items.map((j) => (
+                      <tr key={j.id}>
+                        <td className="px-3 py-2 text-text-muted">{j.created_at}</td>
+                        <td className="px-3 py-2">{j.presentation_title}</td>
+                        <td className="px-3 py-2">{j.format}</td>
+                        <td className="px-3 py-2">{j.status}</td>
+                        <td className="px-3 py-2">{j.progress}%</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td className="px-3 py-6 text-text-muted" colSpan={5}>
+                        No export jobs yet.
+                      </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>
@@ -324,14 +340,22 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border font-mono text-xs">
-                  {presentations.data?.items.map((p) => (
-                    <tr key={p.id}>
-                      <td className="px-3 py-2 text-text-muted">{p.updated_at}</td>
-                      <td className="px-3 py-2">{p.title}</td>
-                      <td className="px-3 py-2">{p.owner_email}</td>
-                      <td className="px-3 py-2">{p.version_count}</td>
+                  {presentations.data?.items.length ? (
+                    presentations.data.items.map((p) => (
+                      <tr key={p.id}>
+                        <td className="px-3 py-2 text-text-muted">{p.updated_at}</td>
+                        <td className="px-3 py-2">{p.title}</td>
+                        <td className="px-3 py-2">{p.owner_email}</td>
+                        <td className="px-3 py-2">{p.version_count}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td className="px-3 py-6 text-text-muted" colSpan={4}>
+                        No presentations.
+                      </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>
@@ -355,14 +379,22 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border font-mono text-xs">
-                  {users.data?.items.map((u) => (
-                    <tr key={u.id}>
-                      <td className="px-3 py-2">{u.email}</td>
-                      <td className="px-3 py-2">{u.role}</td>
-                      <td className="px-3 py-2 text-text-muted">{u.last_login_at ?? "—"}</td>
-                      <td className="px-3 py-2 text-text-muted">{u.created_at}</td>
+                  {users.data?.items.length ? (
+                    users.data.items.map((u) => (
+                      <tr key={u.id}>
+                        <td className="px-3 py-2">{u.email}</td>
+                        <td className="px-3 py-2">{u.role}</td>
+                        <td className="px-3 py-2 text-text-muted">{u.last_login_at ?? "—"}</td>
+                        <td className="px-3 py-2 text-text-muted">{u.created_at}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td className="px-3 py-6 text-text-muted" colSpan={4}>
+                        No users.
+                      </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>
@@ -387,19 +419,27 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border font-mono text-xs">
-                  {audit.data?.items.map((a) => (
-                    <tr key={a.id}>
-                      <td className="whitespace-nowrap px-3 py-2 text-text-muted">{a.ts}</td>
-                      <td className="px-3 py-2">{a.action}</td>
-                      <td className="max-w-[120px] truncate px-3 py-2" title={a.actor_id ?? ""}>
-                        {a.actor_id ?? "—"}
+                  {audit.data?.items.length ? (
+                    audit.data.items.map((a) => (
+                      <tr key={a.id}>
+                        <td className="whitespace-nowrap px-3 py-2 text-text-muted">{a.ts}</td>
+                        <td className="px-3 py-2">{a.action}</td>
+                        <td className="max-w-[120px] truncate px-3 py-2" title={a.actor_id ?? ""}>
+                          {a.actor_id ?? "—"}
+                        </td>
+                        <td className="max-w-[200px] truncate px-3 py-2">
+                          {a.target_kind ?? "—"} {a.target_id ?? ""}
+                        </td>
+                        <td className="px-3 py-2">{a.ip ?? "—"}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td className="px-3 py-6 text-text-muted" colSpan={5}>
+                        No audit events yet.
                       </td>
-                      <td className="max-w-[200px] truncate px-3 py-2">
-                        {a.target_kind ?? "—"} {a.target_id ?? ""}
-                      </td>
-                      <td className="px-3 py-2">{a.ip ?? "—"}</td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>

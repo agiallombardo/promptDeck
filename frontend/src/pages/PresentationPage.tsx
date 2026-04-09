@@ -156,7 +156,7 @@ export default function PresentationPage() {
 
   const feedbackSidebarProps = {
     threads: threads.data?.items ?? [],
-    isLoading: threads.isLoading,
+    isLoading: Boolean(pres.isLoading || !versionId || threads.isLoading),
     isRefreshing: threads.isFetching && !threads.isLoading,
     error: threadsError,
     canComment,

@@ -166,7 +166,7 @@ async def list_versions(
         .order_by(PresentationVersion.version_number.desc())
         .options(selectinload(PresentationVersion.slides))
     )
-    rows = result.scalars().unique().all()
+    rows = result.scalars().all()
     return [_version_read(v) for v in rows]
 
 

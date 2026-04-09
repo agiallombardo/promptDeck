@@ -22,8 +22,8 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 14
     cors_origins: list[str] = Field(
         default_factory=lambda: [
-            "http://127.0.0.1:5173",
-            "http://localhost:5173",
+            "http://127.0.0.1:5174",
+            "http://localhost:5174",
         ]
     )
     cookie_secure: bool = False
@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     )
     asset_url_ttl_seconds: int = Field(default=3600, description="Signed /a/… URL lifetime")
     public_app_url: str = Field(
-        default="http://127.0.0.1:5173",
+        default="http://127.0.0.1:5174",
         description=(
             "Origin for absolute embed URLs (no trailing slash); defaults to Vite dev server"
         ),

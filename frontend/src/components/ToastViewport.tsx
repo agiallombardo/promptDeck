@@ -1,17 +1,42 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useToastStore } from "../stores/toasts";
 
 export function ToastViewport() {
   const items = useToastStore((s) => s.items);
   const dismissToast = useToastStore((s) => s.dismissToast);
+  const timersRef = useRef<Map<string, number>>(new Map());
 
   useEffect(() => {
-    if (items.length === 0) return;
-    const t = window.setTimeout(() => {
-      dismissToast(items[0]!.id);
-    }, 9000);
-    return () => window.clearTimeout(t);
+    const timers = timersRef.current;
+    const ids = new Set(items.map((i) => i.id));
+
+    for (const item of items) {
+      if (!timers.has(item.id)) {
+        const tid = window.setTimeout(() => {
+          timers.delete(item.id);
+          dismissToast(item.id);
+        }, 9000);
+        timers.set(item.id, tid);
+      }
+    }
+
+    for (const [id, tid] of [...timers.entries()]) {
+      if (!ids.has(id)) {
+        window.clearTimeout(tid);
+        timers.delete(id);
+      }
+    }
   }, [items, dismissToast]);
+
+  useEffect(() => {
+    const timers = timersRef.current;
+    return () => {
+      for (const tid of timers.values()) {
+        window.clearTimeout(tid);
+      }
+      timers.clear();
+    };
+  }, []);
 
   if (items.length === 0) return null;
 

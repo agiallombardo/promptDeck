@@ -1,0 +1,69 @@
+# Default bridge network: Docker NAT provides outbound internet; service names (db, backend) resolve internally.
+# Postgres and file storage use Docker named volumes (isolated from the repo and from a host/other-container Postgres).
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: promptdeck
+      POSTGRES_PASSWORD: promptdeck
+      POSTGRES_DB: promptdeck
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U promptdeck -d promptdeck"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: >
+      uv run uvicorn app.main:app
+      --reload
+      --host 0.0.0.0
+      --port 8005
+    environment:
+      DATABASE_URL: postgresql+asyncpg://promptdeck:promptdeck@db:5432/promptdeck
+      JWT_SECRET_KEY: dev-docker-jwt-secret-change-in-production
+      STORAGE_ROOT: /app/data/storage
+      ENVIRONMENT: development
+      COOKIE_SECURE: "false"
+      CORS_ORIGINS: '["http://127.0.0.1:${FRONTEND_PORT:-5174}","http://localhost:${FRONTEND_PORT:-5174}"]'
+      PUBLIC_APP_URL: "http://127.0.0.1:${FRONTEND_PORT:-5174}"
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/alembic:/app/alembic
+      - backend_storage:/app/data/storage
+    ports:
+      - "127.0.0.1:${API_PORT:-8005}:8005"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    command: pnpm dev --host 0.0.0.0 --port ${FRONTEND_PORT:-5174}
+    environment:
+      VITE_PROXY_TARGET: http://backend:8005
+      VITE_DEV_PORT: "${FRONTEND_PORT:-5174}"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - ./frontend/index.html:/app/index.html
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-5174}:${FRONTEND_PORT:-5174}"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+    name: promptdeck_postgres_data
+  backend_storage:
+    name: promptdeck_backend_storage

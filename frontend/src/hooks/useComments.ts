@@ -41,6 +41,8 @@ export function useComments(
       setCommentMode(false);
       await qc.invalidateQueries({ queryKey: ["threads", presentationId, token] });
     },
+    onError: () =>
+      undefined /* keep pin, draft, comment mode; errors surface via jsonFetch toasts */,
   });
 
   const addReply = useMutation({
@@ -49,6 +51,8 @@ export function useComments(
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["threads", presentationId, token] });
     },
+    onError: () =>
+      undefined /* reply draft cleared only from caller onSuccess; leave unchanged on failure */,
   });
 
   const resolveThread = useMutation({

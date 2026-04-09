@@ -8,7 +8,7 @@ User=promptdeck
 Group=promptdeck
 WorkingDirectory=/opt/promptdeck/backend
 EnvironmentFile=/etc/promptdeck/api.env
-ExecStart=/opt/promptdeck/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --proxy-headers
+ExecStart=/opt/promptdeck/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8005 --proxy-headers
 Restart=on-failure
 RestartSec=5
 

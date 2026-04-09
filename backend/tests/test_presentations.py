@@ -5,10 +5,12 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 from app.config import get_settings
+from app.db.models.audit_log import AuditLog
 from app.db.models.user import User, UserRole
 from app.db.session import session_factory
 from app.security.passwords import hash_password
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import func, select
 
 SAMPLE_HTML = b"""<!DOCTYPE html>
 <html><head><title>T</title></head>
@@ -114,3 +116,43 @@ async def test_upload_embed_and_serve_asset(editor_client: AsyncClient) -> None:
         },
     )
     assert bad.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_patch_presentation_records_audit(editor_client: AsyncClient) -> None:
+    c = editor_client
+    r0 = await c.post("/api/v1/presentations", json={"title": "A"})
+    assert r0.status_code == 201
+    pid = uuid.UUID(r0.json()["id"])
+    patch = await c.patch(f"/api/v1/presentations/{pid}", json={"title": "B"})
+    assert patch.status_code == 200
+
+    async with session_factory()() as session:
+        n = (
+            await session.execute(
+                select(func.count())
+                .select_from(AuditLog)
+                .where(AuditLog.action == "presentation.updated", AuditLog.target_id == pid),
+            )
+        ).scalar_one()
+    assert int(n) >= 1
+
+
+@pytest.mark.asyncio
+async def test_delete_presentation_records_audit(editor_client: AsyncClient) -> None:
+    c = editor_client
+    r0 = await c.post("/api/v1/presentations", json={"title": "Z"})
+    assert r0.status_code == 201
+    pid = uuid.UUID(r0.json()["id"])
+    d = await c.delete(f"/api/v1/presentations/{pid}")
+    assert d.status_code == 204
+
+    async with session_factory()() as session:
+        n = (
+            await session.execute(
+                select(func.count())
+                .select_from(AuditLog)
+                .where(AuditLog.action == "presentation.deleted", AuditLog.target_id == pid),
+            )
+        ).scalar_one()
+    assert int(n) >= 1

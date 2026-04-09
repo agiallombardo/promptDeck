@@ -4,7 +4,7 @@ import time
 from typing import Annotated
 from urllib.parse import quote, urlencode
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -30,6 +30,7 @@ from app.schemas.presentation import (
     VersionRead,
 )
 from app.security.asset_signing import sign_asset
+from app.services.audit import client_ip_from_request, record_audit
 
 router = APIRouter(prefix="/presentations", tags=["presentations"])
 
@@ -119,8 +120,10 @@ async def get_presentation_detail(
 
 @router.patch("/{presentation_id}", response_model=PresentationRead)
 async def update_presentation(
+    request: Request,
     body: PresentationUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
     presentation: Annotated[Presentation, Depends(get_presentation_owner)],
 ) -> PresentationRead:
     if body.title is not None:
@@ -129,18 +132,40 @@ async def update_presentation(
         presentation.description = body.description
     await db.commit()
     await db.refresh(presentation)
+    await record_audit(
+        db,
+        actor_id=user.id,
+        action="presentation.updated",
+        target_kind="presentation",
+        target_id=presentation.id,
+        metadata={"title": presentation.title},
+        client_ip=client_ip_from_request(request),
+    )
     return _presentation_read(presentation)
 
 
 @router.delete("/{presentation_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_presentation(
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
     presentation: Annotated[Presentation, Depends(get_presentation_owner)],
 ) -> None:
     from datetime import UTC, datetime
 
+    pres_id = presentation.id
+    pres_title = presentation.title
     presentation.deleted_at = datetime.now(UTC)
     await db.commit()
+    await record_audit(
+        db,
+        actor_id=user.id,
+        action="presentation.deleted",
+        target_kind="presentation",
+        target_id=pres_id,
+        metadata={"title": pres_title},
+        client_ip=client_ip_from_request(request),
+    )
 
 
 @router.get("/{presentation_id}/embed", response_model=EmbedResponse)

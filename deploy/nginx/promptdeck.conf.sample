@@ -2,7 +2,7 @@
 # TLS certificates: use certbot or your CA; replace server_name and paths.
 
 upstream promptdeck_api {
-    server 127.0.0.1:8000;
+    server 127.0.0.1:8005;
     keepalive 32;
 }
 

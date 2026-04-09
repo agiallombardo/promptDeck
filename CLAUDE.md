@@ -32,7 +32,7 @@ Copy `backend/.env.example` → `backend/.env` (no secrets in git).
 
 ```bash
 just setup              # uv sync + pnpm install
-just dev                # API :8000 + Vite :5173
+just dev                # API :8005 + Vite :5174 (override ports via env / scripts)
 just verify             # all checks (same as scripts/verify.sh)
 just test-backend       # pytest
 just test-frontend      # vitest run
@@ -50,7 +50,7 @@ Backend one-offs:
 
 ```bash
 cd backend && uv sync --group dev
-cd backend && uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+cd backend && uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8005
 cd backend && uv run python -m app.scripts.dump_openapi   # refresh openapi.json after API changes
 cd backend && uv run python -m app.scripts.check_openapi_snapshot
 ```

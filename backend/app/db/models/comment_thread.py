@@ -85,4 +85,4 @@ class Comment(Base):
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     thread: Mapped[CommentThread] = relationship("CommentThread", back_populates="comments")
-    author: Mapped[User] = relationship(foreign_keys=[author_id])
+    author: Mapped[User | None] = relationship(foreign_keys=[author_id])

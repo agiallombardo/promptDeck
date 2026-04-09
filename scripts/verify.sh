@@ -2,14 +2,8 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
-
-run_pnpm() {
-  if command -v pnpm >/dev/null 2>&1; then
-    pnpm "$@"
-  else
-    npx --yes pnpm@9.15.4 "$@"
-  fi
-}
+# shellcheck source=pnpm.sh
+source "$ROOT/scripts/pnpm.sh"
 
 section() {
   echo ""

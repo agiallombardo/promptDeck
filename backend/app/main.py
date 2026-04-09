@@ -34,7 +34,8 @@ app.state.limiter = limiter
 
 
 def _rate_limit_exc(request: Request, exc: Exception) -> Response:
-    assert isinstance(exc, RateLimitExceeded)
+    if not isinstance(exc, RateLimitExceeded):
+        raise exc
     return _rate_limit_exceeded_handler(request, exc)
 
 

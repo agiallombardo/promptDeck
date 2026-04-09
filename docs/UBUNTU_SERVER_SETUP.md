@@ -44,10 +44,10 @@ sudo ufw enable
 sudo ufw status verbose
 ```
 
-**Dev-only:** if you must hit the API directly on `:8000`, restrict the source IP:
+**Dev-only:** if you must hit the API directly on `:8005`, restrict the source IP:
 
 ```bash
-sudo ufw allow from YOUR_OFFICE_IP to any port 8000 proto tcp
+sudo ufw allow from YOUR_OFFICE_IP to any port 8005 proto tcp
 ```
 
 Production should expose **only nginx** (80/443), not raw uvicorn.
@@ -162,7 +162,7 @@ server {
     }
 
     location /api/ {
-        proxy_pass http://127.0.0.1:8000;
+        proxy_pass http://127.0.0.1:8005;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -171,7 +171,7 @@ server {
     }
 
     location /a/ {
-        proxy_pass http://127.0.0.1:8000;
+        proxy_pass http://127.0.0.1:8005;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -277,7 +277,7 @@ User=promptdeck
 Group=promptdeck
 WorkingDirectory=/var/lib/promptdeck/app/backend
 EnvironmentFile=/var/lib/promptdeck/app/backend/.env
-ExecStart=/home/promptdeck/.local/bin/uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
+ExecStart=/home/promptdeck/.local/bin/uv run uvicorn app.main:app --host 127.0.0.1 --port 8005
 Restart=on-failure
 RestartSec=3
 # Graceful stop: let uvicorn finish in-flight requests
@@ -347,7 +347,7 @@ You can run **Postgres + nginx + systemd API** “like production” and still u
 
 1. Keep PostgreSQL and nginx as above.
 2. Stop the packaged API while developing: `sudo systemctl stop promptdeck-api`.
-3. From the repo: `just dev` (API `:8000`, Vite `:5173`). Point browser at Vite; it proxies `/api` and `/a` per `frontend/vite.config.ts`.
+3. From the repo: `just dev` (API `:8005`, Vite `:5174` by default). Point browser at Vite; it proxies `/api` and `/a` per `frontend/vite.config.ts`. Override with `VITE_DEV_PORT` if needed.
 
 Or run only Vite against the **systemd** API:
 
@@ -355,7 +355,7 @@ Or run only Vite against the **systemd** API:
 cd frontend && pnpm dev
 ```
 
-**Do not** run two processes on port 8000.
+**Do not** bind the API twice on port 8005 (e.g. systemd uvicorn and a duplicate manual `uvicorn`).
 
 **Reload Postgres** only when you change `pg_hba` / major settings — not for normal app deploys.
 
@@ -376,7 +376,7 @@ cd frontend && pnpm dev
 - [ ] `alembic upgrade head` + `scripts/seed.py` if needed.
 - [ ] `STORAGE_ROOT` on disk with correct ownership.
 - [ ] Frontend build copied to nginx `root`.
-- [ ] nginx proxies `/api` and `/a` to `127.0.0.1:8000`.
+- [ ] nginx proxies `/api` and `/a` to `127.0.0.1:8005`.
 - [ ] TLS + `cookie_secure` + CORS + `public_app_url`.
 - [ ] `promptdeck-api.service` enabled and healthy.
 - [ ] `just verify` passes in CI before/after deploy.
