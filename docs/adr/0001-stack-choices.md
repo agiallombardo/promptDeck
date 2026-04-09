@@ -12,7 +12,7 @@ Internal corporate app: FastAPI + Postgres + React, LLM-maintainable codebase.
 
 - Backend: Python 3.12, FastAPI, SQLAlchemy 2 async, Alembic, structlog (logging in M1+).
 - Frontend: React 18, Vite 5, TypeScript 5, Tailwind 4 (CSS-first `@theme`).
-- Tooling: `uv` (Python), `pnpm` (Node), `just` for task entrypoints.
+- Tooling: `uv` (Python), `pnpm` 10.x stable line (`latest-10`), Node.js Active LTS (24.x), `just` for task entrypoints.
 
 ## Consequences
 

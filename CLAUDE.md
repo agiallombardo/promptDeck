@@ -12,7 +12,7 @@ Internal app: **HTML deck** presentations — upload `.html` / `.zip`, sandboxed
 | `frontend/` | Vite + React + TS + Tailwind 4 (`src/styles/tailwind.css` `@theme`) |
 | `scripts/` | `verify.sh`, `dev.sh`, `e2e_smoke.py`, `seed.py` |
 | `docs/` | Conventions, runbook, ADRs, `docs/ROADMAP.md`, `API.md` (OpenAPI) |
-| `deploy/` | Samples: `systemd/promptdeck-api.service`, `nginx/promptdeck.conf.sample` (paths assume checkout at `/opt/promptDeck`) |
+| `deploy/` | Samples: `systemd/promptdeck-api.service`, `nginx/promptdeck.conf.sample` (`/opt/promptDeck`, local/LAN HTTP by default) |
 
 ### Files most often modified
 
@@ -25,9 +25,11 @@ Internal app: **HTML deck** presentations — upload `.html` / `.zip`, sandboxed
 
 ## Command cheat sheet
 
-Prereqs: **Python 3.12+**, **uv**, **Node 20+**. `pnpm` or `npx pnpm@9.15.4`; `scripts/verify.sh` auto-fallback.
+Prereqs: **Python 3.12+**, **uv**, **Node.js Active LTS** (24.x; GitHub Actions uses `lts/*`). **pnpm 10.x** (pinned in `frontend/package.json` `packageManager`; stable line is `latest-10` on npm); `scripts/pnpm.sh` falls back to `npx pnpm@…` with that version if `pnpm` is missing.
 
 Copy `backend/.env.example` → `backend/.env` (no secrets in git).
+
+When upgrading **pnpm**, bump `packageManager` in `frontend/package.json` and the `npx pnpm@…` pin in `scripts/pnpm.sh`; CI reads `packageManager` via `pnpm/action-setup` (`package_json_file: frontend/package.json`).
 
 ```bash
 just setup              # uv sync + pnpm install

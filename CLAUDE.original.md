@@ -25,7 +25,7 @@ promptDeck is an internal web app for **HTML “deck” presentations**: upload 
 
 ## Command cheat sheet
 
-Prereqs: **Python 3.12+**, **uv**, **Node 20+** (use `pnpm` globally or `npx pnpm@9.15.4` — `scripts/verify.sh` falls back automatically).
+Prereqs: **Python 3.12+**, **uv**, **Node.js Active LTS** (24.x; CI uses `lts/*`) — **pnpm 10.x** (see `frontend/package.json` `packageManager`; npm tag `latest-10`). Use `pnpm` globally or rely on `scripts/pnpm.sh` / `npx pnpm@…` fallback.
 
 Local env template: `backend/.env.example` (copy to `backend/.env`; never commit secrets).
 

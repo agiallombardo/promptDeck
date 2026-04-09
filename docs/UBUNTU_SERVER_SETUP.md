@@ -4,6 +4,8 @@ Step-by-step notes for a **single long-lived VM** running PostgreSQL, nginx, and
 
 **App checkout:** clone or sync the repo to **`/opt/promptDeck`** (repo root: `backend/`, `frontend/`, etc.).
 
+**Hosting:** **local / LAN** — no public DNS name. Users reach the app at something like **`http://192.168.x.x`** or **`http://server-name.local`**. Set `PUBLIC_APP_URL` and `CORS_ORIGINS` to that **exact** origin (scheme + host + port if not 80). Plain HTTP is expected; keep **`COOKIE_SECURE=false`** unless you add TLS yourself.
+
 **Scope:** Ubuntu **22.04 or 24.04 LTS**, `systemd`, **no Docker** for v1. Commands assume `sudo` where needed.
 
 ---
@@ -34,14 +36,15 @@ sudo timedatectl set-ntp true
 
 ### 1.3 Firewall (UFW)
 
-Allow SSH first, then HTTP/HTTPS:
+Allow SSH first, then HTTP (HTTPS is optional unless you add TLS):
 
 ```bash
 sudo ufw default deny incoming
 sudo ufw default allow outgoing
 sudo ufw allow OpenSSH
 sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
+# Optional — only if you enable HTTPS in nginx:
+# sudo ufw allow 443/tcp
 sudo ufw enable
 sudo ufw status verbose
 ```
@@ -52,7 +55,7 @@ sudo ufw status verbose
 sudo ufw allow from YOUR_OFFICE_IP to any port 8005 proto tcp
 ```
 
-Production should expose **only nginx** (80/443), not raw uvicorn.
+Expose **only nginx** on the LAN (port **80** for typical HTTP), not raw uvicorn, unless you are debugging.
 
 ### 1.4 Optional: dedicated app user
 
@@ -150,12 +153,12 @@ sudo systemctl start nginx
 - Serve the **built frontend** from **`/opt/promptDeck/frontend/dist`** (Vite `pnpm run build` output).
 - **Proxy** `/api` and `/a` to the FastAPI app (same origin as the SPA or a dedicated host — match `public_app_url` and CORS in `backend/app/config.py`).
 
-Example server block sketch (TLS in §3.3):
+Example **plain HTTP** server block (typical for local hosting). Prefer copying **`deploy/nginx/promptdeck.conf.sample`** and editing paths if needed.
 
 ```nginx
 server {
     listen 80;
-    server_name promptdeck.example.com;
+    server_name _;
     root /opt/promptDeck/frontend/dist;
     index index.html;
 
@@ -180,6 +183,12 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
+
+    location /health {
+        proxy_pass http://127.0.0.1:8005;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+    }
 }
 ```
 
@@ -190,14 +199,11 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-### 3.3 TLS (Let’s Encrypt)
+### 3.3 Optional: HTTPS
 
-```bash
-sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d promptdeck.example.com
-```
+For **local-only** use you can skip this section and stay on **HTTP**.
 
-Set `cookie_secure=true` and `cors_origins` / `public_app_url` to `https://…` in production.
+If you later add TLS (internal CA, corporate proxy, or a real hostname with **Let’s Encrypt**), install certificates, add a `listen 443 ssl` server in nginx, open **443/tcp** in UFW, then set `COOKIE_SECURE=true` and use **`https://…`** in `PUBLIC_APP_URL` and `CORS_ORIGINS` so they match the browser’s URL.
 
 ### 3.4 Graceful nginx reload
 
@@ -219,16 +225,20 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 # or: sudo apt install -y pipx && pipx ensurepath
 ```
 
-### 4.2 Node 20+ and pnpm
+### 4.2 Node.js Active LTS and pnpm
 
-Use **NodeSource** or **nvm**; example with NodeSource 20.x:
+Install the **current Active LTS** from [Node.js releases](https://nodejs.org/en/about/releases) (24.x **Krypton** as of early 2026). Example with **NodeSource** 24.x:
 
 ```bash
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
 sudo apt install -y nodejs
 corepack enable
-corepack prepare pnpm@9.15.4 --activate
+corepack prepare pnpm@10.33.0 --activate
 ```
+
+Pin matches `frontend/package.json` (`packageManager`). To pick up newer **pnpm 10.x** releases without editing the file, use `corepack prepare pnpm@latest-10 --activate` after checking compatibility.
+
+Alternatively use **nvm**: `nvm install --lts` (tracks Active LTS).
 
 ### 4.3 Clone and build
 
@@ -318,9 +328,9 @@ Create **`/etc/promptdeck/api.env`** (same file as `EnvironmentFile` in the unit
 | `DATABASE_URL` | `postgresql+asyncpg://…@127.0.0.1:5432/promptdeck` |
 | `JWT_SECRET_KEY` | ≥ 32 random bytes |
 | `STORAGE_ROOT` | `/var/lib/promptdeck/storage` |
-| `PUBLIC_APP_URL` | `https://promptdeck.example.com` (no trailing slash) |
-| `CORS_ORIGINS` | JSON array in `.env`, e.g. `["https://promptdeck.example.com"]` (matches `backend/app/config.py`) |
-| `COOKIE_SECURE` | `true` behind HTTPS |
+| `PUBLIC_APP_URL` | Same origin browsers use, e.g. `http://192.168.1.50` or `http://deck.local` (no trailing slash) |
+| `CORS_ORIGINS` | JSON array matching that origin, e.g. `["http://192.168.1.50"]` (see `backend/app/config.py`) |
+| `COOKIE_SECURE` | `false` for plain HTTP on the LAN; `true` only if nginx serves **HTTPS** |
 | `ENVIRONMENT` | `production` |
 
 Run migrations (one command for both **first install** on an empty database and **upgrades** when new revisions exist):
@@ -366,13 +376,13 @@ cd /opt/promptDeck/frontend && pnpm dev
 
 ## 10. Quick checklist
 
-- [ ] UFW: SSH + 80/443 (and optional restricted dev ports).
+- [ ] UFW: SSH + **80** (add **443** only if you use HTTPS).
 - [ ] PostgreSQL 18: DB + user + `DATABASE_URL`.
 - [ ] `alembic upgrade head` + `scripts/seed.py` if needed.
 - [ ] `STORAGE_ROOT` on disk with correct ownership.
 - [ ] Frontend built to `/opt/promptDeck/frontend/dist` and nginx `root` matches.
 - [ ] nginx proxies `/api` and `/a` to `127.0.0.1:8005`.
-- [ ] TLS + `cookie_secure` + CORS + `public_app_url`.
+- [ ] `PUBLIC_APP_URL` + `CORS_ORIGINS` match how users open the app; `COOKIE_SECURE` matches HTTP vs HTTPS.
 - [ ] `promptdeck-api.service` enabled and healthy.
 - [ ] `just verify` passes in CI before/after deploy.
 

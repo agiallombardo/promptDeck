@@ -1,5 +1,6 @@
-# Sample nginx site for promptDeck on a single VM.
-# TLS certificates: use certbot or your CA; replace server_name and paths.
+# Sample nginx site for promptDeck on a single machine (local / LAN, no public domain).
+# Users open http://SERVER_IP/ or http://hostname.local/ — use that exact origin in
+# PUBLIC_APP_URL and CORS_ORIGINS (see docs/UBUNTU_SERVER_SETUP.md §7).
 
 upstream promptdeck_api {
     server 127.0.0.1:8005;
@@ -7,13 +8,18 @@ upstream promptdeck_api {
 }
 
 server {
-    listen 443 ssl http2;
-    server_name deck.example.com;
-
-    ssl_certificate     /etc/letsencrypt/live/deck.example.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/deck.example.com/privkey.pem;
+    listen 80;
+    # Single-site LAN: catch-all. Optionally set server_name to the host's IP or .local name.
+    server_name _;
 
     client_max_body_size 12m;
+
+    root /opt/promptDeck/frontend/dist;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
 
     location /api/ {
         proxy_pass http://promptdeck_api;
@@ -38,9 +44,13 @@ server {
         proxy_http_version 1.1;
         proxy_set_header Host $host;
     }
-
-    location / {
-        root /opt/promptDeck/frontend/dist;
-        try_files $uri $uri/ /index.html;
-    }
 }
+
+# Optional — only if you terminate HTTPS (internal CA, reverse proxy with certs, or a real domain + Let’s Encrypt):
+# server {
+#     listen 443 ssl http2;
+#     server_name your.hostname;
+#     ssl_certificate     /path/to/fullchain.pem;
+#     ssl_certificate_key /path/to/privkey.pem;
+#     ... same location blocks as above ...
+# }
