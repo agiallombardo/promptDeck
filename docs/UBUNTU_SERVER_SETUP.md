@@ -2,6 +2,8 @@
 
 Step-by-step notes for a **single long-lived VM** running PostgreSQL, nginx, and promptDeck (FastAPI + static Vite build), aligned with `docs/RUNBOOK.md`.
 
+**App checkout:** clone or sync the repo to **`/opt/promptDeck`** (repo root: `backend/`, `frontend/`, etc.).
+
 **Scope:** Ubuntu **22.04 or 24.04 LTS**, `systemd`, **no Docker** for v1. Commands assume `sudo` where needed.
 
 ---
@@ -56,8 +58,8 @@ Production should expose **only nginx** (80/443), not raw uvicorn.
 
 ```bash
 sudo adduser --disabled-password --gecos "" promptdeck
-sudo mkdir -p /var/lib/promptdeck /var/www/promptdeck
-sudo chown -R promptdeck:promptdeck /var/lib/promptdeck /var/www/promptdeck
+sudo mkdir -p /opt/promptDeck /var/lib/promptdeck
+sudo chown -R promptdeck:promptdeck /opt/promptDeck /var/lib/promptdeck
 ```
 
 Deploy the app and run the API as this user (see §6).
@@ -145,7 +147,7 @@ sudo systemctl start nginx
 
 ### 3.2 Roles
 
-- Serve the **built frontend** from `/var/www/promptdeck` (or similar).
+- Serve the **built frontend** from **`/opt/promptDeck/frontend/dist`** (Vite `pnpm run build` output).
 - **Proxy** `/api` and `/a` to the FastAPI app (same origin as the SPA or a dedicated host — match `public_app_url` and CORS in `backend/app/config.py`).
 
 Example server block sketch (TLS in §3.3):
@@ -154,7 +156,7 @@ Example server block sketch (TLS in §3.3):
 server {
     listen 80;
     server_name promptdeck.example.com;
-    root /var/www/promptdeck;
+    root /opt/promptDeck/frontend/dist;
     index index.html;
 
     location / {
@@ -231,16 +233,13 @@ corepack prepare pnpm@9.15.4 --activate
 ### 4.3 Clone and build
 
 ```bash
-sudo -u promptdeck -i
-cd /var/lib/promptdeck
-git clone https://github.com/your-org/promptDeck.git app
-cd app
+sudo -u promptdeck git clone https://github.com/your-org/promptDeck.git /opt/promptDeck
+cd /opt/promptDeck
 just setup
 cd frontend && pnpm run build
-sudo cp -r dist/* /var/www/promptdeck/
 ```
 
-Backend: `cd backend && uv sync` and set environment (§7).
+nginx should use `root /opt/promptDeck/frontend/dist;` (see §3.2 and `deploy/nginx/promptdeck.conf.sample`). Backend: `cd /opt/promptDeck/backend && uv sync` and set environment (§7).
 
 ---
 
@@ -268,27 +267,23 @@ Create `/etc/systemd/system/promptdeck-api.service`:
 ```ini
 [Unit]
 Description=promptDeck FastAPI (uvicorn)
-After=network-online.target postgresql.service
-Wants=network-online.target
+After=network.target postgresql.service
 
 [Service]
 Type=simple
 User=promptdeck
 Group=promptdeck
-WorkingDirectory=/var/lib/promptdeck/app/backend
-EnvironmentFile=/var/lib/promptdeck/app/backend/.env
-ExecStart=/home/promptdeck/.local/bin/uv run uvicorn app.main:app --host 127.0.0.1 --port 8005
+WorkingDirectory=/opt/promptDeck/backend
+EnvironmentFile=/etc/promptdeck/api.env
+ExecStart=/opt/promptDeck/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8005 --proxy-headers
 Restart=on-failure
-RestartSec=3
-# Graceful stop: let uvicorn finish in-flight requests
-KillMode=mixed
-TimeoutStopSec=30
+RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-Adjust `ExecStart` to the real path of `uv` (`which uv` as `promptdeck`).
+Match `deploy/systemd/promptdeck-api.service` in the repo. After `uv sync` in `backend/`, `.venv/bin/uvicorn` exists; adjust `ExecStart` only if you use a different layout.
 
 **Development-style reload** on a server is usually **`systemctl restart promptdeck-api`** after deploy; for zero-downtime you would add multiple workers behind a process manager — v1 often accepts a short restart window.
 
@@ -316,7 +311,7 @@ After editing any **`.service` file**: `sudo systemctl daemon-reload` then `sudo
 
 ## 7. Environment variables (production)
 
-Place in `/var/lib/promptdeck/app/backend/.env` (mode `600`, owner `promptdeck`):
+Create **`/etc/promptdeck/api.env`** (same file as `EnvironmentFile` in the unit). Restrict permissions (e.g. `chmod 640`, `chgrp promptdeck` so the service user can read it):
 
 | Variable | Purpose |
 |----------|---------|
@@ -331,13 +326,13 @@ Place in `/var/lib/promptdeck/app/backend/.env` (mode `600`, owner `promptdeck`)
 Run migrations (one command for both **first install** on an empty database and **upgrades** when new revisions exist):
 
 ```bash
-cd /var/lib/promptdeck/app/backend
-sudo -u promptdeck env $(cat .env | xargs) uv run alembic upgrade head
+cd /opt/promptDeck/backend
+sudo -u promptdeck bash -c 'set -a && . /etc/promptdeck/api.env && set +a && uv run alembic upgrade head'
 ```
 
 On a fresh database, `upgrade head` applies every revision in order—no extra steps per table. When you deploy new app code that adds `alembic/versions/*.py`, run the same command again.
 
-(Or use `--env-file` / a small wrapper script.)
+(Or use a small wrapper that loads the same env as systemd.)
 
 ---
 
@@ -347,12 +342,12 @@ You can run **Postgres + nginx + systemd API** “like production” and still u
 
 1. Keep PostgreSQL and nginx as above.
 2. Stop the packaged API while developing: `sudo systemctl stop promptdeck-api`.
-3. From the repo: `just dev` (API `:8005`, Vite `:5174` by default). Point browser at Vite; it proxies `/api` and `/a` per `frontend/vite.config.ts`. Override with `VITE_DEV_PORT` if needed.
+3. From the repo: `cd /opt/promptDeck` then `just dev` (API `:8005`, Vite `:5174` by default). Point browser at Vite; it proxies `/api` and `/a` per `frontend/vite.config.ts`. Override with `VITE_DEV_PORT` if needed.
 
 Or run only Vite against the **systemd** API:
 
 ```bash
-cd frontend && pnpm dev
+cd /opt/promptDeck/frontend && pnpm dev
 ```
 
 **Do not** bind the API twice on port 8005 (e.g. systemd uvicorn and a duplicate manual `uvicorn`).
@@ -375,7 +370,7 @@ cd frontend && pnpm dev
 - [ ] PostgreSQL 18: DB + user + `DATABASE_URL`.
 - [ ] `alembic upgrade head` + `scripts/seed.py` if needed.
 - [ ] `STORAGE_ROOT` on disk with correct ownership.
-- [ ] Frontend build copied to nginx `root`.
+- [ ] Frontend built to `/opt/promptDeck/frontend/dist` and nginx `root` matches.
 - [ ] nginx proxies `/api` and `/a` to `127.0.0.1:8005`.
 - [ ] TLS + `cookie_secure` + CORS + `public_app_url`.
 - [ ] `promptdeck-api.service` enabled and healthy.

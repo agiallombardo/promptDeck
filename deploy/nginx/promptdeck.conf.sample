@@ -40,7 +40,7 @@ server {
     }
 
     location / {
-        root /opt/promptdeck/frontend/dist;
+        root /opt/promptDeck/frontend/dist;
         try_files $uri $uri/ /index.html;
     }
 }

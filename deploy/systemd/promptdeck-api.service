@@ -6,9 +6,9 @@ After=network.target postgresql.service
 Type=simple
 User=promptdeck
 Group=promptdeck
-WorkingDirectory=/opt/promptdeck/backend
+WorkingDirectory=/opt/promptDeck/backend
 EnvironmentFile=/etc/promptdeck/api.env
-ExecStart=/opt/promptdeck/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8005 --proxy-headers
+ExecStart=/opt/promptDeck/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8005 --proxy-headers
 Restart=on-failure
 RestartSec=5
 

@@ -12,7 +12,7 @@ Internal app: **HTML deck** presentations — upload `.html` / `.zip`, sandboxed
 | `frontend/` | Vite + React + TS + Tailwind 4 (`src/styles/tailwind.css` `@theme`) |
 | `scripts/` | `verify.sh`, `dev.sh`, `e2e_smoke.py`, `seed.py` |
 | `docs/` | Conventions, runbook, ADRs, `docs/ROADMAP.md`, `API.md` (OpenAPI) |
-| `deploy/` | Samples: `systemd/promptdeck-api.service`, `nginx/promptdeck.conf.sample` |
+| `deploy/` | Samples: `systemd/promptdeck-api.service`, `nginx/promptdeck.conf.sample` (paths assume checkout at `/opt/promptDeck`) |
 
 ### Files most often modified
 

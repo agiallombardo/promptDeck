@@ -25,12 +25,12 @@ just verify
 
 Step-by-step host setup (PostgreSQL 18, nginx, UFW, systemd unit for the API, graceful reloads, dev on the same machine): **`docs/UBUNTU_SERVER_SETUP.md`**.
 
-v1 targets a single VM with systemd units and nginx.
+v1 targets a single VM with systemd units and nginx. Deployed checkout: **`/opt/promptDeck`** (see `deploy/` samples).
 
 ## Deploy artifacts (samples)
 
-- **API process:** `deploy/systemd/promptdeck-api.service` — adjust `User`, paths, and `EnvironmentFile` (e.g. `/etc/promptdeck/api.env` with `DATABASE_URL`, `JWT_SECRET_KEY`, `STORAGE_ROOT`, `PUBLIC_APP_URL`, `CORS_ORIGINS`).
-- **Reverse proxy:** `deploy/nginx/promptdeck.conf.sample` — TLS, static `frontend/dist`, proxy `/api/` and `/a/` to uvicorn on `127.0.0.1:8005`.
+- **API process:** `deploy/systemd/promptdeck-api.service` — expects repo at `/opt/promptDeck`; adjust `User`, `WorkingDirectory`, and `EnvironmentFile` (e.g. `/etc/promptdeck/api.env` with `DATABASE_URL`, `JWT_SECRET_KEY`, `STORAGE_ROOT`, `PUBLIC_APP_URL`, `CORS_ORIGINS`).
+- **Reverse proxy:** `deploy/nginx/promptdeck.conf.sample` — TLS, static files from `/opt/promptDeck/frontend/dist`, proxy `/api/` and `/a/` to uvicorn on `127.0.0.1:8005`.
 - **Backups:** `scripts/backup_pg.sh` — gzip `pg_dump` using `DATABASE_URL` (async URL is rewritten to `postgresql://` for libpq).
 
 After deploy: `alembic upgrade head` (same as `just db-migrate` from `backend/`; on a **fresh** DB this one pass creates the full schema). Run `scripts/seed.py` once if you need the default admin, reload nginx, `systemctl restart promptdeck-api`.
