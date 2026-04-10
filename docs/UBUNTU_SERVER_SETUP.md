@@ -284,7 +284,7 @@ Type=simple
 User=promptdeck
 Group=promptdeck
 WorkingDirectory=/opt/promptDeck/backend
-EnvironmentFile=/etc/promptdeck/api.env
+EnvironmentFile=/etc/promptdeck/.env
 ExecStart=/opt/promptDeck/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8005 --proxy-headers
 Restart=on-failure
 RestartSec=5
@@ -321,7 +321,7 @@ After editing any **`.service` file**: `sudo systemctl daemon-reload` then `sudo
 
 ## 7. Environment variables (production)
 
-Create **`/etc/promptdeck/api.env`** (same file as `EnvironmentFile` in the unit). Restrict permissions (e.g. `chmod 640`, `chgrp promptdeck` so the service user can read it):
+Create **`/etc/promptdeck/.env`** (same file as `EnvironmentFile` in the unit). Restrict permissions (e.g. `chmod 640`, `chgrp promptdeck` so the service user can read it):
 
 | Variable | Purpose |
 |----------|---------|
@@ -337,7 +337,7 @@ Run migrations (one command for both **first install** on an empty database and 
 
 ```bash
 cd /opt/promptDeck/backend
-sudo -u promptdeck bash -c 'set -a && . /etc/promptdeck/api.env && set +a && uv run alembic upgrade head'
+sudo -u promptdeck bash -c 'set -a && . /etc/promptdeck/.env && set +a && uv run alembic upgrade head'
 ```
 
 On a fresh database, `upgrade head` applies every revision in order—no extra steps per table. When you deploy new app code that adds `alembic/versions/*.py`, run the same command again.

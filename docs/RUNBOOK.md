@@ -29,7 +29,7 @@ Targets a **local or LAN** machine (no public domain): users open something like
 
 ## Deploy artifacts (samples)
 
-- **API process:** `deploy/systemd/promptdeck-api.service` — expects repo at `/opt/promptDeck`; adjust `User`, `WorkingDirectory`, and `EnvironmentFile` (e.g. `/etc/promptdeck/api.env` with `DATABASE_URL`, `JWT_SECRET_KEY`, `STORAGE_ROOT`, `PUBLIC_APP_URL`, `CORS_ORIGINS`).
+- **API process:** `deploy/systemd/promptdeck-api.service` — expects repo at `/opt/promptDeck`; adjust `User`, `WorkingDirectory`, and `EnvironmentFile` (e.g. `/etc/promptdeck/.env` with `DATABASE_URL`, `JWT_SECRET_KEY`, `STORAGE_ROOT`, `PUBLIC_APP_URL`, `CORS_ORIGINS`).
 - **Reverse proxy:** `deploy/nginx/promptdeck.conf.sample` — **HTTP** on port 80, static files from `/opt/promptDeck/frontend/dist`, proxy `/api/` and `/a/` to uvicorn on `127.0.0.1:8005`. Optional HTTPS block is commented for advanced setups.
 - **Backups:** `scripts/backup_pg.sh` — gzip `pg_dump` using `DATABASE_URL` (async URL is rewritten to `postgresql://` for libpq).
 
