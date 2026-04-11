@@ -20,10 +20,10 @@ from app.services.app_logging import write_app_log
 from app.services.audit import client_ip_from_request, record_audit
 from app.services.bundle_upload import extract_zip_bundle
 from app.services.html_bundle import inline_zip_entry_to_single_html
+from app.services.single_html_version import persist_new_single_html_version
 from app.services.slide_manifest import build_slide_manifest
 from app.storage.local import (
     presentation_prefix,
-    sanitize_filename,
     version_dir,
     write_bytes_under,
 )
@@ -74,6 +74,70 @@ async def upload_html_version(
     name = file.filename or "index.html"
     lower = name.lower()
     presentation = grant.presentation
+    pres_id = presentation.id
+    actor_id = grant.user.id if grant.user is not None else None
+
+    if lower.endswith(".html") or lower.endswith(".htm"):
+        try:
+            ver2 = await persist_new_single_html_version(
+                settings=settings,
+                db=db,
+                presentation_id=pres_id,
+                html_bytes=raw,
+                entry_filename=name,
+                origin="upload",
+                created_by=actor_id,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+        except RuntimeError as e:
+            detail = str(e)
+            if "conflict" in detail.lower():
+                raise HTTPException(status_code=409, detail="Upload conflict; retry upload") from e
+            raise HTTPException(status_code=500, detail=detail) from e
+        slide_count = len(ver2.slides)
+        log.info(
+            "presentation.version.uploaded",
+            presentation_id=str(pres_id),
+            version_id=str(ver2.id),
+            version_number=ver2.version_number,
+            slide_count=slide_count,
+        )
+        await write_app_log(
+            db,
+            channel=LogChannel.audit,
+            level="info",
+            event="presentation.version.uploaded",
+            request_id=getattr(request.state, "request_id", None),
+            user_id=actor_id,
+            path=str(request.url.path),
+            method=request.method,
+            status_code=201,
+            latency_ms=None,
+            payload={
+                "presentation_id": str(pres_id),
+                "version_id": str(ver2.id),
+                "version_number": ver2.version_number,
+                "slide_count": slide_count,
+            },
+            auto_commit=False,
+        )
+        await record_audit(
+            db,
+            actor_id=actor_id,
+            action="presentation.version.uploaded",
+            target_kind="presentation_version",
+            target_id=ver2.id,
+            metadata={
+                "presentation_id": str(pres_id),
+                "version_number": ver2.version_number,
+                "slide_count": slide_count,
+            },
+            client_ip=client_ip_from_request(request),
+            auto_commit=False,
+        )
+        await db.commit()
+        return _version_read(ver2)
 
     result = await db.execute(
         select(func.coalesce(func.max(PresentationVersion.version_number), 0)).where(
@@ -105,16 +169,6 @@ async def upload_html_version(
             entry_path = new_entry
             storage_kind = "single_html"
             manifest = build_slide_manifest(inlined)
-        elif lower.endswith(".html") or lower.endswith(".htm"):
-            if len(raw) > MAX_SINGLE_HTML_BYTES:
-                raise HTTPException(
-                    status_code=413,
-                    detail="HTML file too large (max 10MB)",
-                )
-            entry_path = sanitize_filename(name)
-            storage_kind = "single_html"
-            manifest = build_slide_manifest(raw)
-            write_bytes_under(settings, storage_prefix, entry_path, raw)
         else:
             raise HTTPException(
                 status_code=400,
@@ -132,7 +186,7 @@ async def upload_html_version(
         presentation_id=presentation.id,
         version_number=next_num,
         origin="upload",
-        created_by=grant.user.id,
+        created_by=actor_id,
         storage_kind=storage_kind,
         storage_prefix=storage_prefix,
         entry_path=entry_path,
@@ -176,7 +230,7 @@ async def upload_html_version(
         level="info",
         event="presentation.version.uploaded",
         request_id=getattr(request.state, "request_id", None),
-        user_id=grant.user.id,
+        user_id=actor_id,
         path=str(request.url.path),
         method=request.method,
         status_code=201,
@@ -190,7 +244,7 @@ async def upload_html_version(
     )
     await record_audit(
         db,
-        actor_id=grant.user.id,
+        actor_id=actor_id,
         action="presentation.version.uploaded",
         target_kind="presentation_version",
         target_id=ver2.id,

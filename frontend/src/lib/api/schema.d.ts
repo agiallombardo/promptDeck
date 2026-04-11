@@ -365,6 +365,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/deck-prompt-jobs/{job_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Deck Prompt Job */
+    get: operations["get_deck_prompt_job_api_v1_deck_prompt_jobs__job_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/directory/users": {
     parameters: {
       query?: never;
@@ -451,6 +468,23 @@ export interface paths {
     head?: never;
     /** Update Presentation */
     patch: operations["update_presentation_api_v1_presentations__presentation_id__patch"];
+    trace?: never;
+  };
+  "/api/v1/presentations/{presentation_id}/deck-prompt-jobs": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Create Deck Prompt Job */
+    post: operations["create_deck_prompt_job_api_v1_presentations__presentation_id__deck_prompt_jobs_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
     trace?: never;
   };
   "/api/v1/presentations/{presentation_id}/embed": {
@@ -1067,6 +1101,52 @@ export interface components {
        */
       id: string;
     };
+    /** DeckPromptJobCreate */
+    DeckPromptJobCreate: {
+      /** Prompt */
+      prompt: string;
+    };
+    /** DeckPromptJobRead */
+    DeckPromptJobRead: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Error */
+      error: string | null;
+      /** Finished At */
+      finished_at: string | null;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Presentation Id
+       * Format: uuid
+       */
+      presentation_id: string;
+      /** Progress */
+      progress: number;
+      /** Result Version Id */
+      result_version_id: string | null;
+      /**
+       * Source Version Id
+       * Format: uuid
+       */
+      source_version_id: string;
+      /** Started At */
+      started_at: string | null;
+      status: components["schemas"]["DeckPromptJobStatus"];
+      /** Status Message */
+      status_message: string | null;
+    };
+    /**
+     * DeckPromptJobStatus
+     * @enum {string}
+     */
+    DeckPromptJobStatus: "queued" | "running" | "succeeded" | "failed";
     /** DirectoryUserListResponse */
     DirectoryUserListResponse: {
       /** Items */
@@ -1195,7 +1275,7 @@ export interface components {
      * PresentationAccess
      * @enum {string}
      */
-    PresentationAccess: "admin" | "owner" | "editor" | "user";
+    PresentationAccess: "admin" | "owner" | "editor" | "commenter" | "user";
     /** PresentationCreate */
     PresentationCreate: {
       /** Description */
@@ -2194,6 +2274,37 @@ export interface operations {
       };
     };
   };
+  get_deck_prompt_job_api_v1_deck_prompt_jobs__job_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        job_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeckPromptJobRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   directory_users_api_v1_directory_users_get: {
     parameters: {
       query: {
@@ -2422,6 +2533,41 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["PresentationRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  create_deck_prompt_job_api_v1_presentations__presentation_id__deck_prompt_jobs_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        presentation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DeckPromptJobCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeckPromptJobRead"];
         };
       };
       /** @description Validation Error */

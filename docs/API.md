@@ -29,6 +29,7 @@ Regenerate with `just api-contract` after changing `backend/openapi.json`.
 | PATCH | `/api/v1/auth/me/settings` | Me Settings Patch |
 | POST | `/api/v1/auth/refresh` | Refresh |
 | DELETE | `/api/v1/comments/{comment_id}` | Delete Comment |
+| GET | `/api/v1/deck-prompt-jobs/{job_id}` | Get Deck Prompt Job |
 | GET | `/api/v1/directory/users` | Directory Users |
 | GET | `/api/v1/exports/{job_id}` | Get Export Job |
 | GET | `/api/v1/exports/{job_id}/file` | Download Export File |
@@ -37,6 +38,7 @@ Regenerate with `just api-contract` after changing `backend/openapi.json`.
 | DELETE | `/api/v1/presentations/{presentation_id}` | Delete Presentation |
 | GET | `/api/v1/presentations/{presentation_id}` | Get Presentation Detail |
 | PATCH | `/api/v1/presentations/{presentation_id}` | Update Presentation |
+| POST | `/api/v1/presentations/{presentation_id}/deck-prompt-jobs` | Create Deck Prompt Job |
 | GET | `/api/v1/presentations/{presentation_id}/embed` | Embed Iframe |
 | POST | `/api/v1/presentations/{presentation_id}/exports` | Create Export Job |
 | GET | `/api/v1/presentations/{presentation_id}/members` | List Presentation Members |

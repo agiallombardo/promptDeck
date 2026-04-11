@@ -18,6 +18,7 @@ from app.routers import (
     assets,
     auth,
     comments,
+    deck_prompt_jobs,
     directory,
     exports,
     members,
@@ -72,6 +73,7 @@ api.include_router(versions.router)
 api.include_router(comments.router)
 api.include_router(members.router)
 api.include_router(exports.router)
+api.include_router(deck_prompt_jobs.router)
 app.include_router(api)
 app.include_router(assets.router)
 

@@ -29,6 +29,8 @@ type Props = {
   /** Fullscreen overlay: toggle comment UI when header is hidden. */
   onToggleCommentsHidden?: () => void;
   commentsHidden?: boolean;
+  /** Force iframe remount when the deck version changes (cache-bust preview). */
+  iframeRemountKey?: string;
 };
 
 function placeholderCopy(p: PresentationCanvasPlaceholder): { title: string; body?: string } {
@@ -65,6 +67,7 @@ export const PresentationCanvas = forwardRef<HTMLDivElement, Props>(function Pre
     hideCommentMarkers = false,
     onToggleCommentsHidden,
     commentsHidden = false,
+    iframeRemountKey,
   },
   ref,
 ) {
@@ -97,6 +100,7 @@ export const PresentationCanvas = forwardRef<HTMLDivElement, Props>(function Pre
       {iframeSrc ? (
         <>
           <SlideFrame
+            key={iframeRemountKey ?? iframeSrc}
             ref={iframeRef as Ref<HTMLIFrameElement>}
             src={iframeSrc}
             onManifest={onManifest}

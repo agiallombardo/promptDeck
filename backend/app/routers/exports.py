@@ -51,6 +51,9 @@ async def create_export_job(
     db: Annotated[AsyncSession, Depends(get_db)],
     grant: Annotated[PresentationGrant, Depends(get_presentation_editor)],
 ) -> ExportJobRead:
+    if grant.user is None:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    actor_id = grant.user.id
     presentation = grant.presentation
     vid = body.version_id or presentation.current_version_id
     if vid is None:
@@ -66,14 +69,14 @@ async def create_export_job(
         scope=dict(body.scope),
         options=_merge_export_options(body),
         status=ExportStatus.queued,
-        created_by=grant.user.id,
+        created_by=actor_id,
     )
     db.add(job)
     await db.commit()
     await db.refresh(job)
     await record_audit(
         db,
-        actor_id=grant.user.id,
+        actor_id=actor_id,
         action="export_job.created",
         target_kind="export_job",
         target_id=job.id,

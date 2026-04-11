@@ -81,6 +81,11 @@ class Settings(BaseSettings):
         validation_alias="LITELLM_API_BASE",
         description="OpenAI-compatible base URL, e.g. https://litellm.example.com/v1",
     )
+    deck_llm_model: str = Field(
+        default="gpt-4o-mini",
+        validation_alias="DECK_LLM_MODEL",
+        description="OpenAI-compatible model id for deck prompt edits",
+    )
 
     @field_validator("smtp_auth_mode", mode="before")
     @classmethod

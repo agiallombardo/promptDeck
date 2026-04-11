@@ -21,6 +21,7 @@ export type PresentationSummary = components["schemas"]["PresentationRead"];
 export type ThreadDto = components["schemas"]["ThreadRead"];
 export type CommentDto = components["schemas"]["CommentRead"];
 export type ExportJobDto = components["schemas"]["ExportJobRead"];
+export type DeckPromptJobDto = components["schemas"]["DeckPromptJobRead"];
 
 export type DirectoryUserDto = {
   entra_object_id: string;
@@ -42,6 +43,21 @@ export type PresentationMemberDto = {
   granted_by: string;
   created_at: string;
   updated_at: string;
+};
+
+export type ShareLinkDto = {
+  id: string;
+  presentation_id: string;
+  role: "viewer" | "commenter" | "editor";
+  expires_at: string | null;
+  revoked_at: string | null;
+  note: string | null;
+  created_at: string;
+};
+
+export type ShareLinkCreateDto = ShareLinkDto & {
+  share_token: string;
+  share_url: string;
 };
 
 export class ApiError extends Error {
@@ -351,6 +367,60 @@ export async function apiMemberDelete(
   });
 }
 
+export async function apiShareLinksList(accessToken: string, presentationId: string) {
+  return jsonFetch<{ items: ShareLinkDto[] }>(
+    `${API}/presentations/${presentationId}/share-links`,
+    {
+      headers: { ...authHeaders(accessToken) },
+    },
+  );
+}
+
+export async function apiShareLinkCreate(
+  accessToken: string,
+  presentationId: string,
+  body: {
+    role: "viewer" | "commenter" | "editor";
+    expires_in_hours?: number | null;
+    note?: string | null;
+  },
+) {
+  return jsonFetch<ShareLinkCreateDto>(`${API}/presentations/${presentationId}/share-links`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
+    body: JSON.stringify(body),
+  });
+}
+
+export async function apiShareLinkRevoke(
+  accessToken: string,
+  presentationId: string,
+  shareLinkId: string,
+) {
+  await jsonFetch<void>(`${API}/presentations/${presentationId}/share-links/${shareLinkId}`, {
+    method: "DELETE",
+    headers: { ...authHeaders(accessToken) },
+  });
+}
+
+export async function apiShareExchange(token: string) {
+  return jsonFetch<{
+    access_token: string;
+    token_type: string;
+    expires_in: number;
+    presentation_id: string;
+    role: "viewer" | "commenter" | "editor";
+  }>(
+    `${API}/share-links/exchange`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    },
+    { skipErrorToast: true },
+  );
+}
+
 export async function apiExportCreate(
   accessToken: string,
   presentationId: string,
@@ -365,6 +435,24 @@ export async function apiExportCreate(
 
 export async function apiExportGet(accessToken: string, jobId: string) {
   return jsonFetch<ExportJobDto>(`${API}/exports/${jobId}`, {
+    headers: { ...authHeaders(accessToken) },
+  });
+}
+
+export async function apiDeckPromptJobCreate(
+  accessToken: string,
+  presentationId: string,
+  body: { prompt: string },
+) {
+  return jsonFetch<DeckPromptJobDto>(`${API}/presentations/${presentationId}/deck-prompt-jobs`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
+    body: JSON.stringify(body),
+  });
+}
+
+export async function apiDeckPromptJobGet(accessToken: string, jobId: string) {
+  return jsonFetch<DeckPromptJobDto>(`${API}/deck-prompt-jobs/${jobId}`, {
     headers: { ...authHeaders(accessToken) },
   });
 }

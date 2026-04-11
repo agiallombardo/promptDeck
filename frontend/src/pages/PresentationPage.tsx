@@ -1,6 +1,6 @@
 import { Drawer } from "vaul";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   PresentationCanvas,
   type PresentationCanvasPlaceholder,
@@ -11,17 +11,39 @@ import { PresentationDeckHeader } from "../components/layout/PresentationDeckHea
 import { ShareModal } from "../components/ShareModal";
 import { useComments } from "../hooks/useComments";
 import { usePresentation } from "../hooks/usePresentation";
-import { ApiError, apiExportCreate, apiExportDownloadFile, apiExportGet } from "../lib/api";
+import {
+  ApiError,
+  apiDeckPromptJobCreate,
+  apiDeckPromptJobGet,
+  apiExportCreate,
+  apiExportDownloadFile,
+  apiExportGet,
+  apiShareExchange,
+} from "../lib/api";
+import { shouldIgnoreDeckHotkeys } from "../lib/hotkeys";
 import { postSetCommentMode, postSlideGoto } from "../lib/slidePostMessage";
 import { useAuthStore } from "../stores/auth";
 import { useToastStore } from "../stores/toasts";
 
 export default function PresentationPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const accessToken = useAuthStore((s) => s.accessToken);
+  const setAccessToken = useAuthStore((s) => s.setAccessToken);
   const user = useAuthStore((s) => s.user);
+  const shareToken = searchParams.get("share");
+  const [shareExchangePending, setShareExchangePending] = useState(false);
+  const [shareExchangeError, setShareExchangeError] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [exportBusy, setExportBusy] = useState<"pdf" | "single_html" | null>(null);
+  const [deckPromptOpen, setDeckPromptOpen] = useState(false);
+  const [deckPromptText, setDeckPromptText] = useState("");
+  const [deckPromptBusy, setDeckPromptBusy] = useState(false);
+  const [deckPromptProgress, setDeckPromptProgress] = useState<{
+    pct: number;
+    msg: string;
+  } | null>(null);
   const [mobileFeedbackOpen, setMobileFeedbackOpen] = useState(false);
   const [commentsHidden, setCommentsHidden] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -31,7 +53,7 @@ export default function PresentationPage() {
   const [slideIndex, setSlideIndex] = useState(0);
   const [slideCount, setSlideCount] = useState(1);
 
-  const { pres, embed, upload, uploadError, iframeSrc } = usePresentation(id, accessToken);
+  const { pres, embed, upload, uploadError, iframeSrc, qc } = usePresentation(id, accessToken);
   const versionId = pres.data?.current_version_id;
 
   const noIframePlaceholder = useMemo((): PresentationCanvasPlaceholder => {
@@ -73,8 +95,13 @@ export default function PresentationPage() {
     embed.data,
   ]);
   const accessRole = pres.data?.current_user_role ?? null;
-  const canComment = accessRole === "owner" || accessRole === "editor" || accessRole === "admin";
+  const canComment =
+    accessRole === "owner" ||
+    accessRole === "editor" ||
+    accessRole === "commenter" ||
+    accessRole === "admin";
   const canManage = canComment;
+  const canPromptEdit = accessRole === "owner" || accessRole === "editor" || accessRole === "admin";
 
   const {
     threads,
@@ -183,7 +210,11 @@ export default function PresentationPage() {
         });
       } catch (e) {
         const msg =
-          e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Export failed";
+          e instanceof ApiError
+            ? `${e.message}${e.requestId ? ` · Request ID: ${e.requestId}` : ""}`
+            : e instanceof Error
+              ? e.message
+              : "Export failed";
         useToastStore.getState().pushToast({ level: "error", message: msg });
       } finally {
         setExportBusy(null);
@@ -192,8 +223,67 @@ export default function PresentationPage() {
     [accessToken, id, pres.data?.current_version_id, pres.data?.title],
   );
 
+  const runDeckPrompt = useCallback(async () => {
+    if (!id || !accessToken || !pres.data?.current_version_id) return;
+    const prompt = deckPromptText.trim();
+    if (!prompt) {
+      useToastStore.getState().pushToast({ level: "error", message: "Enter a prompt" });
+      return;
+    }
+    setDeckPromptBusy(true);
+    setDeckPromptProgress({ pct: 0, msg: "Starting…" });
+    useToastStore.getState().pushToast({
+      level: "info",
+      message: "AI edit started — this can take a minute…",
+    });
+    try {
+      const job = await apiDeckPromptJobCreate(accessToken, id, { prompt });
+      let status = job.status;
+      let err: string | null = job.error ?? null;
+      for (let i = 0; i < 600 && status !== "succeeded" && status !== "failed"; i++) {
+        await new Promise((r) => setTimeout(r, 400));
+        const j = await apiDeckPromptJobGet(accessToken, job.id);
+        status = j.status;
+        err = j.error ?? null;
+        setDeckPromptProgress({
+          pct: j.progress ?? 0,
+          msg: (j.status_message ?? status).trim() || status,
+        });
+      }
+      if (status !== "succeeded") {
+        useToastStore.getState().pushToast({
+          level: "error",
+          message: err?.trim() ? err : "AI edit failed",
+        });
+        return;
+      }
+      await qc.invalidateQueries({ queryKey: ["presentation", id, accessToken] });
+      await qc.invalidateQueries({ queryKey: ["presentation-embed", id, accessToken] });
+      useToastStore.getState().pushToast({
+        level: "info",
+        message: "Deck updated — preview refreshed",
+      });
+      setDeckPromptOpen(false);
+      setDeckPromptText("");
+    } catch (e) {
+      const msg =
+        e instanceof ApiError
+          ? `${e.message}${e.requestId ? ` · Request ID: ${e.requestId}` : ""}`
+          : e instanceof Error
+            ? e.message
+            : "AI edit failed";
+      useToastStore.getState().pushToast({ level: "error", message: msg });
+    } finally {
+      setDeckPromptBusy(false);
+      setDeckPromptProgress(null);
+    }
+  }, [accessToken, deckPromptText, id, pres.data?.current_version_id, qc]);
+
   useEffect(() => {
     function onKey(ev: KeyboardEvent) {
+      if (shouldIgnoreDeckHotkeys(ev.target)) {
+        return;
+      }
       if (ev.key === "ArrowLeft") {
         ev.preventDefault();
         setSlideIndex((i) => {
@@ -321,6 +411,30 @@ export default function PresentationPage() {
     onShowCommentsUi: () => setCommentsHidden(false),
   };
 
+  useEffect(() => {
+    if (!id || accessToken || !shareToken) return;
+    let cancelled = false;
+    setShareExchangePending(true);
+    setShareExchangeError(null);
+    void apiShareExchange(shareToken)
+      .then((resp) => {
+        if (cancelled) return;
+        setAccessToken(resp.access_token);
+        navigate(`/p/${resp.presentation_id}`, { replace: true });
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        const message = err instanceof Error ? err.message : "Share link is invalid or expired";
+        setShareExchangeError(message);
+      })
+      .finally(() => {
+        if (!cancelled) setShareExchangePending(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken, id, navigate, setAccessToken, shareToken]);
+
   if (!id) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-bg-void font-mono text-sm text-accent-warning">
@@ -332,6 +446,18 @@ export default function PresentationPage() {
   return (
     <RequireDeckAccess presentationId={id}>
       <div className="min-h-dvh bg-bg-void text-text-main">
+        {!accessToken && shareToken ? (
+          <div className="mx-auto max-w-[min(100%,88rem)] px-4 py-3">
+            {shareExchangePending ? (
+              <p className="font-mono text-xs text-text-muted">Authorizing share link…</p>
+            ) : null}
+            {shareExchangeError ? (
+              <p className="font-mono text-xs text-accent-warning" role="alert">
+                {shareExchangeError}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
         <PresentationDeckHeader
           title={pres.data?.title ?? "Presentation"}
           accessRole={accessRole}
@@ -360,6 +486,7 @@ export default function PresentationPage() {
               ref={presentRootRef}
               iframeRef={iframeRef}
               iframeSrc={iframeSrc}
+              iframeRemountKey={versionId ?? undefined}
               noIframePlaceholder={noIframePlaceholder}
               slideIndex={slideIndex}
               commentMode={commentsHidden ? false : commentMode}
@@ -383,19 +510,31 @@ export default function PresentationPage() {
               </p>
             ) : null}
             {canManage && accessToken ? (
-              <label className="inline-flex cursor-pointer items-center gap-3 rounded-sharp border border-border px-3 py-2 font-mono text-xs text-text-muted hover:bg-bg-elevated">
-                <span>{versionId ? "Upload new version" : "Upload HTML or zip"}</span>
-                <input
-                  type="file"
-                  accept=".html,.htm,.zip,text/html,application/zip"
-                  className="hidden"
-                  onChange={(ev) => {
-                    const f = ev.target.files?.[0];
-                    ev.target.value = "";
-                    if (f) upload.mutate(f);
-                  }}
-                />
-              </label>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="inline-flex cursor-pointer items-center gap-3 rounded-sharp border border-border px-3 py-2 font-mono text-xs text-text-muted hover:bg-bg-elevated">
+                  <span>{versionId ? "Upload new version" : "Upload HTML or zip"}</span>
+                  <input
+                    type="file"
+                    accept=".html,.htm,.zip,text/html,application/zip"
+                    className="hidden"
+                    onChange={(ev) => {
+                      const f = ev.target.files?.[0];
+                      ev.target.value = "";
+                      if (f) upload.mutate(f);
+                    }}
+                  />
+                </label>
+                {canPromptEdit && versionId ? (
+                  <button
+                    type="button"
+                    className="rounded-sharp border border-border px-3 py-2 font-mono text-xs text-text-muted hover:bg-bg-elevated disabled:opacity-50"
+                    disabled={deckPromptBusy}
+                    onClick={() => setDeckPromptOpen(true)}
+                  >
+                    Edit with prompt
+                  </button>
+                ) : null}
+              </div>
             ) : null}
           </section>
 
@@ -425,6 +564,66 @@ export default function PresentationPage() {
               presentationId={id}
             />
           </>
+        ) : null}
+
+        {deckPromptOpen ? (
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
+            role="presentation"
+            onMouseDown={(ev) => {
+              if (ev.target === ev.currentTarget && !deckPromptBusy) setDeckPromptOpen(false);
+            }}
+          >
+            <div
+              className="w-full max-w-lg rounded-sharp border border-border bg-bg-elevated p-4 shadow-elevated"
+              role="dialog"
+              aria-labelledby="deck-prompt-title"
+              onMouseDown={(ev) => ev.stopPropagation()}
+            >
+              <h2 id="deck-prompt-title" className="font-heading text-base font-semibold">
+                Edit deck with AI
+              </h2>
+              <p className="mt-1 font-mono text-[11px] text-text-muted">
+                Describe the change you want. A new version is created when the model finishes.
+              </p>
+              <textarea
+                className="mt-3 h-32 w-full resize-y rounded-sharp border border-border bg-bg-recessed px-3 py-2 font-mono text-sm text-text-main"
+                placeholder="e.g. Change the title slide to say Q2 Review"
+                value={deckPromptText}
+                disabled={deckPromptBusy}
+                onChange={(ev) => setDeckPromptText(ev.target.value)}
+              />
+              {deckPromptProgress ? (
+                <div className="mt-2 space-y-1">
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-bg-recessed">
+                    <div
+                      className="h-full bg-primary transition-[width] duration-300"
+                      style={{ width: `${Math.min(100, Math.max(0, deckPromptProgress.pct))}%` }}
+                    />
+                  </div>
+                  <p className="font-mono text-[11px] text-text-muted">{deckPromptProgress.msg}</p>
+                </div>
+              ) : null}
+              <div className="mt-4 flex justify-end gap-2">
+                <button
+                  type="button"
+                  className="rounded-sharp border border-border px-3 py-1.5 font-mono text-xs hover:bg-bg-recessed disabled:opacity-50"
+                  disabled={deckPromptBusy}
+                  onClick={() => setDeckPromptOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="rounded-sharp border border-primary bg-primary/15 px-3 py-1.5 font-mono text-xs text-primary hover:bg-primary/25 disabled:opacity-50"
+                  disabled={deckPromptBusy}
+                  onClick={() => void runDeckPrompt()}
+                >
+                  {deckPromptBusy ? "Working…" : "Run"}
+                </button>
+              </div>
+            </div>
+          </div>
         ) : null}
       </div>
     </RequireDeckAccess>

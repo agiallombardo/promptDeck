@@ -1193,6 +1193,135 @@
         "title": "CommentRead",
         "type": "object"
       },
+      "DeckPromptJobCreate": {
+        "properties": {
+          "prompt": {
+            "maxLength": 16000,
+            "minLength": 1,
+            "title": "Prompt",
+            "type": "string"
+          }
+        },
+        "required": [
+          "prompt"
+        ],
+        "title": "DeckPromptJobCreate",
+        "type": "object"
+      },
+      "DeckPromptJobRead": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "presentation_id": {
+            "format": "uuid",
+            "title": "Presentation Id",
+            "type": "string"
+          },
+          "progress": {
+            "title": "Progress",
+            "type": "integer"
+          },
+          "result_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Version Id"
+          },
+          "source_version_id": {
+            "format": "uuid",
+            "title": "Source Version Id",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DeckPromptJobStatus"
+          },
+          "status_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Message"
+          }
+        },
+        "required": [
+          "id",
+          "presentation_id",
+          "source_version_id",
+          "status",
+          "status_message",
+          "progress",
+          "error",
+          "result_version_id",
+          "created_at",
+          "started_at",
+          "finished_at"
+        ],
+        "title": "DeckPromptJobRead",
+        "type": "object"
+      },
+      "DeckPromptJobStatus": {
+        "enum": [
+          "queued",
+          "running",
+          "succeeded",
+          "failed"
+        ],
+        "title": "DeckPromptJobStatus",
+        "type": "string"
+      },
       "DirectoryUserListResponse": {
         "properties": {
           "items": {
@@ -1499,6 +1628,7 @@
           "admin",
           "owner",
           "editor",
+          "commenter",
           "user"
         ],
         "title": "PresentationAccess",
@@ -3422,6 +3552,54 @@
         ]
       }
     },
+    "/api/v1/deck-prompt-jobs/{job_id}": {
+      "get": {
+        "operationId": "get_deck_prompt_job_api_v1_deck_prompt_jobs__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeckPromptJobRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Deck Prompt Job",
+        "tags": [
+          "deck-prompt-jobs"
+        ]
+      }
+    },
     "/api/v1/directory/users": {
       "get": {
         "operationId": "directory_users_api_v1_directory_users_get",
@@ -3775,6 +3953,64 @@
         "summary": "Update Presentation",
         "tags": [
           "presentations"
+        ]
+      }
+    },
+    "/api/v1/presentations/{presentation_id}/deck-prompt-jobs": {
+      "post": {
+        "operationId": "create_deck_prompt_job_api_v1_presentations__presentation_id__deck_prompt_jobs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "presentation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Presentation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeckPromptJobCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeckPromptJobRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Deck Prompt Job",
+        "tags": [
+          "deck-prompt-jobs"
         ]
       }
     },
