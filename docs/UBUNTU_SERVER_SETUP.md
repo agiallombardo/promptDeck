@@ -199,11 +199,47 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-### 3.3 Optional: HTTPS
+### 3.3 Optional: HTTPS (self-signed, LAN IP)
 
 For **local-only** use you can skip this section and stay on **HTTP**.
 
-If you later add TLS (internal CA, corporate proxy, or a real hostname with **Let’s Encrypt**), install certificates, add a `listen 443 ssl` server in nginx, open **443/tcp** in UFW, then set `COOKIE_SECURE=true` and use **`https://…`** in `PUBLIC_APP_URL` and `CORS_ORIGINS` so they match the browser’s URL.
+To serve the UI on **port 443** with a **self-signed** certificate when users open the app by **IP** (no hostname):
+
+1. **Pick the IP** clients will type (e.g. `192.168.1.50`). The certificate must list that IP in **Subject Alternative Name** or browsers will reject the connection even after “Advanced”.
+
+2. **Generate cert + key** (OpenSSL 1.1.1+; Ubuntu 22.04/24.04 are fine):
+
+```bash
+sudo mkdir -p /etc/ssl/promptdeck
+sudo openssl req -x509 -nodes -days 825 -newkey rsa:2048 \
+  -keyout /etc/ssl/promptdeck/privkey.pem \
+  -out /etc/ssl/promptdeck/fullchain.pem \
+  -subj "/CN=192.168.1.50" \
+  -addext "subjectAltName=IP:192.168.1.50"
+```
+
+Replace **`192.168.1.50`** twice with your server’s LAN IP. For multiple IPs, extend SAN, e.g. `subjectAltName=IP:192.168.1.50,IP:10.0.0.5`.
+
+```bash
+sudo chmod 640 /etc/ssl/promptdeck/privkey.pem
+sudo chgrp root /etc/ssl/promptdeck/privkey.pem
+```
+
+3. **nginx:** enable the **`listen 443 ssl`** `server` block from **`deploy/nginx/promptdeck.conf.sample`** (paths already point at `/etc/ssl/promptdeck/`). Optionally replace the port **80** `server` with a single line `return 301 https://$host$request_uri;` so only HTTPS is used.
+
+4. **Firewall:** `sudo ufw allow 443/tcp` (and reload UFW if you use it).
+
+5. **API env (§7):** use the **same origin** the browser uses (HTTPS, IP, **no** `:443` in the URL):
+
+| Variable | Example |
+|----------|---------|
+| `PUBLIC_APP_URL` | `https://192.168.1.50` |
+| `CORS_ORIGINS` | `["https://192.168.1.50"]` |
+| `COOKIE_SECURE` | `true` |
+
+Restart **`promptdeck-api`** after changing env. Run **`sudo nginx -t`** then **`sudo systemctl reload nginx`**.
+
+Browsers will show a **warning** for self-signed certs; that is expected until you install a trust anchor or use a real hostname with a CA (e.g. Let’s Encrypt — not applicable to arbitrary public IPs in the usual ACME flow).
 
 ### 3.4 Graceful nginx reload
 
@@ -278,6 +314,8 @@ Create `/etc/systemd/system/promptdeck-api.service`:
 [Unit]
 Description=promptDeck FastAPI (uvicorn)
 After=network.target postgresql.service
+StartLimitIntervalSec=60
+StartLimitBurst=5
 
 [Service]
 Type=simple
@@ -298,6 +336,8 @@ Match `deploy/systemd/promptdeck-api.service` in the repo. After `uv sync` in `b
 **Development-style reload** on a server is usually **`systemctl restart promptdeck-api`** after deploy; for zero-downtime you would add multiple workers behind a process manager — v1 often accepts a short restart window.
 
 ### 6.2 Commands
+
+Create **`/etc/promptdeck/.env`** (§7) **before** the first start. If the unit is already in a restart loop with `Failed to load environment files`, run **`sudo systemctl stop promptdeck-api`**, add the file, then `daemon-reload` and `start` again.
 
 ```bash
 sudo systemctl daemon-reload
@@ -328,9 +368,9 @@ Create **`/etc/promptdeck/.env`** (same file as `EnvironmentFile` in the unit). 
 | `DATABASE_URL` | `postgresql+asyncpg://…@127.0.0.1:5432/promptdeck` |
 | `JWT_SECRET_KEY` | ≥ 32 random bytes |
 | `STORAGE_ROOT` | `/var/lib/promptdeck/storage` |
-| `PUBLIC_APP_URL` | Same origin browsers use, e.g. `http://192.168.1.50` or `http://deck.local` (no trailing slash) |
-| `CORS_ORIGINS` | JSON array matching that origin, e.g. `["http://192.168.1.50"]` (see `backend/app/config.py`) |
-| `COOKIE_SECURE` | `false` for plain HTTP on the LAN; `true` only if nginx serves **HTTPS** |
+| `PUBLIC_APP_URL` | Same origin browsers use, e.g. `http://192.168.1.50` or `https://192.168.1.50` (no trailing slash; omit `:443`) |
+| `CORS_ORIGINS` | JSON array matching that origin, e.g. `["http://192.168.1.50"]` or `["https://192.168.1.50"]` (see `backend/app/config.py`) |
+| `COOKIE_SECURE` | `false` for plain HTTP on the LAN; `true` when nginx serves **HTTPS** (§3.3) |
 | `ENVIRONMENT` | `production` |
 
 Run migrations (one command for both **first install** on an empty database and **upgrades** when new revisions exist):

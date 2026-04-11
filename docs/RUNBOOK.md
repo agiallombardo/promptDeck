@@ -30,7 +30,7 @@ Targets a **local or LAN** machine (no public domain): users open something like
 ## Deploy artifacts (samples)
 
 - **API process:** `deploy/systemd/promptdeck-api.service` — expects repo at `/opt/promptDeck`; adjust `User`, `WorkingDirectory`, and `EnvironmentFile` (e.g. `/etc/promptdeck/.env` with `DATABASE_URL`, `JWT_SECRET_KEY`, `STORAGE_ROOT`, `PUBLIC_APP_URL`, `CORS_ORIGINS`).
-- **Reverse proxy:** `deploy/nginx/promptdeck.conf.sample` — **HTTP** on port 80, static files from `/opt/promptDeck/frontend/dist`, proxy `/api/` and `/a/` to uvicorn on `127.0.0.1:8005`. Optional HTTPS block is commented for advanced setups.
+- **Reverse proxy:** `deploy/nginx/promptdeck.conf.sample` — **HTTP** on port 80 and optional **HTTPS** on 443 (self-signed or real certs). Static files from `/opt/promptDeck/frontend/dist`, proxy `/api/` and `/a/` to uvicorn on `127.0.0.1:8005`. LAN **IP** + self-signed: see **`docs/UBUNTU_SERVER_SETUP.md` §3.3** (cert SAN + `PUBLIC_APP_URL` / `CORS_ORIGINS` / `COOKIE_SECURE`).
 - **Backups:** `scripts/backup_pg.sh` — gzip `pg_dump` using `DATABASE_URL` (async URL is rewritten to `postgresql://` for libpq).
 
 After deploy: `alembic upgrade head` (same as `just db-migrate` from `backend/`; on a **fresh** DB this one pass creates the full schema). Run `scripts/seed.py` once if you need the default admin, reload nginx, `systemctl restart promptdeck-api`.

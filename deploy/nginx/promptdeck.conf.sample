@@ -1,6 +1,10 @@
 # Sample nginx site for promptDeck on a single machine (local / LAN, no public domain).
-# Users open http://SERVER_IP/ or http://hostname.local/ — use that exact origin in
-# PUBLIC_APP_URL and CORS_ORIGINS (see docs/UBUNTU_SERVER_SETUP.md §7).
+# HTTP:  http://SERVER_IP/
+# HTTPS: https://SERVER_IP/  (port 443; use the same origin in PUBLIC_APP_URL and CORS_ORIGINS)
+#
+# DRY option: copy deploy/nginx/snippets/promptdeck-locations.conf.sample to
+# /etc/nginx/snippets/promptdeck-locations.conf, then replace the location blocks below with:
+#   include /etc/nginx/snippets/promptdeck-locations.conf;
 
 upstream promptdeck_api {
     server 127.0.0.1:8005;
@@ -9,7 +13,8 @@ upstream promptdeck_api {
 
 server {
     listen 80;
-    # Single-site LAN: catch-all. Optionally set server_name to the host's IP or .local name.
+    # Catch-all HTTP. For HTTPS-only LAN, replace this whole server with:
+    #   return 301 https://$host$request_uri;
     server_name _;
 
     client_max_body_size 12m;
@@ -46,11 +51,45 @@ server {
     }
 }
 
-# Optional — only if you terminate HTTPS (internal CA, reverse proxy with certs, or a real domain + Let’s Encrypt):
-# server {
-#     listen 443 ssl http2;
-#     server_name your.hostname;
-#     ssl_certificate     /path/to/fullchain.pem;
-#     ssl_certificate_key /path/to/privkey.pem;
-#     ... same location blocks as above ...
-# }
+# HTTPS — self-signed or CA-issued. For browser access via IP, the cert must include
+# subjectAltName=IP:YOUR_IP (see docs/UBUNTU_SERVER_SETUP.md §3.3).
+server {
+    listen 443 ssl http2;
+    server_name _;
+
+    ssl_certificate     /etc/ssl/promptdeck/fullchain.pem;
+    ssl_certificate_key /etc/ssl/promptdeck/privkey.pem;
+
+    client_max_body_size 12m;
+
+    root /opt/promptDeck/frontend/dist;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location /api/ {
+        proxy_pass http://promptdeck_api;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /a/ {
+        proxy_pass http://promptdeck_api;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /health {
+        proxy_pass http://promptdeck_api;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+    }
+}

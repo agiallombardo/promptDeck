@@ -1,12 +1,16 @@
 [Unit]
 Description=promptDeck FastAPI (uvicorn)
 After=network.target postgresql.service
+# Avoid tight restart loops when config is wrong (e.g. missing EnvironmentFile).
+StartLimitIntervalSec=60
+StartLimitBurst=5
 
 [Service]
 Type=simple
 User=promptdeck
 Group=promptdeck
 WorkingDirectory=/opt/promptDeck/backend
+# Must exist; see docs/UBUNTU_SERVER_SETUP.md §7. If missing, logs show "Failed to load environment files".
 EnvironmentFile=/etc/promptdeck/.env
 ExecStart=/opt/promptDeck/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8005 --proxy-headers
 Restart=on-failure
