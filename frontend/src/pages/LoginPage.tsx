@@ -1,15 +1,22 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiLogin } from "../lib/api";
 import { useAuthStore } from "../stores/auth";
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const token = useAuthStore((s) => s.accessToken);
   const setSession = useAuthStore((s) => s.setSession);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+
+  useEffect(() => {
+    if (token) {
+      navigate("/files", { replace: true });
+    }
+  }, [navigate, token]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -31,6 +38,9 @@ export default function LoginPage() {
       <div className="w-full max-w-md rounded-sharp border border-border bg-bg-elevated p-8 shadow-elevated">
         <h1 className="font-heading text-2xl font-semibold">Sign in</h1>
         <p className="mt-2 text-sm text-text-muted">promptDeck · local account</p>
+        <p className="mt-1 text-sm text-text-muted">
+          Upload HTML decks, add pinned comments, and export when you are signed in.
+        </p>
         <form className="mt-8 flex flex-col gap-4" onSubmit={onSubmit}>
           <label className="flex flex-col gap-1 font-mono text-xs uppercase tracking-wide text-text-muted">
             Email

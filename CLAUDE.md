@@ -10,7 +10,7 @@ Internal app: **HTML deck** presentations — upload `.html` / `.zip`, sandboxed
 |------|------|
 | `backend/` | FastAPI (`app/main.py`), routers, Alembic, `openapi.json` |
 | `frontend/` | Vite + React + TS + Tailwind 4 (`src/styles/tailwind.css` `@theme`) |
-| `scripts/` | `verify.sh`, `dev.sh`, `e2e_smoke.py`, `seed.py` |
+| `scripts/` | `verify.sh`, `dev.sh`, `e2e_smoke.py`, `bootstrap_users.py`, `seed.py` |
 | `docs/` | Conventions, runbook, ADRs, `docs/ROADMAP.md`, `API.md` (OpenAPI) |
 | `deploy/` | Samples: `systemd/promptdeck-api.service`, `nginx/promptdeck.conf.sample` (`/opt/promptDeck`, local/LAN HTTP by default) |
 
@@ -42,7 +42,7 @@ just lint               # ruff + frontend lint
 just types              # pyright + tsc
 just db-migrate         # Alembic upgrade head (Postgres); empty DB = full chain in one run — see docs/RUNBOOK.md
 just api-contract       # regen `schema.d.ts` + `docs/API.md` from `backend/openapi.json`
-just db-reset           # Alembic downgrade base + upgrade head + `scripts/seed.py` (destructive)
+just db-reset           # Alembic downgrade base + upgrade head + `bootstrap_users.py` + `seed.py` (destructive)
 ```
 
 Optional: `pre-commit install` + `pre-commit run --all-files` (subset); full = `just verify`.

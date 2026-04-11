@@ -225,7 +225,7 @@ sudo chmod 640 /etc/ssl/promptdeck/privkey.pem
 sudo chgrp root /etc/ssl/promptdeck/privkey.pem
 ```
 
-3. **nginx:** enable the **`listen 443 ssl`** `server` block from **`deploy/nginx/promptdeck.conf.sample`** (paths already point at `/etc/ssl/promptdeck/`). Optionally replace the port **80** `server` with a single line `return 301 https://$host$request_uri;` so only HTTPS is used.
+3. **nginx:** use **`deploy/nginx/promptdeck.conf.sample`** — port **80** redirects to **HTTPS**, and **`listen 443 ssl`** serves the app (cert paths: `/etc/ssl/promptdeck/`). For **HTTP-only** (no TLS), use the plain **`listen 80`** example in §3.2 instead of this sample.
 
 4. **Firewall:** `sudo ufw allow 443/tcp` (and reload UFW if you use it).
 
@@ -418,7 +418,7 @@ cd /opt/promptDeck/frontend && pnpm dev
 
 - [ ] UFW: SSH + **80** (add **443** only if you use HTTPS).
 - [ ] PostgreSQL 18: DB + user + `DATABASE_URL`.
-- [ ] `alembic upgrade head` + `scripts/seed.py` if needed.
+- [ ] `alembic upgrade head` + `scripts/bootstrap_users.py` if you need initial login users (`scripts/seed.py` is for app data only; optional).
 - [ ] `STORAGE_ROOT` on disk with correct ownership.
 - [ ] Frontend built to `/opt/promptDeck/frontend/dist` and nginx `root` matches.
 - [ ] nginx proxies `/api` and `/a` to `127.0.0.1:8005`.

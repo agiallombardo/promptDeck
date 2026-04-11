@@ -30,6 +30,6 @@ Structured logs use a **channel** (stored in `app_logs.logger`, JSON field `chan
 | `http` | ASGI request/response (middleware) |
 | `auth` | Login, refresh, logout outcomes |
 | `audit` | Security-sensitive actions (e.g. admin viewing logs) |
-| `script` | CLI entrypoints (`scripts/seed.py`, `e2e_smoke.py`) |
+| `script` | CLI entrypoints (`scripts/bootstrap_users.py`, `scripts/seed.py`, `e2e_smoke.py`) |
 
 Structlog logger names are `app.<channel>`; stdout JSON includes `channel` when bound or derived from the logger name.

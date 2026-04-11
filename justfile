@@ -44,7 +44,7 @@ db-migrate:
     cd backend && uv run alembic upgrade head
 
 db-reset:
-    cd backend && uv run alembic downgrade base && uv run alembic upgrade head && uv run python ../scripts/seed.py
+    cd backend && uv run alembic downgrade base && uv run alembic upgrade head && uv run python ../scripts/bootstrap_users.py && uv run python ../scripts/seed.py
 
 api-contract:
     just _pnpm exec openapi-typescript ../backend/openapi.json -o src/lib/api/schema.d.ts
