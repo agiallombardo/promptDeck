@@ -71,7 +71,6 @@ async def _persist_auth_log(
         status_code=status_code,
         latency_ms=None,
         payload=payload,
-        auto_commit=False,
     )
 
 
@@ -340,7 +339,6 @@ async def entra_callback(
         action="auth.entra.login.success",
         metadata={"email": user.email},
         client_ip=client_ip_from_request(request),
-        auto_commit=False,
     )
     await db.commit()
     return session_response
@@ -382,7 +380,6 @@ async def login(
             action="auth.login.failure",
             metadata={"email": email},
             client_ip=client_ip_from_request(request),
-            auto_commit=False,
         )
         await db.commit()
         raise HTTPException(
@@ -411,7 +408,6 @@ async def login(
         action="auth.login.success",
         metadata={"email": user.email},
         client_ip=client_ip_from_request(request),
-        auto_commit=False,
     )
     await db.commit()
     return out

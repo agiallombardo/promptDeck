@@ -122,7 +122,6 @@ async def upload_html_version(
                 "version_number": ver2.version_number,
                 "slide_count": slide_count,
             },
-            auto_commit=False,
         )
         await record_audit(
             db,
@@ -136,7 +135,6 @@ async def upload_html_version(
                 "slide_count": slide_count,
             },
             client_ip=client_ip_from_request(request),
-            auto_commit=False,
         )
         await db.commit()
         return _version_read(ver2)

@@ -319,7 +319,6 @@ async def admin_smtp_test(
         status_code=200,
         latency_ms=None,
         payload={"to": to_addr},
-        auto_commit=False,
     )
     await record_audit(
         db,
@@ -327,7 +326,6 @@ async def admin_smtp_test(
         action="admin.smtp.test.sent",
         metadata={"to": to_addr},
         client_ip=client_ip_from_request(request),
-        auto_commit=False,
     )
     await db.commit()
     return AdminSmtpTestResponse(to=to_addr)

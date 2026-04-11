@@ -159,7 +159,6 @@ async def run_deck_prompt_job(job_id: uuid.UUID) -> None:
                     else None,
                     "total_tokens": completion_usage.total_tokens if completion_usage else None,
                 },
-                auto_commit=False,
             )
             await record_audit(
                 session,
@@ -179,7 +178,6 @@ async def run_deck_prompt_job(job_id: uuid.UUID) -> None:
                     "total_tokens": completion_usage.total_tokens if completion_usage else None,
                 },
                 client_ip=None,
-                auto_commit=False,
             )
             await session.commit()
 
@@ -209,7 +207,6 @@ async def run_deck_prompt_job(job_id: uuid.UUID) -> None:
                     else None,
                     "total_tokens": completion_usage.total_tokens if completion_usage else None,
                 },
-                auto_commit=False,
             )
             await record_audit(
                 session,
@@ -219,7 +216,6 @@ async def run_deck_prompt_job(job_id: uuid.UUID) -> None:
                 target_id=job_id,
                 metadata={"presentation_id": str(pres_id), "error": err_msg},
                 client_ip=None,
-                auto_commit=False,
             )
             await session.commit()
 
