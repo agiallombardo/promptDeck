@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   apiDirectoryUsers,
   apiMemberCreate,
@@ -9,6 +9,17 @@ import {
   type DirectoryUserDto,
   type PresentationMemberDto,
 } from "../lib/api";
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
+import { useAuthStore } from "../stores/auth";
+
+const MEMBER_ROLE_OPTIONS = [
+  { value: "user" as const, label: "Viewer" },
+  { value: "editor" as const, label: "Editor" },
+] as const;
+
+function roleLabel(role: "editor" | "user"): string {
+  return MEMBER_ROLE_OPTIONS.find((o) => o.value === role)?.label ?? role;
+}
 
 type Props = {
   open: boolean;
@@ -19,9 +30,19 @@ type Props = {
 
 export function ShareModal({ open, onClose, accessToken, presentationId }: Props) {
   const qc = useQueryClient();
+  const user = useAuthStore((s) => s.user);
+  const directorySearchAvailable = user?.auth_provider === "entra";
   const [query, setQuery] = useState("");
+  const debouncedQuery = useDebouncedValue(query, 450);
   const [role, setRole] = useState<"editor" | "user">("user");
   const [selected, setSelected] = useState<DirectoryUserDto | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setQuery("");
+      setSelected(null);
+    }
+  }, [open]);
 
   const list = useQuery({
     queryKey: ["members", presentationId, accessToken],
@@ -29,10 +50,11 @@ export function ShareModal({ open, onClose, accessToken, presentationId }: Props
     enabled: open,
   });
 
+  const trimmedDebounced = debouncedQuery.trim();
   const search = useQuery({
-    queryKey: ["directory-users", accessToken, query],
-    queryFn: () => apiDirectoryUsers(accessToken, query.trim()),
-    enabled: open && query.trim().length >= 2,
+    queryKey: ["directory-users", accessToken, trimmedDebounced],
+    queryFn: () => apiDirectoryUsers(accessToken, trimmedDebounced),
+    enabled: open && directorySearchAvailable && trimmedDebounced.length >= 2,
   });
 
   const create = useMutation({
@@ -90,7 +112,8 @@ export function ShareModal({ open, onClose, accessToken, presentationId }: Props
               Share deck
             </h2>
             <p className="mt-1 text-sm text-text-muted">
-              Search your tenant directory and grant a deck role to a specific member.
+              Invited editors and viewers are listed below; the owner always has access. Search your
+              directory to add someone new.
             </p>
           </div>
           <button
@@ -102,137 +125,172 @@ export function ShareModal({ open, onClose, accessToken, presentationId }: Props
           </button>
         </div>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto_auto] md:items-end">
-          <label className="flex flex-col gap-1 font-mono text-[10px] uppercase tracking-wide text-text-muted">
-            Search member
-            <input
-              className="rounded-sharp border border-border bg-bg-recessed px-3 py-2 font-body text-sm text-text-main"
-              placeholder="Name or email"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              autoFocus
-            />
-          </label>
-          <label className="flex flex-col gap-1 font-mono text-[10px] uppercase tracking-wide text-text-muted">
-            Role
-            <select
-              className="rounded-sharp border border-border bg-bg-recessed px-2 py-2 font-body text-sm text-text-main"
-              value={role}
-              onChange={(e) => setRole(e.target.value as "editor" | "user")}
-            >
-              <option value="user">user</option>
-              <option value="editor">editor</option>
-            </select>
-          </label>
-          <button
-            type="button"
-            className="rounded-sharp border border-primary bg-primary/10 px-3 py-2 font-mono text-xs text-primary hover:bg-primary/20 disabled:opacity-40"
-            disabled={!selected || create.isPending}
-            onClick={() => create.mutate()}
-          >
-            Add member
-          </button>
-        </div>
-
-        {create.error ? (
-          <p className="mt-2 text-sm text-accent-warning" role="alert">
-            {(create.error as Error).message}
-          </p>
-        ) : null}
-
-        <div className="mt-4 rounded-sharp border border-border bg-bg-recessed p-3">
-          <p className="font-mono text-[10px] uppercase tracking-wide text-text-muted">Results</p>
-          {query.trim().length < 2 ? (
-            <p className="mt-2 text-sm text-text-muted">Type at least 2 characters to search.</p>
-          ) : search.isLoading ? (
-            <p className="mt-2 text-sm text-text-muted">Searching…</p>
-          ) : search.isError ? (
-            <p className="mt-2 text-sm text-accent-warning">{(search.error as Error).message}</p>
-          ) : results.length ? (
-            <ul className="mt-2 space-y-2">
-              {results.map((row) => {
-                const active = selected?.entra_object_id === row.entra_object_id;
-                return (
-                  <li key={row.entra_object_id}>
+        <h3 className="mt-6 font-mono text-xs uppercase tracking-wide text-text-muted">
+          Current members
+        </h3>
+        <div className="mt-2 rounded-sharp border border-border bg-bg-recessed p-3">
+          {list.isLoading ? (
+            <p className="font-mono text-sm text-text-muted">Loading…</p>
+          ) : list.isError ? (
+            <p className="text-sm text-accent-warning">{(list.error as Error).message}</p>
+          ) : (list.data?.items ?? []).length === 0 ? (
+            <p className="text-sm text-text-muted">No one else has access yet.</p>
+          ) : (
+            <ul className="space-y-2">
+              {(list.data?.items ?? []).map((row: PresentationMemberDto) => (
+                <li
+                  key={row.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-sharp border border-border bg-bg-elevated px-3 py-2"
+                >
+                  <div>
+                    <p className="text-sm text-text-main">
+                      {row.principal_display_name ?? row.principal_email}
+                    </p>
+                    <p className="font-mono text-xs text-text-muted">{row.principal_email}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <select
+                      className="min-w-[9rem] rounded-sharp border border-border bg-bg-recessed px-2 py-1 font-mono text-xs text-text-main outline-none ring-primary focus:ring-1"
+                      value={row.role}
+                      title={roleLabel(row.role)}
+                      onChange={(e) =>
+                        update.mutate({
+                          memberId: row.id,
+                          nextRole: e.target.value as "editor" | "user",
+                        })
+                      }
+                      disabled={update.isPending}
+                    >
+                      {MEMBER_ROLE_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
                     <button
                       type="button"
-                      className={`flex w-full items-start justify-between rounded-sharp border px-3 py-2 text-left ${
-                        active
-                          ? "border-primary bg-primary/10"
-                          : "border-border hover:bg-bg-elevated"
-                      }`}
-                      onClick={() => setSelected(row)}
+                      className="rounded-sharp border border-border px-2 py-1 font-mono text-xs uppercase tracking-wide hover:bg-bg-recessed disabled:opacity-40"
+                      disabled={revoke.isPending}
+                      onClick={() => revoke.mutate(row.id)}
                     >
-                      <span>
-                        <span className="block text-sm text-text-main">
-                          {row.display_name ?? row.email}
-                        </span>
-                        <span className="block font-mono text-xs text-text-muted">{row.email}</span>
-                      </span>
-                      <span className="font-mono text-[10px] uppercase tracking-wide text-text-muted">
-                        {row.user_type ?? "member"}
-                      </span>
+                      Revoke
                     </button>
-                  </li>
-                );
-              })}
+                  </div>
+                </li>
+              ))}
             </ul>
-          ) : (
-            <p className="mt-2 text-sm text-text-muted">No matching tenant users found.</p>
           )}
         </div>
 
-        <h3 className="mt-6 font-mono text-[10px] uppercase tracking-wide text-text-muted">
-          Current members
-        </h3>
-        {list.isLoading ? (
-          <p className="mt-2 font-mono text-sm text-text-muted">Loading…</p>
-        ) : list.isError ? (
-          <p className="mt-2 text-sm text-accent-warning">{(list.error as Error).message}</p>
-        ) : (
-          <ul className="mt-2 space-y-2">
-            {(list.data?.items ?? []).map((row: PresentationMemberDto) => (
-              <li
-                key={row.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-sharp border border-border px-3 py-2"
+        <div className="mt-6 border-t border-border pt-6">
+          <h3 className="font-mono text-xs uppercase tracking-wide text-text-muted">Invite</h3>
+          <p className="mt-1 text-sm text-text-muted">
+            Search by name or email (at least two characters). Search runs after you pause typing.
+            Pick someone, choose Viewer or Editor, then add them.
+          </p>
+          {!directorySearchAvailable ? (
+            <p className="mt-3 rounded-sharp border border-accent-warning/40 bg-accent-warning/10 px-3 py-2 text-sm text-accent-warning">
+              Directory search needs a Microsoft Entra sign-in (local accounts cannot call the
+              tenant directory). Sign in with Entra to search, or ask someone with access to add
+              members.
+            </p>
+          ) : null}
+
+          <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto_auto] md:items-end">
+            <label className="flex flex-col gap-1 font-mono text-xs uppercase tracking-wide text-text-muted">
+              Search
+              <input
+                className="rounded-sharp border border-border bg-bg-recessed px-3 py-2 font-body text-sm text-text-main outline-none ring-primary focus:ring-1 disabled:cursor-not-allowed disabled:opacity-50"
+                placeholder="Name or email"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                disabled={!directorySearchAvailable}
+                autoFocus
+              />
+            </label>
+            <label className="flex flex-col gap-1 font-mono text-xs uppercase tracking-wide text-text-muted">
+              Access
+              <select
+                className="min-w-[9rem] rounded-sharp border border-border bg-bg-recessed px-2 py-2 font-body text-sm text-text-main outline-none ring-primary focus:ring-1"
+                value={role}
+                onChange={(e) => setRole(e.target.value as "editor" | "user")}
+                title="Viewer: open and comment. Editor: upload versions and manage sharing."
               >
-                <div>
-                  <p className="text-sm text-text-main">
-                    {row.principal_display_name ?? row.principal_email}
-                  </p>
-                  <p className="font-mono text-xs text-text-muted">{row.principal_email}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <select
-                    className="rounded-sharp border border-border bg-bg-recessed px-2 py-1 font-mono text-xs text-text-main"
-                    value={row.role}
-                    onChange={(e) =>
-                      update.mutate({
-                        memberId: row.id,
-                        nextRole: e.target.value as "editor" | "user",
-                      })
-                    }
-                    disabled={update.isPending}
-                  >
-                    <option value="user">user</option>
-                    <option value="editor">editor</option>
-                  </select>
-                  <button
-                    type="button"
-                    className="rounded-sharp border border-border px-2 py-1 font-mono text-[10px] uppercase tracking-wide hover:bg-bg-recessed disabled:opacity-40"
-                    disabled={revoke.isPending}
-                    onClick={() => revoke.mutate(row.id)}
-                  >
-                    Revoke
-                  </button>
-                </div>
-              </li>
-            ))}
-            {(list.data?.items ?? []).length === 0 ? (
-              <li className="font-mono text-sm text-text-muted">No shared members yet.</li>
-            ) : null}
-          </ul>
-        )}
+                {MEMBER_ROLE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              className="rounded-sharp bg-primary/15 px-4 py-2 font-mono text-sm font-medium text-primary ring-1 ring-primary/40 hover:bg-primary/25 disabled:opacity-40"
+              disabled={!selected || create.isPending}
+              onClick={() => create.mutate()}
+            >
+              Add member
+            </button>
+          </div>
+
+          {create.error ? (
+            <p className="mt-2 text-sm text-accent-warning" role="alert">
+              {(create.error as Error).message}
+            </p>
+          ) : null}
+
+          <div className="mt-4 rounded-sharp border border-border bg-bg-recessed p-3">
+            <p className="font-mono text-xs uppercase tracking-wide text-text-muted">Results</p>
+            {query.trim().length < 2 ? (
+              <p className="mt-2 text-sm text-text-muted">Type at least 2 characters to search.</p>
+            ) : !directorySearchAvailable ? (
+              <p className="mt-2 text-sm text-text-muted">
+                Directory search is unavailable for this account.
+              </p>
+            ) : query.trim() !== trimmedDebounced ? (
+              <p className="mt-2 text-sm text-text-muted">
+                Paused — search runs after you stop typing…
+              </p>
+            ) : search.isFetching ? (
+              <p className="mt-2 text-sm text-text-muted">Searching…</p>
+            ) : search.isError ? (
+              <p className="mt-2 text-sm text-accent-warning">{(search.error as Error).message}</p>
+            ) : results.length ? (
+              <ul className="mt-2 space-y-2">
+                {results.map((row) => {
+                  const active = selected?.entra_object_id === row.entra_object_id;
+                  return (
+                    <li key={row.entra_object_id}>
+                      <button
+                        type="button"
+                        className={`flex w-full items-start justify-between rounded-sharp border px-3 py-2 text-left outline-none ring-primary focus-visible:ring-1 ${
+                          active
+                            ? "border-primary bg-primary/10"
+                            : "border-border hover:bg-bg-elevated"
+                        }`}
+                        onClick={() => setSelected(row)}
+                      >
+                        <span>
+                          <span className="block text-sm text-text-main">
+                            {row.display_name ?? row.email}
+                          </span>
+                          <span className="block font-mono text-xs text-text-muted">
+                            {row.email}
+                          </span>
+                        </span>
+                        <span className="font-mono text-xs uppercase tracking-wide text-text-muted">
+                          {row.user_type ?? "member"}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="mt-2 text-sm text-text-muted">No matching tenant users found.</p>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

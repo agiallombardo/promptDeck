@@ -3,9 +3,17 @@ import type { ThreadDto } from "../../lib/api";
 import { CommentMarker } from "./CommentMarker";
 import { SlideFrame } from "./SlideFrame";
 
+export type PresentationCanvasPlaceholder =
+  | "loading-presentation"
+  | "awaiting-upload"
+  | "loading-embed"
+  | { type: "embed-error"; message: string };
+
 type Props = {
   iframeSrc: string;
   iframeRef: RefObject<HTMLIFrameElement | null>;
+  /** When `iframeSrc` is empty, controls copy instead of a generic loading message. */
+  noIframePlaceholder: PresentationCanvasPlaceholder;
   onManifest: (count: number, titles: string[]) => void;
   onSlideClick: (payload: { slide: number; x: number; y: number }) => void;
   commentMode: boolean;
@@ -16,9 +24,26 @@ type Props = {
   onLongPressCommentMode?: () => void;
 };
 
+function placeholderCopy(p: PresentationCanvasPlaceholder): { title: string; body?: string } {
+  if (p === "loading-presentation") {
+    return { title: "Loading deck…" };
+  }
+  if (p === "awaiting-upload") {
+    return {
+      title: "No deck content yet",
+      body: "Upload a single .html file or a .zip bundle that includes index.html. The preview appears here after the first upload.",
+    };
+  }
+  if (p === "loading-embed") {
+    return { title: "Loading preview…" };
+  }
+  return { title: "Could not load preview", body: p.message };
+}
+
 export function PresentationCanvas({
   iframeSrc,
   iframeRef,
+  noIframePlaceholder,
   onManifest,
   onSlideClick,
   commentMode,
@@ -68,9 +93,26 @@ export function PresentationCanvas({
           />
         </>
       ) : (
-        <div className="flex h-full items-center justify-center bg-bg-recessed font-mono text-sm text-text-muted">
-          Loading canvas…
-        </div>
+        (() => {
+          const { title, body } = placeholderCopy(noIframePlaceholder);
+          const isErr = typeof noIframePlaceholder === "object";
+          return (
+            <div className="flex h-full flex-col items-center justify-center gap-2 bg-bg-recessed px-6 text-center">
+              <p
+                className={`font-heading text-sm font-medium ${isErr ? "text-accent-warning" : "text-text-main"}`}
+              >
+                {title}
+              </p>
+              {body ? (
+                <p
+                  className={`max-w-md font-mono text-xs leading-relaxed ${isErr ? "text-accent-warning/90" : "text-text-muted"}`}
+                >
+                  {body}
+                </p>
+              ) : null}
+            </div>
+          );
+        })()
       )}
     </div>
   );

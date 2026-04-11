@@ -1,15 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { apiPresentationCreate, apiPresentationsList, apiVersionUpload } from "../lib/api";
+import { ShareModal } from "../components/ShareModal";
+import {
+  apiPresentationCreate,
+  apiPresentationDelete,
+  apiPresentationsList,
+  apiVersionUpload,
+} from "../lib/api";
 import { useAuthStore } from "../stores/auth";
 
 const DEFAULT_TITLE = "Untitled deck";
 const MAX_TITLE_LEN = 500;
 
-function deckTitleForCreate(raw: string): string {
+function normalizeDeckTitle(raw: string): string {
   const t = raw.trim();
-  if (!t) return DEFAULT_TITLE;
   return t.length > MAX_TITLE_LEN ? t.slice(0, MAX_TITLE_LEN) : t;
 }
 
@@ -23,6 +28,14 @@ function deckTitleFromUpload(rawField: string, file: File): string {
   return base.length > MAX_TITLE_LEN ? base.slice(0, MAX_TITLE_LEN) : base;
 }
 
+function canManageDeck(role: string | null | undefined): boolean {
+  return role === "owner" || role === "editor" || role === "admin";
+}
+
+function canDeleteDeck(role: string | null | undefined): boolean {
+  return role === "owner" || role === "admin";
+}
+
 export default function FileManagerPage() {
   const token = useAuthStore((s) => s.accessToken)!;
   const qc = useQueryClient();
@@ -30,6 +43,7 @@ export default function FileManagerPage() {
   const uploadInputId = useId();
   const [title, setTitle] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [sharePresentationId, setSharePresentationId] = useState<string | null>(null);
 
   const q = useQuery({
     queryKey: ["presentations", token],
@@ -39,7 +53,11 @@ export default function FileManagerPage() {
   const create = useMutation({
     mutationFn: async () => {
       setError(null);
-      return apiPresentationCreate(token, deckTitleForCreate(title));
+      const trimmed = title.trim();
+      if (!trimmed) {
+        throw new Error("Enter a title to create an empty deck.");
+      }
+      return apiPresentationCreate(token, normalizeDeckTitle(title));
     },
     onSuccess: async () => {
       setTitle("");
@@ -64,6 +82,17 @@ export default function FileManagerPage() {
     onError: (err: Error) => setError(err.message),
   });
 
+  const remove = useMutation({
+    mutationFn: async (presentationId: string) => {
+      setError(null);
+      await apiPresentationDelete(token, presentationId);
+    },
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["presentations", token] });
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
       <h1 className="font-heading text-xl font-semibold">Files</h1>
@@ -73,17 +102,32 @@ export default function FileManagerPage() {
           New presentation
         </h2>
         <p className="mt-2 text-sm text-text-muted">
-          A name is optional. Leave the title blank to use{" "}
-          <span className="font-mono">{DEFAULT_TITLE}</span>, or upload a single{" "}
-          <span className="font-mono">.html</span> or a <span className="font-mono">.zip</span> site
-          bundle (needs <span className="font-mono">index.html</span> plus assets). Creates the deck
-          and first version in one step; the file name is the deck title when the title field is
-          empty.
+          Create an empty deck or upload a single <span className="font-mono">.html</span> file or a{" "}
+          <span className="font-mono">.zip</span> bundle that includes{" "}
+          <span className="font-mono">index.html</span>. Upload creates the deck and its first
+          version in one step.
         </p>
+        <ul className="mt-3 list-none space-y-2 text-sm text-text-muted">
+          <li className="flex gap-3">
+            <span className="w-28 shrink-0 font-mono text-xs uppercase tracking-wide text-text-main">
+              Empty deck
+            </span>
+            <span>Enter a title first — it is required for an empty deck.</span>
+          </li>
+          <li className="flex gap-3">
+            <span className="w-28 shrink-0 font-mono text-xs uppercase tracking-wide text-text-main">
+              Upload
+            </span>
+            <span>
+              Title is optional. If you leave it blank, the file name becomes the deck title, or{" "}
+              <span className="font-mono text-text-main">{DEFAULT_TITLE}</span> when the name cannot
+              be used.
+            </span>
+          </li>
+        </ul>
         <div className="mt-4 flex flex-wrap items-end gap-3">
           <label className="flex min-w-[240px] flex-1 flex-col gap-1 font-mono text-xs text-text-muted">
-            Title{" "}
-            <span className="font-body font-normal normal-case text-text-muted">(optional)</span>
+            Title
             <input
               className="rounded-sharp border border-border bg-bg-recessed px-3 py-2 font-body text-sm text-text-main outline-none ring-primary focus:ring-1"
               value={title}
@@ -154,12 +198,38 @@ export default function FileManagerPage() {
                       {p.current_version_id ? "Has version" : "No upload yet"}
                     </p>
                   </div>
-                  <Link
-                    className="rounded-sharp border border-border px-3 py-1.5 font-mono text-sm text-primary hover:bg-primary/10"
-                    to={`/p/${p.id}`}
-                  >
-                    Open
-                  </Link>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Link
+                      className="rounded-sharp border border-border px-3 py-1.5 font-mono text-sm text-primary hover:bg-primary/10"
+                      to={`/p/${p.id}`}
+                    >
+                      Open
+                    </Link>
+                    {canManageDeck(p.current_user_role) ? (
+                      <button
+                        type="button"
+                        className="rounded-sharp border border-border px-3 py-1.5 font-mono text-sm text-primary hover:bg-primary/10"
+                        onClick={() => setSharePresentationId(p.id)}
+                      >
+                        Share
+                      </button>
+                    ) : null}
+                    {canDeleteDeck(p.current_user_role) ? (
+                      <button
+                        type="button"
+                        disabled={remove.isPending}
+                        className="rounded-sharp border border-border px-3 py-1.5 font-mono text-sm text-accent-warning hover:bg-accent-warning/10 disabled:opacity-50"
+                        onClick={() => {
+                          if (!window.confirm(`Delete deck “${p.title}”? This cannot be undone.`)) {
+                            return;
+                          }
+                          remove.mutate(p.id);
+                        }}
+                      >
+                        Delete
+                      </button>
+                    ) : null}
+                  </div>
                 </li>
               ))
             ) : (
@@ -168,6 +238,15 @@ export default function FileManagerPage() {
           </ul>
         )}
       </div>
+
+      {sharePresentationId ? (
+        <ShareModal
+          open
+          onClose={() => setSharePresentationId(null)}
+          accessToken={token}
+          presentationId={sharePresentationId}
+        />
+      ) : null}
     </main>
   );
 }

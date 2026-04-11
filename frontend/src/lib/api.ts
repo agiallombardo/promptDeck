@@ -159,6 +159,13 @@ export async function apiPresentationGet(accessToken: string, presentationId: st
   });
 }
 
+export async function apiPresentationDelete(accessToken: string, presentationId: string) {
+  await jsonFetch<void>(`${API}/presentations/${presentationId}`, {
+    method: "DELETE",
+    headers: { ...authHeaders(accessToken) },
+  });
+}
+
 export async function apiPresentationEmbed(accessToken: string, presentationId: string) {
   return jsonFetch<{ iframe_src: string; version_id: string; slide_count: number }>(
     `${API}/presentations/${presentationId}/embed`,
@@ -244,9 +251,13 @@ export async function apiVersionUpload(accessToken: string, presentationId: stri
 
 export async function apiDirectoryUsers(accessToken: string, query: string) {
   const params = new URLSearchParams({ q: query });
-  return jsonFetch<{ items: DirectoryUserDto[] }>(`${API}/directory/users?${params.toString()}`, {
-    headers: { ...authHeaders(accessToken) },
-  });
+  return jsonFetch<{ items: DirectoryUserDto[] }>(
+    `${API}/directory/users?${params.toString()}`,
+    {
+      headers: { ...authHeaders(accessToken) },
+    },
+    { skipErrorToast: true },
+  );
 }
 
 export async function apiMembersList(accessToken: string, presentationId: string) {

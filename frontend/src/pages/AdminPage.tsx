@@ -19,7 +19,6 @@ export default function AdminPage() {
   const accessToken = useAuthStore((s) => s.accessToken);
   const [tab, setTab] = useState<Tab>("setup");
   const [channel, setChannel] = useState<string>("");
-  const [requestId, setRequestId] = useState("");
   const [level, setLevel] = useState("");
   const [pathPrefix, setPathPrefix] = useState("");
   const [eventContains, setEventContains] = useState("");
@@ -28,13 +27,12 @@ export default function AdminPage() {
   const logFilters = useMemo(
     () => ({
       channel: channel || null,
-      request_id: requestId || null,
       level: level || null,
       path_prefix: pathPrefix || null,
       event_contains: eventContains || null,
       since: since || null,
     }),
-    [channel, requestId, level, pathPrefix, eventContains, since],
+    [channel, level, pathPrefix, eventContains, since],
   );
 
   const stats = useQuery({
@@ -78,14 +76,6 @@ export default function AdminPage() {
     enabled: Boolean(accessToken) && tab === "audit",
     queryFn: () => apiAdminAudit(accessToken!),
   });
-
-  async function copyText(text: string) {
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      /* ignore */
-    }
-  }
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "setup", label: "Setup" },
@@ -217,10 +207,14 @@ export default function AdminPage() {
       ) : tab === "logs" ? (
         <div className="mt-6 space-y-4">
           <p className="text-sm text-text-muted">
-            Each API hit writes an <span className="font-mono text-text-main">http</span> row; auth
-            routes also emit <span className="font-mono text-text-main">auth</span> rows with
-            structured payloads. Use Event contains to narrow (e.g.{" "}
-            <span className="font-mono">login</span>, <span className="font-mono">audit</span>).
+            Persisted <span className="font-mono text-text-main">app_logs</span> across channels:{" "}
+            <span className="font-mono text-text-main">http</span> (requests),{" "}
+            <span className="font-mono text-text-main">auth</span>,{" "}
+            <span className="font-mono text-text-main">audit</span> (admin and security-adjacent
+            events), and <span className="font-mono text-text-main">script</span> (jobs/smoke).
+            Leave channel on <span className="font-mono text-text-main">All</span> for everything.
+            Filter by event substring (e.g. <span className="font-mono">login</span>,{" "}
+            <span className="font-mono">upload</span>).
           </p>
           <div className="flex flex-wrap gap-3 font-mono text-xs text-text-muted">
             <label className="flex items-center gap-2">
@@ -244,15 +238,6 @@ export default function AdminPage() {
                 value={level}
                 onChange={(e) => setLevel(e.target.value)}
                 placeholder="info"
-              />
-            </label>
-            <label className="flex min-w-[200px] flex-1 items-center gap-2">
-              Request ID
-              <input
-                className="min-w-0 flex-1 rounded-sharp border border-border bg-bg-recessed px-2 py-1 text-text-main"
-                value={requestId}
-                onChange={(e) => setRequestId(e.target.value)}
-                placeholder="paste from toast"
               />
             </label>
             <label className="flex min-w-[200px] flex-1 items-center gap-2">
@@ -291,7 +276,7 @@ export default function AdminPage() {
             </p>
           ) : (
             <div className="overflow-x-auto rounded-sharp border border-border bg-bg-elevated">
-              <table className="w-full min-w-[1100px] border-collapse text-left text-sm">
+              <table className="w-full min-w-[720px] border-collapse text-left text-sm">
                 <thead className="border-b border-border bg-bg-recessed font-mono text-xs uppercase tracking-wide text-text-muted">
                   <tr>
                     <th className="px-3 py-2">Time</th>
@@ -301,10 +286,7 @@ export default function AdminPage() {
                     <th className="px-3 py-2">Method</th>
                     <th className="px-3 py-2">Path</th>
                     <th className="px-3 py-2">Status</th>
-                    <th className="px-3 py-2">Ms</th>
-                    <th className="px-3 py-2">Request ID</th>
-                    <th className="min-w-[140px] px-3 py-2">Payload</th>
-                    <th className="px-3 py-2" />
+                    <th className="min-w-[200px] px-3 py-2">Payload</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border font-mono text-xs text-text-main">
@@ -315,55 +297,35 @@ export default function AdminPage() {
                           ? JSON.stringify(row.payload)
                           : "";
                       const payloadPreview =
-                        payloadStr.length > 100 ? `${payloadStr.slice(0, 100)}…` : payloadStr;
+                        payloadStr.length > 160 ? `${payloadStr.slice(0, 160)}…` : payloadStr;
                       return (
                         <tr key={row.id} className="align-top hover:bg-bg-recessed/60">
                           <td className="whitespace-nowrap px-3 py-2 text-text-muted">{row.ts}</td>
                           <td className="px-3 py-2 text-primary">{row.channel}</td>
                           <td className="px-3 py-2">{row.level}</td>
                           <td
-                            className="max-w-[160px] truncate px-3 py-2 text-text-muted"
+                            className="max-w-[180px] truncate px-3 py-2 text-text-muted"
                             title={row.event ?? ""}
                           >
                             {row.event ?? "—"}
                           </td>
-                          <td className="px-3 py-2">{row.method}</td>
-                          <td className="max-w-[220px] truncate px-3 py-2" title={row.path}>
-                            {row.path}
+                          <td className="px-3 py-2">{row.method || "—"}</td>
+                          <td className="max-w-[200px] truncate px-3 py-2" title={row.path}>
+                            {row.path || "—"}
                           </td>
                           <td className="px-3 py-2">{row.status_code ?? "—"}</td>
-                          <td className="whitespace-nowrap px-3 py-2 text-text-muted">
-                            {row.latency_ms ?? "—"}
-                          </td>
                           <td
-                            className="max-w-[160px] truncate px-3 py-2"
-                            title={row.request_id ?? ""}
-                          >
-                            {row.request_id ?? "—"}
-                          </td>
-                          <td
-                            className="max-w-[200px] break-all px-3 py-2 text-text-muted"
+                            className="max-w-[min(40vw,28rem)] break-all px-3 py-2 text-text-muted"
                             title={payloadStr || undefined}
                           >
                             {payloadPreview || "—"}
-                          </td>
-                          <td className="px-3 py-2">
-                            {row.request_id ? (
-                              <button
-                                type="button"
-                                className="text-primary underline"
-                                onClick={() => void copyText(row.request_id!)}
-                              >
-                                Copy
-                              </button>
-                            ) : null}
                           </td>
                         </tr>
                       );
                     })
                   ) : (
                     <tr>
-                      <td className="px-3 py-6 text-text-muted" colSpan={11}>
+                      <td className="px-3 py-6 text-text-muted" colSpan={8}>
                         No log rows match the current filters.
                       </td>
                     </tr>

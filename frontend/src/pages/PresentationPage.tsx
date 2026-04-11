@@ -1,7 +1,10 @@
 import { Drawer } from "vaul";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import { PresentationCanvas } from "../components/canvas/PresentationCanvas";
+import {
+  PresentationCanvas,
+  type PresentationCanvasPlaceholder,
+} from "../components/canvas/PresentationCanvas";
 import { ExportModal } from "../components/ExportModal";
 import { FeedbackSidebar } from "../components/feedback/FeedbackSidebar";
 import { RequireDeckAccess } from "../components/RequireDeckAccess";
@@ -27,6 +30,45 @@ export default function PresentationPage() {
 
   const { pres, embed, upload, uploadError, iframeSrc } = usePresentation(id, accessToken);
   const versionId = pres.data?.current_version_id;
+
+  const noIframePlaceholder = useMemo((): PresentationCanvasPlaceholder => {
+    if (iframeSrc) {
+      return "loading-embed";
+    }
+    if (pres.isPending || pres.isLoading) {
+      return "loading-presentation";
+    }
+    if (!pres.data?.current_version_id) {
+      return "awaiting-upload";
+    }
+    if (embed.isError) {
+      const err = embed.error;
+      const message =
+        err instanceof Error ? err.message : err != null ? String(err) : "Could not load preview";
+      return { type: "embed-error", message };
+    }
+    if (embed.isPending || embed.isLoading || embed.isFetching) {
+      return "loading-embed";
+    }
+    if (embed.data) {
+      return {
+        type: "embed-error",
+        message: "Preview URL missing. Try refreshing the page.",
+      };
+    }
+    return "loading-embed";
+  }, [
+    iframeSrc,
+    pres.isPending,
+    pres.isLoading,
+    pres.data?.current_version_id,
+    embed.isError,
+    embed.error,
+    embed.isPending,
+    embed.isLoading,
+    embed.isFetching,
+    embed.data,
+  ]);
   const accessRole = pres.data?.current_user_role ?? null;
   const canComment = accessRole === "owner" || accessRole === "editor" || accessRole === "admin";
   const canManage = canComment;
@@ -210,6 +252,7 @@ export default function PresentationPage() {
             <PresentationCanvas
               iframeRef={iframeRef}
               iframeSrc={iframeSrc}
+              noIframePlaceholder={noIframePlaceholder}
               slideIndex={slideIndex}
               commentMode={commentMode}
               canComment={canComment}
@@ -226,7 +269,7 @@ export default function PresentationPage() {
             ) : null}
             {canManage && accessToken ? (
               <label className="inline-flex cursor-pointer items-center gap-3 rounded-sharp border border-border px-3 py-2 font-mono text-xs text-text-muted hover:bg-bg-elevated">
-                <span>Upload new version</span>
+                <span>{versionId ? "Upload new version" : "Upload HTML or zip"}</span>
                 <input
                   type="file"
                   accept=".html,.htm,.zip,text/html,application/zip"

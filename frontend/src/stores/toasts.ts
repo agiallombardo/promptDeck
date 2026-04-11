@@ -20,8 +20,14 @@ let seq = 0;
 export const useToastStore = create<ToastState>((set) => ({
   items: [],
   pushToast: (t) => {
-    const id = `toast-${++seq}`;
-    set((s) => ({ items: [...s.items, { ...t, id }] }));
+    set((s) => {
+      const dup = s.items.some((x) => x.level === t.level && x.message === t.message);
+      if (dup) {
+        return s;
+      }
+      const id = `toast-${++seq}`;
+      return { items: [...s.items, { ...t, id }] };
+    });
   },
   dismissToast: (id) => set((s) => ({ items: s.items.filter((x) => x.id !== id) })),
 }));
