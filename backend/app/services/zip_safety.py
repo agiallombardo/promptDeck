@@ -1,4 +1,4 @@
-"""Zip-slip and path traversal guards for future bundle uploads (M4+)."""
+"""Zip-slip and path traversal guards for zip bundle uploads."""
 
 from __future__ import annotations
 

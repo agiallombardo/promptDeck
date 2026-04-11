@@ -143,3 +143,33 @@ async def test_logs_path_prefix_filter(client: AsyncClient) -> None:
     assert r.status_code == 200
     for row in r.json()["items"]:
         assert row["path"].startswith("/api/v1/admin")
+
+
+@pytest.mark.asyncio
+async def test_logs_event_contains_filter(client: AsyncClient) -> None:
+    async with session_factory()() as session:
+        session.add(
+            User(
+                id=uuid.uuid4(),
+                email="event-admin@example.com",
+                password_hash=hash_password("e"),
+                role=UserRole.admin,
+            )
+        )
+        await session.commit()
+
+    login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "event-admin@example.com", "password": "e"},
+    )
+    token = login.json()["access_token"]
+    h = {"Authorization": f"Bearer {token}"}
+
+    r = await client.get(
+        "/api/v1/admin/logs?event_contains=auth.login&limit=50",
+        headers=h,
+    )
+    assert r.status_code == 200
+    for row in r.json()["items"]:
+        ev = row.get("event")
+        assert ev is not None and "auth.login" in ev

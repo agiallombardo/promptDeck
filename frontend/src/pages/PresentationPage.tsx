@@ -19,13 +19,14 @@ export default function PresentationPage() {
   const { id } = useParams<{ id: string }>();
   const accessToken = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
-  const shareSlice = useShareAccessStore((s) => ({
-    token: s.token,
-    presentationId: s.presentationId,
-    role: s.role,
-  }));
-  const token = deckAccessToken(id ?? "", accessToken, shareSlice)!;
-  const isShareSession = Boolean(shareSlice.token && id && shareSlice.presentationId === id);
+  const shareToken = useShareAccessStore((s) => s.token);
+  const sharePresentationId = useShareAccessStore((s) => s.presentationId);
+  const shareRole = useShareAccessStore((s) => s.role);
+  const token = deckAccessToken(id ?? "", accessToken, {
+    token: shareToken,
+    presentationId: sharePresentationId,
+  })!;
+  const isShareSession = Boolean(shareToken && id && sharePresentationId === id);
   const [shareOpen, setShareOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [mobileFeedbackOpen, setMobileFeedbackOpen] = useState(false);
@@ -35,7 +36,7 @@ export default function PresentationPage() {
   const [slideCount, setSlideCount] = useState(1);
 
   const canComment = isShareSession
-    ? shareSlice.role === "commenter" || shareSlice.role === "editor"
+    ? shareRole === "commenter" || shareRole === "editor"
     : Boolean(user && user.role !== "viewer");
 
   const { pres, embed, upload, uploadError, iframeSrc, qc } = usePresentation(id, token);
@@ -204,7 +205,7 @@ export default function PresentationPage() {
         <PresentationDeckHeader
           title={pres.data?.title ?? "…"}
           isShareSession={isShareSession}
-          shareRole={shareSlice.role ?? null}
+          shareRole={shareRole ?? null}
           showOwnerActions={Boolean(isOwner && pres.data?.current_version_id && accessToken)}
           onShare={() => setShareOpen(true)}
           onExport={() => setExportOpen(true)}
@@ -219,15 +220,18 @@ export default function PresentationPage() {
           {!pres.data?.current_version_id ? (
             <div className="mx-auto w-full max-w-xl flex-1 px-4 py-10">
               <div className="rounded-sharp border border-border bg-bg-elevated p-6 shadow-elevated">
-                <h2 className="font-heading text-lg font-semibold">Upload HTML</h2>
+                <h2 className="font-heading text-lg font-semibold">Upload deck</h2>
                 <p className="mt-2 text-sm text-text-muted">
-                  Add a single `.html` deck to preview slides in the canvas.
+                  One <span className="font-mono">.html</span> file, or a{" "}
+                  <span className="font-mono">.zip</span> of a built site (e.g. Vite/npm export)
+                  with <span className="font-mono">index.html</span> at the root or in a folder such
+                  as <span className="font-mono">dist/</span>, plus your JS/CSS assets.
                 </p>
                 <label className="mt-4 flex cursor-pointer flex-col gap-2 font-mono text-xs uppercase tracking-wide text-text-muted">
                   File
                   <input
                     type="file"
-                    accept=".html,text/html"
+                    accept=".html,.htm,.zip,text/html,application/zip"
                     className="font-body text-sm text-text-main file:mr-3 file:rounded-sharp file:border file:border-border file:bg-bg-recessed file:px-3 file:py-2"
                     onChange={(ev) => {
                       const f = ev.target.files?.[0];

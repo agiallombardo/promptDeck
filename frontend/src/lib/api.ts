@@ -293,6 +293,7 @@ export async function apiAdminLogs(
     request_id?: string | null;
     level?: string | null;
     path_prefix?: string | null;
+    event_contains?: string | null;
     since?: string | null;
     cursor?: number | null;
   },
@@ -302,6 +303,7 @@ export async function apiAdminLogs(
   if (opts?.request_id?.trim()) params.set("request_id", opts.request_id.trim());
   if (opts?.level?.trim()) params.set("level", opts.level.trim());
   if (opts?.path_prefix?.trim()) params.set("path_prefix", opts.path_prefix.trim());
+  if (opts?.event_contains?.trim()) params.set("event_contains", opts.event_contains.trim());
   if (opts?.since?.trim()) params.set("since", opts.since.trim());
   if (opts?.cursor != null) params.set("cursor", String(opts.cursor));
   return jsonFetch<{ items: AdminAppLogRow[]; next_cursor: number | null }>(

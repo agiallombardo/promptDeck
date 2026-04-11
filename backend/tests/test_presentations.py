@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import io
 import uuid
+import zipfile
 from urllib.parse import parse_qs, urlparse
 
 import pytest
@@ -116,6 +118,92 @@ async def test_upload_embed_and_serve_asset(editor_client: AsyncClient) -> None:
         },
     )
     assert bad.status_code == 403
+
+
+def _sample_zip_bundle() -> bytes:
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr(
+            "index.html",
+            b"""<!DOCTYPE html>
+<html><head><title>Bundle</title><link rel="stylesheet" href="assets/app.css" /></head>
+<body><section><p>Slide A</p></section><section><p>Slide B</p></section></body></html>
+""",
+        )
+        zf.writestr("assets/app.css", b"body { color: green; }")
+    return buf.getvalue()
+
+
+@pytest.mark.asyncio
+async def test_upload_zip_bundle_embed_and_asset(editor_client: AsyncClient) -> None:
+    c = editor_client
+    r0 = await c.post("/api/v1/presentations", json={"title": "Zip deck"})
+    assert r0.status_code == 201
+    pid = r0.json()["id"]
+
+    up = await c.post(
+        f"/api/v1/presentations/{pid}/versions",
+        files={"file": ("site.zip", _sample_zip_bundle(), "application/zip")},
+    )
+    assert up.status_code == 201, up.text
+    body = up.json()
+    assert body["storage_kind"] == "zip_bundle"
+    assert body["entry_path"] == "index.html"
+    assert len(body.get("slides") or []) >= 1
+
+    emb = await c.get(f"/api/v1/presentations/{pid}/embed")
+    assert emb.status_code == 200
+    iframe_src = emb.json()["iframe_src"]
+    parsed = urlparse(iframe_src)
+    q = parse_qs(parsed.query)
+    asset_path = parsed.path.removeprefix("/a/")
+    first_slash = asset_path.index("/")
+    vid = asset_path[:first_slash]
+    rel = asset_path[first_slash + 1 :]
+
+    html_resp = await c.get(
+        f"/a/{vid}/{rel}",
+        params={
+            "exp": q["exp"][0],
+            "sig": q["sig"][0],
+            "sub": q["sub"][0],
+            "role": q["role"][0],
+        },
+    )
+    assert html_resp.status_code == 200
+    assert b"data-promptdeck-probe" in html_resp.content
+
+    css_resp = await c.get(
+        f"/a/{vid}/assets/app.css",
+        params={
+            "exp": q["exp"][0],
+            "sig": q["sig"][0],
+            "sub": q["sub"][0],
+            "role": q["role"][0],
+        },
+    )
+    assert css_resp.status_code == 200
+    assert b"green" in css_resp.content
+
+
+@pytest.mark.asyncio
+async def test_upload_zip_rejects_path_traversal(editor_client: AsyncClient) -> None:
+    c = editor_client
+    r0 = await c.post("/api/v1/presentations", json={"title": "Bad zip"})
+    assert r0.status_code == 201
+    pid = r0.json()["id"]
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("index.html", b"<html><body>ok</body></html>")
+        zf.writestr("../evil.html", b"no")
+    raw = buf.getvalue()
+
+    up = await c.post(
+        f"/api/v1/presentations/{pid}/versions",
+        files={"file": ("bad.zip", raw, "application/zip")},
+    )
+    assert up.status_code == 400
 
 
 @pytest.mark.asyncio

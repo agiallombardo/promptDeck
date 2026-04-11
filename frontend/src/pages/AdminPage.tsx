@@ -21,6 +21,7 @@ export default function AdminPage() {
   const [requestId, setRequestId] = useState("");
   const [level, setLevel] = useState("");
   const [pathPrefix, setPathPrefix] = useState("");
+  const [eventContains, setEventContains] = useState("");
   const [since, setSince] = useState("");
 
   const logFilters = useMemo(
@@ -29,9 +30,10 @@ export default function AdminPage() {
       request_id: requestId || null,
       level: level || null,
       path_prefix: pathPrefix || null,
+      event_contains: eventContains || null,
       since: since || null,
     }),
-    [channel, requestId, level, pathPrefix, since],
+    [channel, requestId, level, pathPrefix, eventContains, since],
   );
 
   const stats = useQuery({
@@ -93,8 +95,9 @@ export default function AdminPage() {
         <p className="font-mono text-sm text-primary">Admin</p>
         <h1 className="font-heading text-3xl font-semibold">Operations</h1>
         <p className="mt-1 text-sm text-text-muted">
-          Jobs, decks, users, security audit trail, aggregates, and request logs (with request-ID
-          search).
+          Jobs, decks, users, security audit trail, aggregates, and API request logs (event +
+          payload from the server). Browser-only errors do not appear here unless you add a client
+          reporter.
         </p>
       </header>
 
@@ -146,6 +149,12 @@ export default function AdminPage() {
         )
       ) : tab === "logs" ? (
         <div className="mt-6 space-y-4">
+          <p className="text-sm text-text-muted">
+            Each API hit writes an <span className="font-mono text-text-main">http</span> row; auth
+            routes also emit <span className="font-mono text-text-main">auth</span> rows with
+            structured payloads. Use Event contains to narrow (e.g.{" "}
+            <span className="font-mono">login</span>, <span className="font-mono">audit</span>).
+          </p>
           <div className="flex flex-wrap gap-3 font-mono text-xs text-text-muted">
             <label className="flex items-center gap-2">
               Channel
@@ -188,6 +197,15 @@ export default function AdminPage() {
                 placeholder="/api/v1/admin"
               />
             </label>
+            <label className="flex min-w-[160px] flex-1 items-center gap-2">
+              Event contains
+              <input
+                className="min-w-0 flex-1 rounded-sharp border border-border bg-bg-recessed px-2 py-1 text-text-main"
+                value={eventContains}
+                onChange={(e) => setEventContains(e.target.value)}
+                placeholder="auth.login"
+              />
+            </label>
             <label className="flex min-w-[180px] items-center gap-2">
               Since (ISO)
               <input
@@ -206,53 +224,79 @@ export default function AdminPage() {
             </p>
           ) : (
             <div className="overflow-x-auto rounded-sharp border border-border bg-bg-elevated">
-              <table className="w-full min-w-[900px] border-collapse text-left text-sm">
+              <table className="w-full min-w-[1100px] border-collapse text-left text-sm">
                 <thead className="border-b border-border bg-bg-recessed font-mono text-xs uppercase tracking-wide text-text-muted">
                   <tr>
                     <th className="px-3 py-2">Time</th>
                     <th className="px-3 py-2">Channel</th>
                     <th className="px-3 py-2">Level</th>
+                    <th className="px-3 py-2">Event</th>
                     <th className="px-3 py-2">Method</th>
                     <th className="px-3 py-2">Path</th>
                     <th className="px-3 py-2">Status</th>
+                    <th className="px-3 py-2">Ms</th>
                     <th className="px-3 py-2">Request ID</th>
+                    <th className="min-w-[140px] px-3 py-2">Payload</th>
                     <th className="px-3 py-2" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border font-mono text-xs text-text-main">
                   {logs.data?.items.length ? (
-                    logs.data.items.map((row) => (
-                      <tr key={row.id} className="align-top hover:bg-bg-recessed/60">
-                        <td className="whitespace-nowrap px-3 py-2 text-text-muted">{row.ts}</td>
-                        <td className="px-3 py-2 text-primary">{row.channel}</td>
-                        <td className="px-3 py-2">{row.level}</td>
-                        <td className="px-3 py-2">{row.method}</td>
-                        <td className="max-w-[220px] truncate px-3 py-2" title={row.path}>
-                          {row.path}
-                        </td>
-                        <td className="px-3 py-2">{row.status_code ?? "—"}</td>
-                        <td
-                          className="max-w-[160px] truncate px-3 py-2"
-                          title={row.request_id ?? ""}
-                        >
-                          {row.request_id ?? "—"}
-                        </td>
-                        <td className="px-3 py-2">
-                          {row.request_id ? (
-                            <button
-                              type="button"
-                              className="text-primary underline"
-                              onClick={() => void copyText(row.request_id!)}
-                            >
-                              Copy
-                            </button>
-                          ) : null}
-                        </td>
-                      </tr>
-                    ))
+                    logs.data.items.map((row) => {
+                      const payloadStr =
+                        row.payload && Object.keys(row.payload).length > 0
+                          ? JSON.stringify(row.payload)
+                          : "";
+                      const payloadPreview =
+                        payloadStr.length > 100 ? `${payloadStr.slice(0, 100)}…` : payloadStr;
+                      return (
+                        <tr key={row.id} className="align-top hover:bg-bg-recessed/60">
+                          <td className="whitespace-nowrap px-3 py-2 text-text-muted">{row.ts}</td>
+                          <td className="px-3 py-2 text-primary">{row.channel}</td>
+                          <td className="px-3 py-2">{row.level}</td>
+                          <td
+                            className="max-w-[160px] truncate px-3 py-2 text-text-muted"
+                            title={row.event ?? ""}
+                          >
+                            {row.event ?? "—"}
+                          </td>
+                          <td className="px-3 py-2">{row.method}</td>
+                          <td className="max-w-[220px] truncate px-3 py-2" title={row.path}>
+                            {row.path}
+                          </td>
+                          <td className="px-3 py-2">{row.status_code ?? "—"}</td>
+                          <td className="whitespace-nowrap px-3 py-2 text-text-muted">
+                            {row.latency_ms ?? "—"}
+                          </td>
+                          <td
+                            className="max-w-[160px] truncate px-3 py-2"
+                            title={row.request_id ?? ""}
+                          >
+                            {row.request_id ?? "—"}
+                          </td>
+                          <td
+                            className="max-w-[200px] break-all px-3 py-2 text-text-muted"
+                            title={payloadStr || undefined}
+                          >
+                            {payloadPreview || "—"}
+                          </td>
+                          <td className="px-3 py-2">
+                            {row.request_id ? (
+                              <button
+                                type="button"
+                                className="text-primary underline"
+                                onClick={() => void copyText(row.request_id!)}
+                              >
+                                Copy
+                              </button>
+                            ) : null}
+                          </td>
+                        </tr>
+                      );
+                    })
                   ) : (
                     <tr>
-                      <td className="px-3 py-6 text-text-muted" colSpan={8}>
+                      <td className="px-3 py-6 text-text-muted" colSpan={11}>
                         No log rows match the current filters.
                       </td>
                     </tr>

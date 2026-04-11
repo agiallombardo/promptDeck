@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import hashlib
+import shutil
 import uuid
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from sqlalchemy import func, select
@@ -18,15 +19,29 @@ from app.logging_channels import LogChannel, channel_logger
 from app.schemas.presentation import SlideRead, VersionRead
 from app.services.app_logging import write_app_log
 from app.services.audit import client_ip_from_request, record_audit
+from app.services.bundle_upload import extract_zip_bundle
 from app.services.slide_manifest import build_slide_manifest
-from app.storage.local import presentation_prefix, sanitize_filename, write_bytes_under
+from app.storage.local import (
+    presentation_prefix,
+    read_bytes_if_exists,
+    sanitize_filename,
+    version_dir,
+    write_bytes_under,
+)
 
 router = APIRouter(
     prefix="/presentations/{presentation_id}/versions",
     tags=["versions"],
 )
 log = channel_logger(LogChannel.audit)
-MAX_HTML_BYTES = 10 * 1024 * 1024
+MAX_SINGLE_HTML_BYTES = 10 * 1024 * 1024
+
+
+def _remove_version_storage(settings: Settings, storage_prefix: str) -> None:
+    """Best-effort delete of a version directory (failed zip / abandoned upload)."""
+    root = version_dir(settings, storage_prefix)
+    if root.is_dir():
+        shutil.rmtree(root, ignore_errors=True)
 
 
 def _version_read(ver: PresentationVersion) -> VersionRead:
@@ -55,18 +70,11 @@ async def upload_html_version(
     presentation: Annotated[Presentation, Depends(get_presentation_owner)],
 ) -> VersionRead:
     raw = await file.read()
-    if len(raw) > MAX_HTML_BYTES:
-        raise HTTPException(status_code=413, detail="HTML file too large (max 10MB)")
     if len(raw) == 0:
         raise HTTPException(status_code=400, detail="Empty file")
 
     name = file.filename or "index.html"
-    if not name.lower().endswith(".html"):
-        raise HTTPException(status_code=400, detail="Expected a .html file for this upload")
-
-    entry_path = sanitize_filename(name)
-    sha256 = hashlib.sha256(raw).hexdigest()
-    manifest = build_slide_manifest(raw)
+    lower = name.lower()
 
     result = await db.execute(
         select(func.coalesce(func.max(PresentationVersion.version_number), 0)).where(
@@ -76,12 +84,52 @@ async def upload_html_version(
     next_num = int(result.scalar_one() or 0) + 1
     storage_prefix = presentation_prefix(presentation.id, next_num)
 
+    sha256 = hashlib.sha256(raw).hexdigest()
+    manifest: list[dict[str, Any]]
+    entry_path: str
+    storage_kind: str
+
+    try:
+        if lower.endswith(".zip"):
+            entry_path = extract_zip_bundle(settings, storage_prefix, raw)
+            storage_kind = "zip_bundle"
+            entry_bytes = read_bytes_if_exists(settings, storage_prefix, entry_path)
+            if entry_bytes is None:
+                _remove_version_storage(settings, storage_prefix)
+                raise HTTPException(
+                    status_code=500,
+                    detail="Failed to read entry HTML after zip extraction",
+                )
+            manifest = build_slide_manifest(entry_bytes)
+        elif lower.endswith(".html") or lower.endswith(".htm"):
+            if len(raw) > MAX_SINGLE_HTML_BYTES:
+                raise HTTPException(
+                    status_code=413,
+                    detail="HTML file too large (max 10MB)",
+                )
+            entry_path = sanitize_filename(name)
+            storage_kind = "single_html"
+            manifest = build_slide_manifest(raw)
+            write_bytes_under(settings, storage_prefix, entry_path, raw)
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Expected a .html, .htm, or .zip bundle "
+                    "(zip should contain index.html and assets, e.g. a site export)"
+                ),
+            )
+    except ValueError as e:
+        if lower.endswith(".zip"):
+            _remove_version_storage(settings, storage_prefix)
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
     ver = PresentationVersion(
         presentation_id=presentation.id,
         version_number=next_num,
         origin="upload",
         created_by=user.id,
-        storage_kind="single_html",
+        storage_kind=storage_kind,
         storage_prefix=storage_prefix,
         entry_path=entry_path,
         sha256=sha256,
@@ -89,8 +137,6 @@ async def upload_html_version(
     )
     db.add(ver)
     await db.flush()
-
-    write_bytes_under(settings, storage_prefix, entry_path, raw)
 
     for item in manifest:
         db.add(

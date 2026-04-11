@@ -1930,6 +1930,25 @@
             }
           },
           {
+            "description": "Substring match on `event` (e.g. auth.login, http.request)",
+            "in": "query",
+            "name": "event_contains",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Substring match on `event` (e.g. auth.login, http.request)",
+              "title": "Event Contains"
+            }
+          },
+          {
             "description": "Use `id` of oldest row from prior page",
             "in": "query",
             "name": "cursor",

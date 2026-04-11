@@ -1202,6 +1202,8 @@ export interface operations {
         since?: string | null;
         /** @description Only rows whose path starts with this prefix (e.g. /api/v1/admin) */
         path_prefix?: string | null;
+        /** @description Substring match on `event` (e.g. auth.login, http.request) */
+        event_contains?: string | null;
         /** @description Use `id` of oldest row from prior page */
         cursor?: number | null;
       };

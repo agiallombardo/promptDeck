@@ -8,6 +8,7 @@ import structlog
 from app.db.session import session_factory
 from app.logging_channels import LogChannel, channel_logger
 from app.services.app_logging import write_app_log
+from app.services.audit import client_ip_from_request
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -47,12 +48,25 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
                 status_code=status_code,
                 latency_ms=latency_ms,
             )
+            if status_code >= 500:
+                log_level = "error"
+            elif status_code >= 400:
+                log_level = "warning"
+            else:
+                log_level = "info"
+            payload: dict[str, str] = {}
+            client_ip = client_ip_from_request(request)
+            if client_ip:
+                payload["client_ip"] = client_ip
+            ua = request.headers.get("user-agent")
+            if ua:
+                payload["user_agent"] = ua[:240]
             try:
                 async with session_factory()() as session:
                     await write_app_log(
                         session,
                         channel=LogChannel.http,
-                        level="info" if status_code < 500 else "error",
+                        level=log_level,
                         event="http.request",
                         request_id=request_id,
                         user_id=user,
@@ -60,7 +74,7 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
                         method=method,
                         status_code=status_code,
                         latency_ms=latency_ms,
-                        payload=None,
+                        payload=payload or None,
                     )
             except Exception:
                 log.exception("app_log.write_failed", path=path)

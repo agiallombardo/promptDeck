@@ -53,6 +53,11 @@ async def list_logs(
         default=None,
         description="Only rows whose path starts with this prefix (e.g. /api/v1/admin)",
     ),
+    event_contains: str | None = Query(
+        default=None,
+        max_length=128,
+        description="Substring match on `event` (e.g. auth.login, http.request)",
+    ),
     cursor: int | None = Query(default=None, description="Use `id` of oldest row from prior page"),
 ) -> AppLogListResponse:
     stmt = select(AppLog).order_by(AppLog.id.desc())
@@ -75,6 +80,8 @@ async def list_logs(
         stmt = stmt.where(AppLog.ts >= since)
     if path_prefix:
         stmt = stmt.where(AppLog.path.startswith(path_prefix))
+    if event_contains:
+        stmt = stmt.where(AppLog.event.contains(event_contains))
     if cursor is not None:
         stmt = stmt.where(AppLog.id < cursor)
 
@@ -91,6 +98,7 @@ async def list_logs(
         "audit.admin.logs.viewed",
         limit=limit,
         channel_filter=channel,
+        event_contains_filter=event_contains,
         result_count=len(rows),
     )
     await write_app_log(
@@ -107,6 +115,7 @@ async def list_logs(
         payload={
             "limit": limit,
             "channel_filter": channel,
+            "event_contains": event_contains,
             "result_count": len(rows),
         },
     )

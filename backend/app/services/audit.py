@@ -8,6 +8,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 
 def client_ip_from_request(request: Any) -> str | None:
+    """Best-effort client IP: reverse-proxy headers first, then the transport peer."""
+    headers = getattr(request, "headers", None)
+    if headers is not None:
+        xff = headers.get("x-forwarded-for")
+        if xff:
+            first = xff.split(",")[0].strip()
+            if first:
+                return first
+        xri = headers.get("x-real-ip")
+        if xri:
+            return xri.strip()
     client = getattr(request, "client", None)
     if client is None:
         return None

@@ -12,12 +12,13 @@ export function RequireDeckAccess({
   children: React.ReactNode;
 }) {
   const accessToken = useAuthStore((s) => s.accessToken);
-  const share = useShareAccessStore((s) => ({
-    token: s.token,
-    presentationId: s.presentationId,
-  }));
+  const shareToken = useShareAccessStore((s) => s.token);
+  const sharePresentationId = useShareAccessStore((s) => s.presentationId);
   const navigate = useNavigate();
-  const token = deckAccessToken(presentationId, accessToken, share);
+  const token = deckAccessToken(presentationId, accessToken, {
+    token: shareToken,
+    presentationId: sharePresentationId,
+  });
 
   useEffect(() => {
     if (!token) {
