@@ -36,3 +36,14 @@ class AuthConfigResponse(BaseModel):
     local_password_auth_enabled: bool
     entra_enabled: bool
     entra_login_url: str | None = None
+
+
+class UserSettingsRead(BaseModel):
+    llm_provider: str | None = None
+    llm_api_key_configured: bool = False
+
+
+class UserSettingsUpdate(BaseModel):
+    llm_provider: str | None = Field(default=None, max_length=64)
+    llm_api_key: str | None = Field(default=None, max_length=4096)
+    clear_llm_api_key: bool = False

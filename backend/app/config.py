@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -71,6 +72,25 @@ class Settings(BaseSettings):
     smtp_from: str | None = None
     smtp_starttls: bool = True
     smtp_implicit_tls: bool = False
+    smtp_validate_certs: bool = True
+    smtp_auth_mode: Literal["login", "none"] = "login"
+
+    # Optional LiteLLM / OpenAI-compatible proxy (env fallback; admin UI persists overrides)
+    litellm_api_base: str | None = Field(
+        default=None,
+        validation_alias="LITELLM_API_BASE",
+        description="OpenAI-compatible base URL, e.g. https://litellm.example.com/v1",
+    )
+
+    @field_validator("smtp_auth_mode", mode="before")
+    @classmethod
+    def _coerce_smtp_auth_mode(cls, v: object) -> str:
+        if v is None or (isinstance(v, str) and not v.strip()):
+            return "login"
+        s = str(v).strip().lower()
+        if s in ("none", "relay", "anonymous"):
+            return "none"
+        return "login"
 
     @property
     def entra_redirect_uri(self) -> str:

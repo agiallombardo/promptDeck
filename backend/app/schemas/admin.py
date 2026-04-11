@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
@@ -145,7 +145,16 @@ class AdminSmtpSettingsRead(BaseModel):
     smtp_from: str | None = None
     smtp_starttls: bool
     smtp_implicit_tls: bool
+    smtp_validate_certs: bool
+    smtp_auth_mode: Literal["login", "none"]
     smtp_password_configured: bool
+    smtp_password_stored_encrypted: bool = Field(
+        default=True,
+        description=(
+            "SMTP password is never returned; at rest it is encrypted "
+            "(Fernet, same key as Entra secrets)."
+        ),
+    )
     smtp_ready: bool
 
 
@@ -157,7 +166,13 @@ class AdminSmtpSettingsPatch(BaseModel):
     smtp_from: EmailStr | None = None
     smtp_starttls: bool | None = None
     smtp_implicit_tls: bool | None = None
-    smtp_password: str | None = Field(default=None, max_length=512)
+    smtp_validate_certs: bool | None = None
+    smtp_auth_mode: Literal["login", "none"] | None = None
+    smtp_password: str | None = Field(
+        default=None,
+        max_length=512,
+        description="Written only on save; stored encrypted server-side and never echoed back.",
+    )
     clear_smtp_password: bool = False
 
     @model_validator(mode="after")
@@ -176,3 +191,42 @@ class AdminSmtpTestRequest(BaseModel):
 class AdminSmtpTestResponse(BaseModel):
     ok: bool = True
     to: EmailStr
+
+
+class AdminLlmSettingsRead(BaseModel):
+    """LiteLLM or any OpenAI-compatible proxy (system default for future LLM features)."""
+
+    litellm_api_base: str | None = Field(
+        default=None,
+        description="Effective base URL (database override, else LITELLM_API_BASE env).",
+    )
+    litellm_api_base_configured: bool = Field(
+        default=False,
+        description="True when a non-empty base URL is set (DB or env).",
+    )
+    litellm_api_key_configured: bool = False
+    litellm_api_key_stored_encrypted: bool = Field(
+        default=True,
+        description="API key is never returned; stored encrypted (Fernet, same as other secrets).",
+    )
+
+
+class AdminLlmSettingsPatch(BaseModel):
+    litellm_api_base: str | None = Field(
+        default=None,
+        max_length=512,
+        description=(
+            "OpenAI-compatible API root (e.g. https://litellm.internal/v1). "
+            "Empty string clears DB override."
+        ),
+    )
+    litellm_api_key: str | None = Field(
+        default=None,
+        max_length=4096,
+        description="Written only on save; stored encrypted server-side and never echoed back.",
+    )
+    clear_litellm_api_key: bool = False
+    clear_litellm_api_base: bool = Field(
+        default=False,
+        description="Remove DB base URL; use LITELLM_API_BASE env only.",
+    )

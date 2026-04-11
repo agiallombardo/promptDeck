@@ -5,25 +5,28 @@ import {
   PresentationCanvas,
   type PresentationCanvasPlaceholder,
 } from "../components/canvas/PresentationCanvas";
-import { ExportModal } from "../components/ExportModal";
 import { FeedbackSidebar } from "../components/feedback/FeedbackSidebar";
 import { RequireDeckAccess } from "../components/RequireDeckAccess";
 import { PresentationDeckHeader } from "../components/layout/PresentationDeckHeader";
 import { ShareModal } from "../components/ShareModal";
 import { useComments } from "../hooks/useComments";
 import { usePresentation } from "../hooks/usePresentation";
-import { ApiError } from "../lib/api";
+import { ApiError, apiExportCreate, apiExportDownloadFile, apiExportGet } from "../lib/api";
 import { postSetCommentMode, postSlideGoto } from "../lib/slidePostMessage";
 import { useAuthStore } from "../stores/auth";
+import { useToastStore } from "../stores/toasts";
 
 export default function PresentationPage() {
   const { id } = useParams<{ id: string }>();
   const accessToken = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
   const [shareOpen, setShareOpen] = useState(false);
-  const [exportOpen, setExportOpen] = useState(false);
+  const [exportBusy, setExportBusy] = useState<"pdf" | "single_html" | null>(null);
   const [mobileFeedbackOpen, setMobileFeedbackOpen] = useState(false);
+  const [commentsHidden, setCommentsHidden] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const presentRootRef = useRef<HTMLDivElement | null>(null);
+  const [canvasFullscreen, setCanvasFullscreen] = useState(false);
 
   const [slideIndex, setSlideIndex] = useState(0);
   const [slideCount, setSlideCount] = useState(1);
@@ -94,9 +97,11 @@ export default function PresentationPage() {
       void _titles;
       setSlideCount(Math.max(1, count));
       setSlideIndex(0);
-      queueMicrotask(() => postSetCommentMode(iframeRef.current, commentMode));
+      queueMicrotask(() =>
+        postSetCommentMode(iframeRef.current, commentsHidden ? false : commentMode),
+      );
     },
-    [commentMode],
+    [commentMode, commentsHidden],
   );
 
   const onSlideClick = useCallback(
@@ -108,8 +113,84 @@ export default function PresentationPage() {
   );
 
   useEffect(() => {
-    postSetCommentMode(iframeRef.current, commentMode);
-  }, [commentMode, iframeSrc]);
+    postSetCommentMode(iframeRef.current, commentsHidden ? false : commentMode);
+  }, [commentMode, iframeSrc, commentsHidden]);
+
+  useEffect(() => {
+    function onFullscreenChange() {
+      setCanvasFullscreen(document.fullscreenElement === presentRootRef.current);
+    }
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
+
+  const togglePresentFullscreen = useCallback(() => {
+    const el = presentRootRef.current;
+    if (!el) return;
+    if (document.fullscreenElement === el) {
+      void document.exitFullscreen();
+    } else {
+      void el.requestFullscreen().catch(() => undefined);
+    }
+  }, []);
+
+  const runExport = useCallback(
+    async (format: "pdf" | "single_html") => {
+      if (!id || !accessToken || !pres.data?.current_version_id) return;
+      setExportBusy(format);
+      const label = format === "pdf" ? "PDF" : "HTML";
+      useToastStore.getState().pushToast({
+        level: "info",
+        message: `Preparing ${label} export…`,
+      });
+      try {
+        const job = await apiExportCreate(accessToken, id, {
+          format,
+          version_id: pres.data.current_version_id,
+        });
+        let status = job.status;
+        let err: string | null = job.error ?? null;
+        for (let i = 0; i < 300 && status !== "succeeded" && status !== "failed"; i++) {
+          await new Promise((r) => setTimeout(r, 400));
+          const j = await apiExportGet(accessToken, job.id);
+          status = j.status;
+          err = j.error ?? null;
+        }
+        if (status !== "succeeded") {
+          useToastStore.getState().pushToast({
+            level: "error",
+            message: err?.trim() ? err : `${label} export failed`,
+          });
+          return;
+        }
+        const blob = await apiExportDownloadFile(accessToken, job.id);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        const base =
+          (pres.data.title || "presentation").replace(/[^\w\-. ]+/g, "").slice(0, 80) ||
+          "presentation";
+        const ext = format === "pdf" ? "pdf" : "html";
+        a.download = `${base}.${ext}`;
+        a.rel = "noopener";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        useToastStore.getState().pushToast({
+          level: "info",
+          message: `${label} downloaded`,
+        });
+      } catch (e) {
+        const msg =
+          e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Export failed";
+        useToastStore.getState().pushToast({ level: "error", message: msg });
+      } finally {
+        setExportBusy(null);
+      }
+    },
+    [accessToken, id, pres.data?.current_version_id, pres.data?.title],
+  );
 
   useEffect(() => {
     function onKey(ev: KeyboardEvent) {
@@ -172,6 +253,7 @@ export default function PresentationPage() {
 
   const onThreadSelectFromCanvas = useCallback(
     (threadId: string) => {
+      if (commentsHidden) return;
       const narrow =
         typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
       if (narrow) {
@@ -181,8 +263,23 @@ export default function PresentationPage() {
         scrollThreadIntoView(threadId);
       }
     },
-    [scrollThreadIntoView],
+    [commentsHidden, scrollThreadIntoView],
   );
+
+  const handleToggleCommentsHidden = useCallback(() => {
+    setCommentsHidden((prev) => {
+      const next = !prev;
+      if (!prev && next) {
+        setMobileFeedbackOpen(false);
+        queueMicrotask(() => {
+          setCommentMode(false);
+          setPendingPin(null);
+          setDraftNewThread("");
+        });
+      }
+      return next;
+    });
+  }, [setCommentMode, setDraftNewThread, setPendingPin]);
 
   const feedbackSidebarProps = {
     threads: threads.data?.items ?? [],
@@ -220,6 +317,8 @@ export default function PresentationPage() {
     onReply: handleReply,
     onResolve: (threadId: string) => resolveThread.mutate(threadId),
     onDeleteComment: (commentId: string) => deleteComment.mutate(commentId),
+    commentsUiHidden: commentsHidden,
+    onShowCommentsUi: () => setCommentsHidden(false),
   };
 
   if (!id) {
@@ -239,28 +338,44 @@ export default function PresentationPage() {
           showShareAction={Boolean(canManage && accessToken)}
           showExportAction={Boolean(canManage && accessToken && pres.data?.current_version_id)}
           onShare={() => setShareOpen(true)}
-          onExport={() => setExportOpen(true)}
+          onExportPdf={() => void runExport("pdf")}
+          onExportHtml={() => void runExport("single_html")}
+          exportBusy={exportBusy}
+          showPresentAction={Boolean(iframeSrc && embed.data?.slide_count)}
+          onPresent={togglePresentFullscreen}
+          isFullscreen={canvasFullscreen}
           slideIndex={slideIndex}
           slideCount={slideCount}
           canNavigate={Boolean(embed.data?.slide_count)}
           onPrev={() => go(slideIndex - 1)}
           onNext={() => go(slideIndex + 1)}
+          showCommentsVisibilityToggle={Boolean(versionId)}
+          commentsHidden={commentsHidden}
+          onToggleCommentsHidden={handleToggleCommentsHidden}
         />
 
-        <div className="mx-auto grid max-w-7xl gap-6 px-4 py-4 md:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="mx-auto grid max-w-[min(100%,88rem)] gap-6 px-4 py-4 md:grid-cols-[minmax(0,1fr)_320px]">
           <section className="space-y-4">
             <PresentationCanvas
+              ref={presentRootRef}
               iframeRef={iframeRef}
               iframeSrc={iframeSrc}
               noIframePlaceholder={noIframePlaceholder}
               slideIndex={slideIndex}
-              commentMode={commentMode}
+              commentMode={commentsHidden ? false : commentMode}
               canComment={canComment}
               threads={threads.data?.items ?? []}
               onManifest={onManifest}
               onSelectThread={onThreadSelectFromCanvas}
-              onSlideClick={onSlideClick}
-              onLongPressCommentMode={() => setCommentMode(true)}
+              onSlideClick={commentsHidden ? undefined : onSlideClick}
+              onLongPressCommentMode={commentsHidden ? undefined : () => setCommentMode(true)}
+              showFullscreenExit={canvasFullscreen}
+              onExitFullscreen={() => {
+                void document.exitFullscreen();
+              }}
+              hideCommentMarkers={commentsHidden}
+              commentsHidden={commentsHidden}
+              onToggleCommentsHidden={handleToggleCommentsHidden}
             />
             {uploadError ? (
               <p className="text-sm text-accent-warning" role="alert">
@@ -308,13 +423,6 @@ export default function PresentationPage() {
               onClose={() => setShareOpen(false)}
               accessToken={accessToken}
               presentationId={id}
-            />
-            <ExportModal
-              open={exportOpen}
-              onClose={() => setExportOpen(false)}
-              accessToken={accessToken}
-              presentationId={id}
-              versionId={pres.data?.current_version_id ?? null}
             />
           </>
         ) : null}

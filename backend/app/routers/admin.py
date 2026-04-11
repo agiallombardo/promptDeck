@@ -22,6 +22,8 @@ from app.schemas.admin import (
     AdminEntraSettingsRead,
     AdminExportJobListResponse,
     AdminExportJobRead,
+    AdminLlmSettingsPatch,
+    AdminLlmSettingsRead,
     AdminPresentationListResponse,
     AdminPresentationRow,
     AdminSetupRead,
@@ -45,7 +47,10 @@ from app.services.entra_runtime import (
     persist_entra_system_settings,
     resolve_entra_oidc_config,
 )
+from app.services.llm_runtime import persist_litellm_system_settings, read_litellm_admin_settings
 from app.services.smtp_runtime import (
+    assert_smtp_config_valid,
+    merge_smtp_settings_patch,
     persist_smtp_system_settings,
     resolve_smtp_config,
     send_smtp_message,
@@ -68,7 +73,10 @@ async def _admin_smtp_read(db: AsyncSession, settings: Settings) -> AdminSmtpSet
         smtp_from=cfg.from_address,
         smtp_starttls=cfg.starttls,
         smtp_implicit_tls=cfg.implicit_tls,
+        smtp_validate_certs=cfg.validate_certs,
+        smtp_auth_mode=cfg.auth_mode,
         smtp_password_configured=smtp_password_configured(settings, kv),
+        smtp_password_stored_encrypted=True,
         smtp_ready=smtp_ready(cfg),
     )
 
@@ -186,6 +194,12 @@ async def admin_smtp_settings_patch(
         dump[k] is not None for k in dump if k not in ("clear_smtp_password",)
     )
     if has_change:
+        current = await resolve_smtp_config(db, settings)
+        merged = merge_smtp_settings_patch(current, body)
+        try:
+            assert_smtp_config_valid(merged)
+        except ValueError as e:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
         from_str = str(body.smtp_from) if body.smtp_from is not None else None
         await persist_smtp_system_settings(
             db,
@@ -197,6 +211,8 @@ async def admin_smtp_settings_patch(
             from_address=from_str,
             starttls=body.smtp_starttls,
             implicit_tls=body.smtp_implicit_tls,
+            validate_certs=body.smtp_validate_certs,
+            auth_mode=body.smtp_auth_mode,
             password=body.smtp_password,
             clear_password=body.clear_smtp_password,
         )
@@ -208,6 +224,51 @@ async def admin_smtp_settings_patch(
             client_ip=client_ip_from_request(request),
         )
     return await _admin_smtp_read(db, settings)
+
+
+@router.get("/settings/llm", response_model=AdminLlmSettingsRead)
+async def admin_llm_settings_get(
+    admin_user: Annotated[User, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> AdminLlmSettingsRead:
+    _ = admin_user
+    return await read_litellm_admin_settings(db, settings)
+
+
+@router.patch("/settings/llm", response_model=AdminLlmSettingsRead)
+async def admin_llm_settings_patch(
+    request: Request,
+    body: AdminLlmSettingsPatch,
+    admin_user: Annotated[User, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> AdminLlmSettingsRead:
+    dump = body.model_dump()
+    has_change = (
+        body.clear_litellm_api_key
+        or body.clear_litellm_api_base
+        or dump.get("litellm_api_base") is not None
+        or dump.get("litellm_api_key") is not None
+    )
+    if has_change:
+        await persist_litellm_system_settings(
+            db,
+            settings,
+            api_base=None if body.clear_litellm_api_base else body.litellm_api_base,
+            api_key=body.litellm_api_key,
+            clear_api_key=body.clear_litellm_api_key,
+            clear_api_base=body.clear_litellm_api_base,
+        )
+        llm_meta_keys = [k for k, v in dump.items() if v is not None and k != "litellm_api_key"]
+        await record_audit(
+            db,
+            actor_id=admin_user.id,
+            action="admin.llm_settings.updated",
+            metadata={"keys": llm_meta_keys},
+            client_ip=client_ip_from_request(request),
+        )
+    return await read_litellm_admin_settings(db, settings)
 
 
 @router.post("/settings/smtp/test", response_model=AdminSmtpTestResponse)

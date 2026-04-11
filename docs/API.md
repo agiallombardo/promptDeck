@@ -11,6 +11,8 @@ Regenerate with `just api-contract` after changing `backend/openapi.json`.
 | GET | `/api/v1/admin/presentations` | List Presentations Admin |
 | GET | `/api/v1/admin/settings/entra` | Admin Entra Settings Get |
 | PATCH | `/api/v1/admin/settings/entra` | Admin Entra Settings Patch |
+| GET | `/api/v1/admin/settings/llm` | Admin Llm Settings Get |
+| PATCH | `/api/v1/admin/settings/llm` | Admin Llm Settings Patch |
 | GET | `/api/v1/admin/settings/smtp` | Admin Smtp Settings Get |
 | PATCH | `/api/v1/admin/settings/smtp` | Admin Smtp Settings Patch |
 | POST | `/api/v1/admin/settings/smtp/test` | Admin Smtp Test |

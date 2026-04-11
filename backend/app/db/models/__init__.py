@@ -5,6 +5,7 @@ from app.db.models.export_job import ExportFormat, ExportJob, ExportStatus
 from app.db.models.presentation import Presentation, PresentationVersion, Slide
 from app.db.models.presentation_member import PresentationMember, PresentationMemberRole
 from app.db.models.share_link import ShareLink, ShareRole
+from app.db.models.system_setting import SystemSetting
 from app.db.models.user import AuthProvider, User, UserRole
 
 __all__ = [
@@ -23,6 +24,7 @@ __all__ = [
     "ShareLink",
     "ShareRole",
     "Slide",
+    "SystemSetting",
     "ThreadStatus",
     "User",
     "UserRole",

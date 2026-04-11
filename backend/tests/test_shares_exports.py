@@ -128,11 +128,49 @@ async def test_export_job_stub(editor_client) -> None:
     assert j.status_code == 202
     jid = j.json()["id"]
 
-    for _ in range(50):
+    for _ in range(200):
         r = await c.get(f"/api/v1/exports/{jid}")
         assert r.status_code == 200
         if r.json()["status"] == "succeeded":
             assert r.json()["output_path"] is not None
+            pdf = await c.get(f"/api/v1/exports/{jid}/file")
+            assert pdf.status_code == 200
+            assert pdf.content[:4] == b"%PDF"
             return
-        await asyncio.sleep(0.05)
+        if r.json()["status"] == "failed":
+            raise AssertionError(r.json().get("error") or "export failed")
+        await asyncio.sleep(0.1)
     raise AssertionError("export did not complete")
+
+
+@pytest.mark.asyncio
+async def test_export_single_html_job(editor_client) -> None:
+    c, _transport = editor_client
+    p = await c.post("/api/v1/presentations", json={"title": "HtmlEx"})
+    pid = p.json()["id"]
+    up = await c.post(
+        f"/api/v1/presentations/{pid}/versions",
+        files={"file": ("x.html", SAMPLE_HTML, "text/html")},
+    )
+    assert up.status_code == 201
+
+    j = await c.post(
+        f"/api/v1/presentations/{pid}/exports",
+        json={"format": "single_html"},
+    )
+    assert j.status_code == 202
+    jid = j.json()["id"]
+
+    for _ in range(200):
+        r = await c.get(f"/api/v1/exports/{jid}")
+        assert r.status_code == 200
+        if r.json()["status"] == "succeeded":
+            dl = await c.get(f"/api/v1/exports/{jid}/file")
+            assert dl.status_code == 200
+            assert b"<!DOCTYPE html>" in dl.content or b"<html" in dl.content
+            assert dl.headers.get("content-type", "").startswith("text/html")
+            return
+        if r.json()["status"] == "failed":
+            raise AssertionError(r.json().get("error") or "export failed")
+        await asyncio.sleep(0.05)
+    raise AssertionError("html export did not complete")

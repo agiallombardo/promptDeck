@@ -38,7 +38,6 @@ export function useComments(
     onSuccess: async () => {
       setPendingPin(null);
       setDraftNewThread("");
-      setCommentMode(false);
       await qc.invalidateQueries({ queryKey: ["threads", presentationId, token] });
     },
     onError: () => undefined,

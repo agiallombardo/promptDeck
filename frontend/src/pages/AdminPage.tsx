@@ -8,8 +8,12 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import {
   apiAdminAudit,
+  apiAdminEntraGet,
+  apiAdminEntraPatch,
   apiAdminJobs,
   apiAdminLogs,
+  apiAdminLlmGet,
+  apiAdminLlmPatch,
   apiAdminPresentations,
   apiAdminSetup,
   apiAdminSmtpGet,
@@ -17,13 +21,25 @@ import {
   apiAdminSmtpTest,
   apiAdminStats,
   apiAdminUsers,
+  type AdminEntraSettingsDto,
+  type AdminLlmSettings,
   type AdminSmtpSettings,
 } from "../lib/api";
 import { useAuthStore } from "../stores/auth";
 
 const CHANNELS = ["", "http", "auth", "audit", "script"] as const;
 
-type Tab = "setup" | "email" | "stats" | "logs" | "jobs" | "presentations" | "users" | "audit";
+type Tab =
+  | "setup"
+  | "identity"
+  | "email"
+  | "llm"
+  | "stats"
+  | "logs"
+  | "jobs"
+  | "presentations"
+  | "users"
+  | "audit";
 
 export default function AdminPage() {
   const accessToken = useAuthStore((s) => s.accessToken);
@@ -88,6 +104,21 @@ export default function AdminPage() {
     queryFn: () => apiAdminAudit(accessToken!),
   });
 
+  const entra = useQuery({
+    queryKey: ["admin", "entra", accessToken],
+    enabled: Boolean(accessToken) && tab === "identity",
+    queryFn: () => apiAdminEntraGet(accessToken!),
+  });
+
+  const entraPatch = useMutation({
+    mutationFn: (body: Parameters<typeof apiAdminEntraPatch>[1]) =>
+      apiAdminEntraPatch(accessToken!, body),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["admin", "entra", accessToken] });
+      await qc.invalidateQueries({ queryKey: ["admin", "setup", accessToken] });
+    },
+  });
+
   const smtp = useQuery({
     queryKey: ["admin", "smtp", accessToken],
     enabled: Boolean(accessToken) && tab === "email",
@@ -107,9 +138,25 @@ export default function AdminPage() {
     mutationFn: (to?: string | null) => apiAdminSmtpTest(accessToken!, to),
   });
 
+  const llm = useQuery({
+    queryKey: ["admin", "llm", accessToken],
+    enabled: Boolean(accessToken) && tab === "llm",
+    queryFn: () => apiAdminLlmGet(accessToken!),
+  });
+
+  const llmPatch = useMutation({
+    mutationFn: (body: Parameters<typeof apiAdminLlmPatch>[1]) =>
+      apiAdminLlmPatch(accessToken!, body),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["admin", "llm", accessToken] });
+    },
+  });
+
   const tabs: { id: Tab; label: string }[] = [
     { id: "setup", label: "Setup" },
+    { id: "identity", label: "Identity / Entra" },
     { id: "email", label: "Email / SMTP" },
+    { id: "llm", label: "LLM / LiteLLM" },
     { id: "stats", label: "Stats" },
     { id: "logs", label: "Logs" },
     { id: "jobs", label: "Jobs" },
@@ -123,11 +170,6 @@ export default function AdminPage() {
       <header>
         <p className="font-mono text-sm text-primary">Admin</p>
         <h1 className="font-heading text-3xl font-semibold">Operations</h1>
-        <p className="mt-1 text-sm text-text-muted">
-          Jobs, decks, users, security audit trail, aggregates, and API request logs (event +
-          payload from the server). Browser-only errors do not appear here unless you add a client
-          reporter.
-        </p>
       </header>
 
       <nav className="mt-8 flex flex-wrap gap-2 border-b border-border pb-2">
@@ -165,6 +207,7 @@ export default function AdminPage() {
                     ["ENTRA_TENANT_ID", setup.data!.entra_tenant_id_configured],
                     ["ENTRA_CLIENT_ID", setup.data!.entra_client_id_configured],
                     ["ENTRA_CLIENT_SECRET", setup.data!.entra_client_secret_configured],
+                    ["OIDC login ready", setup.data!.entra_login_ready],
                   ] as const
                 ).map(([label, ok]) => (
                   <li key={label} className="flex items-center justify-between gap-3">
@@ -230,8 +273,12 @@ export default function AdminPage() {
             </div>
           </div>
         )
+      ) : tab === "identity" ? (
+        <AdminEntraPanel entra={entra} entraPatch={entraPatch} />
       ) : tab === "email" ? (
         <AdminSmtpPanel smtp={smtp} smtpPatch={smtpPatch} smtpTest={smtpTest} />
+      ) : tab === "llm" ? (
+        <AdminLlmPanel llm={llm} llmPatch={llmPatch} />
       ) : tab === "stats" ? (
         stats.isLoading ? (
           <p className="mt-10 font-mono text-sm text-text-muted">Loading…</p>
@@ -563,6 +610,146 @@ export default function AdminPage() {
   );
 }
 
+function AdminEntraPanel({
+  entra,
+  entraPatch,
+}: {
+  entra: UseQueryResult<AdminEntraSettingsDto, Error>;
+  entraPatch: UseMutationResult<
+    AdminEntraSettingsDto,
+    Error,
+    Parameters<typeof apiAdminEntraPatch>[1]
+  >;
+}) {
+  const [enabled, setEnabled] = useState(false);
+  const [tenantId, setTenantId] = useState("");
+  const [clientId, setClientId] = useState("");
+  const [authorityHost, setAuthorityHost] = useState("");
+  const [clientSecret, setClientSecret] = useState("");
+  const [clearSecret, setClearSecret] = useState(false);
+
+  useEffect(() => {
+    if (!entra.data) return;
+    setEnabled(entra.data.entra_enabled);
+    setTenantId(entra.data.entra_tenant_id ?? "");
+    setClientId(entra.data.entra_client_id ?? "");
+    setAuthorityHost(entra.data.entra_authority_host ?? "");
+    setClientSecret("");
+    setClearSecret(false);
+  }, [entra.data]);
+
+  const fieldClass =
+    "w-full rounded-sharp border border-border bg-bg-recessed px-2 py-2 font-mono text-sm text-text-main outline-none ring-primary focus:ring-1";
+
+  if (entra.isLoading) {
+    return <p className="mt-10 font-mono text-sm text-text-muted">Loading…</p>;
+  }
+  if (entra.isError) {
+    return (
+      <p className="mt-10 text-accent-warning" role="alert">
+        {(entra.error as Error).message}
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-8 max-w-xl space-y-6">
+      <p className="text-sm text-text-muted">
+        Values here are stored in the database and merged with environment variables (env wins when
+        set). Use the redirect URI below when registering the app in Microsoft Entra. See also{" "}
+        <span className="font-mono text-text-main">scripts/azure-entra-app-registration.sh</span>.
+      </p>
+
+      <div className="rounded-sharp border border-border bg-bg-elevated p-4 shadow-elevated space-y-4">
+        <label className="flex cursor-pointer items-center gap-2 font-mono text-xs text-text-main">
+          <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+          Enable Microsoft Entra (OIDC) login
+        </label>
+
+        <label className="grid gap-1 font-mono text-xs">
+          <span className="text-text-muted">Tenant ID</span>
+          <input
+            className={fieldClass}
+            value={tenantId}
+            onChange={(e) => setTenantId(e.target.value)}
+            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+          />
+        </label>
+
+        <label className="grid gap-1 font-mono text-xs">
+          <span className="text-text-muted">Application (client) ID</span>
+          <input
+            className={fieldClass}
+            value={clientId}
+            onChange={(e) => setClientId(e.target.value)}
+            placeholder="Client ID from app registration"
+          />
+        </label>
+
+        <label className="grid gap-1 font-mono text-xs">
+          <span className="text-text-muted">Authority host</span>
+          <input
+            className={fieldClass}
+            value={authorityHost}
+            onChange={(e) => setAuthorityHost(e.target.value)}
+            placeholder="https://login.microsoftonline.com"
+          />
+        </label>
+
+        <label className="grid gap-1 font-mono text-xs">
+          <span className="text-text-muted">Client secret (write-only)</span>
+          <input
+            className={fieldClass}
+            type="password"
+            autoComplete="off"
+            value={clientSecret}
+            onChange={(e) => setClientSecret(e.target.value)}
+            placeholder={
+              entra.data?.entra_client_secret_configured
+                ? "Leave blank to keep existing secret"
+                : "Paste client secret"
+            }
+          />
+        </label>
+
+        <label className="flex cursor-pointer items-center gap-2 font-mono text-xs text-text-main">
+          <input
+            type="checkbox"
+            checked={clearSecret}
+            onChange={(e) => setClearSecret(e.target.checked)}
+          />
+          Remove stored client secret
+        </label>
+
+        <div className="rounded-sharp border border-border bg-bg-recessed p-3 font-mono text-xs">
+          <p className="text-text-muted">Redirect URI (register in Entra)</p>
+          <p className="mt-1 break-all text-primary">{entra.data?.entra_redirect_uri}</p>
+          <p className="mt-2 text-text-muted">Public API URL</p>
+          <p className="mt-1 break-all text-text-main">{entra.data?.public_api_url}</p>
+        </div>
+
+        <button
+          type="button"
+          className="rounded-sharp bg-primary/15 px-4 py-2 font-mono text-xs text-primary ring-1 ring-primary/40 disabled:opacity-50"
+          disabled={entraPatch.isPending}
+          onClick={() =>
+            entraPatch.mutate({
+              entra_enabled: enabled,
+              entra_tenant_id: tenantId.trim() || null,
+              entra_client_id: clientId.trim() || null,
+              entra_authority_host: authorityHost.trim() || null,
+              entra_client_secret: clientSecret.trim() || null,
+              clear_entra_client_secret: clearSecret,
+            })
+          }
+        >
+          {entraPatch.isPending ? "Saving…" : "Save Entra settings"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AdminSmtpPanel({
   smtp,
   smtpPatch,
@@ -579,6 +766,8 @@ function AdminSmtpPanel({
   const [from, setFrom] = useState("");
   const [starttls, setStarttls] = useState(true);
   const [implicitTls, setImplicitTls] = useState(false);
+  const [validateCerts, setValidateCerts] = useState(true);
+  const [authMode, setAuthMode] = useState<"login" | "none">("login");
   const [password, setPassword] = useState("");
   const [clearPassword, setClearPassword] = useState(false);
   const [testTo, setTestTo] = useState("");
@@ -594,6 +783,8 @@ function AdminSmtpPanel({
     setFrom(smtp.data.smtp_from ?? "");
     setStarttls(smtp.data.smtp_starttls);
     setImplicitTls(smtp.data.smtp_implicit_tls);
+    setValidateCerts(smtp.data.smtp_validate_certs);
+    setAuthMode(smtp.data.smtp_auth_mode);
     setPassword("");
     setClearPassword(false);
   }, [smtp.data]);
@@ -615,8 +806,9 @@ function AdminSmtpPanel({
   return (
     <div className="mt-8 max-w-xl space-y-6">
       <p className="text-sm text-text-muted">
-        Store SMTP credentials in the database (password encrypted with the same key as Entra token
-        secrets). Typical{" "}
+        Passwords are never shown again after save: they are encrypted at rest (same Fernet key as
+        Entra token secrets). TLS is required whenever SMTP is enabled—plain SMTP is blocked.
+        Typical{" "}
         <a
           className="text-primary underline-offset-2 hover:underline"
           href="https://learn.microsoft.com/en-us/exchange/mail-flow-best-practices/how-to-set-up-a-multifunction-device-or-application-to-send-email-using-microsoft-365-or-office-365"
@@ -657,17 +849,6 @@ function AdminSmtpPanel({
         </label>
 
         <label className="grid gap-1 font-mono text-xs">
-          <span className="text-text-muted">Username</span>
-          <input
-            className={fieldClass}
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="mailbox@yourtenant.onmicrosoft.com"
-            autoComplete="off"
-          />
-        </label>
-
-        <label className="grid gap-1 font-mono text-xs">
           <span className="text-text-muted">From address</span>
           <input
             className={fieldClass}
@@ -679,56 +860,108 @@ function AdminSmtpPanel({
           />
         </label>
 
-        <label className="flex cursor-pointer items-center gap-2 font-mono text-xs text-text-main">
-          <input
-            type="checkbox"
-            checked={starttls}
-            onChange={(e) => {
-              setStarttls(e.target.checked);
-              if (e.target.checked) {
-                setImplicitTls(false);
-              }
-            }}
-          />
-          STARTTLS (recommended for port 587)
-        </label>
+        <div className="border-t border-border pt-3">
+          <p className="font-mono text-[10px] uppercase tracking-wide text-text-muted">
+            Transport security
+          </p>
+          <p className="mt-1 text-xs text-text-muted">
+            Enable exactly one of STARTTLS or implicit TLS. Server certificates are verified by
+            default (turn off only for private CAs you trust).
+          </p>
+          <label className="mt-2 flex cursor-pointer items-center gap-2 font-mono text-xs text-text-main">
+            <input
+              type="checkbox"
+              checked={starttls}
+              onChange={(e) => {
+                setStarttls(e.target.checked);
+                if (e.target.checked) {
+                  setImplicitTls(false);
+                }
+              }}
+            />
+            STARTTLS (recommended for port 587)
+          </label>
+          <label className="mt-2 flex cursor-pointer items-center gap-2 font-mono text-xs text-text-main">
+            <input
+              type="checkbox"
+              checked={implicitTls}
+              onChange={(e) => {
+                setImplicitTls(e.target.checked);
+                if (e.target.checked) {
+                  setStarttls(false);
+                }
+              }}
+            />
+            Implicit TLS (SSL on connect, e.g. port 465)
+          </label>
+          <label className="mt-2 flex cursor-pointer items-center gap-2 font-mono text-xs text-text-main">
+            <input
+              type="checkbox"
+              checked={validateCerts}
+              onChange={(e) => setValidateCerts(e.target.checked)}
+            />
+            Validate server TLS certificate (recommended)
+          </label>
+        </div>
 
-        <label className="flex cursor-pointer items-center gap-2 font-mono text-xs text-text-main">
-          <input
-            type="checkbox"
-            checked={implicitTls}
-            onChange={(e) => {
-              setImplicitTls(e.target.checked);
-              if (e.target.checked) {
-                setStarttls(false);
-              }
-            }}
-          />
-          Implicit TLS (SSL on connect, e.g. port 465)
-        </label>
-
-        <label className="grid gap-1 font-mono text-xs">
-          <span className="text-text-muted">SMTP password</span>
-          <input
-            className={fieldClass}
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder={
-              smtp.data?.smtp_password_configured ? "Leave blank to keep current" : "App password"
-            }
-            autoComplete="new-password"
-          />
-        </label>
-
-        <label className="flex cursor-pointer items-center gap-2 font-mono text-xs text-text-main">
-          <input
-            type="checkbox"
-            checked={clearPassword}
-            onChange={(e) => setClearPassword(e.target.checked)}
-          />
-          Remove stored password
-        </label>
+        <div className="border-t border-border pt-3">
+          <p className="font-mono text-[10px] uppercase tracking-wide text-text-muted">
+            Authentication
+          </p>
+          <label className="mt-2 grid gap-1 font-mono text-xs">
+            <span className="text-text-muted">SMTP AUTH</span>
+            <select
+              className={fieldClass}
+              value={authMode}
+              onChange={(e) => setAuthMode(e.target.value as "login" | "none")}
+            >
+              <option value="login">Username and password (Microsoft 365, most providers)</option>
+              <option value="none">No login — trusted relay only (still uses TLS)</option>
+            </select>
+          </label>
+          {authMode === "login" ? (
+            <>
+              <label className="mt-3 grid gap-1 font-mono text-xs">
+                <span className="text-text-muted">Username</span>
+                <input
+                  className={fieldClass}
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="mailbox@yourtenant.onmicrosoft.com"
+                  autoComplete="off"
+                />
+              </label>
+              <label className="mt-3 grid gap-1 font-mono text-xs">
+                <span className="text-text-muted">SMTP password (encrypted when stored)</span>
+                <input
+                  className={fieldClass}
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={
+                    smtp.data?.smtp_password_configured
+                      ? "Leave blank to keep current"
+                      : "App password or mailbox password"
+                  }
+                  autoComplete="new-password"
+                />
+              </label>
+              <label className="mt-2 flex cursor-pointer items-center gap-2 font-mono text-xs text-text-main">
+                <input
+                  type="checkbox"
+                  checked={clearPassword}
+                  onChange={(e) => setClearPassword(e.target.checked)}
+                />
+                Remove stored password
+              </label>
+            </>
+          ) : (
+            <p className="mt-2 text-xs text-accent-warning">
+              Without SMTP AUTH, the relay must trust this host by IP or other policy. Do not expose
+              port 25 to the internet.
+            </p>
+          )}
+        </div>
 
         <div className="flex flex-wrap gap-2 pt-2">
           <button
@@ -741,10 +974,12 @@ function AdminSmtpPanel({
                 smtp_enabled: enabled,
                 smtp_host: host.trim() || null,
                 smtp_port: Number.isFinite(parsedPort) ? parsedPort : 587,
-                smtp_username: username.trim() || null,
+                smtp_username: authMode === "login" ? username.trim() || null : null,
                 smtp_from: from.trim() || null,
                 smtp_starttls: starttls,
                 smtp_implicit_tls: implicitTls,
+                smtp_validate_certs: validateCerts,
+                smtp_auth_mode: authMode,
                 ...(password.trim() ? { smtp_password: password.trim() } : {}),
                 ...(clearPassword ? { clear_smtp_password: true } : {}),
               });
@@ -797,6 +1032,157 @@ function AdminSmtpPanel({
         {smtpTest.isSuccess ? (
           <p className="text-sm text-primary" role="status">
             Sent to {smtpTest.data.to}.
+          </p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function AdminLlmPanel({
+  llm,
+  llmPatch,
+}: {
+  llm: UseQueryResult<AdminLlmSettings, Error>;
+  llmPatch: UseMutationResult<AdminLlmSettings, Error, Parameters<typeof apiAdminLlmPatch>[1]>;
+}) {
+  const [apiBase, setApiBase] = useState("");
+  /** When false, omit `litellm_api_base` on save so we do not copy env URL into DB on key-only saves. */
+  const [apiBaseDirty, setApiBaseDirty] = useState(false);
+  const [apiKey, setApiKey] = useState("");
+  const [clearKey, setClearKey] = useState(false);
+  const [clearBase, setClearBase] = useState(false);
+
+  useEffect(() => {
+    if (!llm.data) return;
+    setApiBase(llm.data.litellm_api_base ?? "");
+    setApiBaseDirty(false);
+    setApiKey("");
+    setClearKey(false);
+    setClearBase(false);
+  }, [llm.data]);
+
+  const fieldClass =
+    "w-full rounded-sharp border border-border bg-bg-recessed px-2 py-2 font-mono text-sm text-text-main outline-none ring-primary focus:ring-1";
+
+  if (llm.isLoading) {
+    return <p className="mt-10 font-mono text-sm text-text-muted">Loading…</p>;
+  }
+  if (llm.isError) {
+    return (
+      <p className="mt-10 text-accent-warning" role="alert">
+        {(llm.error as Error).message}
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-8 max-w-xl space-y-6">
+      <p className="text-sm text-text-muted">
+        System-wide defaults for OpenAI-compatible clients (e.g.{" "}
+        <a
+          className="text-primary underline-offset-2 hover:underline"
+          href="https://docs.litellm.ai/docs/proxy/virtual_keys"
+          rel="noreferrer"
+          target="_blank"
+        >
+          LiteLLM proxy
+        </a>
+        ). Values merge with <span className="font-mono text-text-main">LITELLM_API_BASE</span> from
+        the environment: a base URL saved here overrides env. API keys are encrypted at rest and
+        never returned. Per-user keys on Settings still apply when you build features that prefer
+        user credentials.
+      </p>
+
+      <div className="rounded-sharp border border-border bg-bg-elevated p-4 shadow-elevated space-y-4">
+        <p className="font-mono text-[10px] uppercase tracking-wide text-text-muted">
+          Effective base URL
+        </p>
+        <p className="break-all font-mono text-xs text-text-main">
+          {llm.data?.litellm_api_base?.trim() ? llm.data.litellm_api_base : "— (not configured)"}
+        </p>
+        <p className="font-mono text-[10px] text-text-muted">
+          API key: {llm.data?.litellm_api_key_configured ? "configured" : "not set"}
+        </p>
+
+        <label className="grid gap-1 font-mono text-xs">
+          <span className="text-text-muted">LiteLLM / OpenAI-compatible base URL</span>
+          <input
+            className={fieldClass}
+            value={apiBase}
+            onChange={(e) => {
+              setApiBase(e.target.value);
+              setApiBaseDirty(true);
+            }}
+            placeholder="https://litellm.example.com/v1"
+            autoComplete="off"
+          />
+        </label>
+
+        <label className="flex cursor-pointer items-center gap-2 font-mono text-xs text-text-main">
+          <input
+            type="checkbox"
+            checked={clearBase}
+            onChange={(e) => setClearBase(e.target.checked)}
+          />
+          Remove database base URL (fall back to LITELLM_API_BASE env only)
+        </label>
+
+        <label className="grid gap-1 font-mono text-xs">
+          <span className="text-text-muted">API key (write-only)</span>
+          <input
+            className={fieldClass}
+            type="password"
+            autoComplete="off"
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            placeholder={
+              llm.data?.litellm_api_key_configured
+                ? "Leave blank to keep existing key"
+                : "sk-… or LiteLLM virtual key"
+            }
+          />
+        </label>
+
+        <label className="flex cursor-pointer items-center gap-2 font-mono text-xs text-text-main">
+          <input
+            type="checkbox"
+            checked={clearKey}
+            onChange={(e) => setClearKey(e.target.checked)}
+          />
+          Remove stored API key
+        </label>
+
+        <button
+          type="button"
+          className="rounded-sharp bg-primary/15 px-4 py-2 font-mono text-xs text-primary ring-1 ring-primary/40 disabled:opacity-50"
+          disabled={llmPatch.isPending}
+          onClick={() => {
+            const body: Parameters<typeof apiAdminLlmPatch>[1] = {};
+            if (clearBase) {
+              body.clear_litellm_api_base = true;
+            } else if (apiBaseDirty) {
+              body.litellm_api_base = apiBase.trim();
+            }
+            if (clearKey) {
+              body.clear_litellm_api_key = true;
+            } else if (apiKey.trim()) {
+              body.litellm_api_key = apiKey.trim();
+            }
+            llmPatch.mutate(body);
+          }}
+        >
+          {llmPatch.isPending ? "Saving…" : "Save LLM settings"}
+        </button>
+
+        {llmPatch.isError ? (
+          <p className="text-sm text-accent-warning" role="alert">
+            {(llmPatch.error as Error).message}
+          </p>
+        ) : null}
+        {llmPatch.isSuccess ? (
+          <p className="text-sm text-primary" role="status">
+            Saved.
           </p>
         ) : null}
       </div>

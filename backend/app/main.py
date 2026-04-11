@@ -6,6 +6,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from starlette.responses import Response
 
+import app.db.models  # noqa: F401 — register models on Base.metadata
 from app.config import get_settings
 from app.db.session import dispose_engine
 from app.logging_conf import configure_logging

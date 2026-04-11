@@ -19,6 +19,10 @@ jobs:
         working-directory: backend
         run: uv sync --group dev
 
+      - name: Install Playwright Chromium (PDF export tests)
+        working-directory: backend
+        run: uv run playwright install chromium
+
       # Reads `packageManager` from frontend/package.json (keep in sync with scripts/pnpm.sh fallback).
       - uses: pnpm/action-setup@v4
         with:

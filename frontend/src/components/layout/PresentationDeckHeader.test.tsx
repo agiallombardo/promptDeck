@@ -17,7 +17,11 @@ describe("PresentationDeckHeader", () => {
         showShareAction
         showExportAction
         onShare={() => {}}
-        onExport={() => {}}
+        onExportPdf={() => {}}
+        onExportHtml={() => {}}
+        showPresentAction={false}
+        onPresent={() => {}}
+        isFullscreen={false}
         slideIndex={0}
         slideCount={1}
         canNavigate
@@ -25,8 +29,8 @@ describe("PresentationDeckHeader", () => {
         onNext={() => {}}
       />,
     );
-    const exportBtn = screen.getByRole("button", { name: "Export" });
-    expect(exportBtn.className).toMatch(/hidden/);
-    expect(exportBtn.className).toMatch(/md:/);
+    const exportPdfBtn = screen.getByRole("button", { name: "Export PDF" });
+    expect(exportPdfBtn.className).toMatch(/hidden/);
+    expect(exportPdfBtn.className).toMatch(/md:/);
   });
 });

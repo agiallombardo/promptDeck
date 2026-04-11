@@ -60,3 +60,5 @@ class User(Base):
         nullable=False,
     )
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    llm_provider: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    llm_api_key_encrypted: Mapped[str | None] = mapped_column(Text(), nullable=True)

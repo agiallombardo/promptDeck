@@ -31,6 +31,9 @@ export function AppShell() {
             <Link className="hover:text-primary" to="/files">
               Files
             </Link>
+            <Link className="hover:text-primary" to="/settings">
+              Settings
+            </Link>
             {user?.role === "admin" ? (
               <Link className="hover:text-primary" to="/admin">
                 Admin

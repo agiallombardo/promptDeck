@@ -19,10 +19,10 @@ from app.schemas.presentation import SlideRead, VersionRead
 from app.services.app_logging import write_app_log
 from app.services.audit import client_ip_from_request, record_audit
 from app.services.bundle_upload import extract_zip_bundle
+from app.services.html_bundle import inline_zip_entry_to_single_html
 from app.services.slide_manifest import build_slide_manifest
 from app.storage.local import (
     presentation_prefix,
-    read_bytes_if_exists,
     sanitize_filename,
     version_dir,
     write_bytes_under,
@@ -91,15 +91,20 @@ async def upload_html_version(
     try:
         if lower.endswith(".zip"):
             entry_path = extract_zip_bundle(settings, storage_prefix, raw)
-            storage_kind = "zip_bundle"
-            entry_bytes = read_bytes_if_exists(settings, storage_prefix, entry_path)
-            if entry_bytes is None:
-                _remove_version_storage(settings, storage_prefix)
-                raise HTTPException(
-                    status_code=500,
-                    detail="Failed to read entry HTML after zip extraction",
+            try:
+                new_entry, inlined = inline_zip_entry_to_single_html(
+                    settings, storage_prefix, entry_path
                 )
-            manifest = build_slide_manifest(entry_bytes)
+            except ValueError as e:
+                _remove_version_storage(settings, storage_prefix)
+                raise HTTPException(status_code=400, detail=str(e)) from e
+            root = version_dir(settings, storage_prefix)
+            shutil.rmtree(root, ignore_errors=True)
+            root.mkdir(parents=True)
+            write_bytes_under(settings, storage_prefix, new_entry, inlined)
+            entry_path = new_entry
+            storage_kind = "single_html"
+            manifest = build_slide_manifest(inlined)
         elif lower.endswith(".html") or lower.endswith(".htm"):
             if len(raw) > MAX_SINGLE_HTML_BYTES:
                 raise HTTPException(

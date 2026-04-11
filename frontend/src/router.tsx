@@ -7,6 +7,7 @@ import AdminPage from "./pages/AdminPage";
 import FileManagerPage from "./pages/FileManagerPage";
 import LoginPage from "./pages/LoginPage";
 import PresentationPage from "./pages/PresentationPage";
+import SettingsPage from "./pages/SettingsPage";
 
 function AuthenticatedLayout() {
   return (
@@ -23,6 +24,7 @@ export function AppRouter() {
       <Route path="/login" element={<LoginPage />} />
       <Route element={<AuthenticatedLayout />}>
         <Route path="files" element={<FileManagerPage />} />
+        <Route path="settings" element={<SettingsPage />} />
         <Route
           path="admin"
           element={

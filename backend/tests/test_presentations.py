@@ -147,8 +147,8 @@ async def test_upload_zip_bundle_embed_and_asset(editor_client: AsyncClient) -> 
     )
     assert up.status_code == 201, up.text
     body = up.json()
-    assert body["storage_kind"] == "zip_bundle"
-    assert body["entry_path"] == "index.html"
+    assert body["storage_kind"] == "single_html"
+    assert body["entry_path"] == "__promptdeck_inlined.html"
     assert len(body.get("slides") or []) >= 1
 
     emb = await c.get(f"/api/v1/presentations/{pid}/embed")
@@ -172,18 +172,24 @@ async def test_upload_zip_bundle_embed_and_asset(editor_client: AsyncClient) -> 
     )
     assert html_resp.status_code == 200
     assert b"data-promptdeck-probe" in html_resp.content
+    assert b"green" in html_resp.content
 
-    css_resp = await c.get(
-        f"/a/{vid}/assets/app.css",
-        params={
-            "exp": q["exp"][0],
-            "sig": q["sig"][0],
-            "sub": q["sub"][0],
-            "role": q["role"][0],
-        },
+
+@pytest.mark.asyncio
+async def test_upload_zip_rejects_framework_layout(editor_client: AsyncClient) -> None:
+    c = editor_client
+    r0 = await c.post("/api/v1/presentations", json={"title": "Framework zip"})
+    assert r0.status_code == 201
+    pid = r0.json()["id"]
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("index.html", b"<html><body>x</body></html>")
+        zf.writestr("vite.config.ts", b"export default {}")
+    up = await c.post(
+        f"/api/v1/presentations/{pid}/versions",
+        files={"file": ("fw.zip", buf.getvalue(), "application/zip")},
     )
-    assert css_resp.status_code == 200
-    assert b"green" in css_resp.content
+    assert up.status_code == 400
 
 
 @pytest.mark.asyncio

@@ -24,6 +24,8 @@ from app.schemas.auth import (
     LoginResponse,
     MessageResponse,
     UserPublic,
+    UserSettingsRead,
+    UserSettingsUpdate,
 )
 from app.security.jwt_tokens import create_access_token, create_refresh_token, decode_token_typed
 from app.security.passwords import verify_password
@@ -36,6 +38,7 @@ from app.services.entra import (
     exchange_code_for_tokens,
     parse_id_token,
 )
+from app.services.entra_runtime import entra_login_ready, resolve_entra_oidc_config
 from app.services.token_crypto import encrypt_text
 
 router = APIRouter()
@@ -186,23 +189,30 @@ async def _upsert_entra_user(
 
 
 @router.get("/config", response_model=AuthConfigResponse)
-async def auth_config(settings: Annotated[Settings, Depends(get_settings)]) -> AuthConfigResponse:
+async def auth_config(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> AuthConfigResponse:
+    cfg = await resolve_entra_oidc_config(db, settings)
+    ready = entra_login_ready(cfg)
     return AuthConfigResponse(
         local_password_auth_enabled=settings.local_password_auth_enabled,
-        entra_enabled=settings.entra_enabled,
-        entra_login_url="/api/v1/auth/entra/login" if settings.entra_enabled else None,
+        entra_enabled=ready,
+        entra_login_url="/api/v1/auth/entra/login" if ready else None,
     )
 
 
 @router.get("/entra/login")
 async def entra_login(
+    db: Annotated[AsyncSession, Depends(get_db)],
     settings: Annotated[Settings, Depends(get_settings)],
     next_path: Annotated[str | None, Query(alias="next")] = None,
 ) -> RedirectResponse:
     try:
+        cfg = await resolve_entra_oidc_config(db, settings)
         state = secrets.token_urlsafe(32)
         nonce = secrets.token_urlsafe(32)
-        login_url = build_authorize_url(settings, state=state, nonce=nonce)
+        login_url = build_authorize_url(cfg, state=state, nonce=nonce)
     except EntraConfigError as e:
         raise HTTPException(status_code=503, detail=str(e)) from e
 
@@ -250,11 +260,12 @@ async def entra_callback(
         return redirect
 
     try:
-        tokens = await exchange_code_for_tokens(settings, code)
+        cfg = await resolve_entra_oidc_config(db, settings)
+        tokens = await exchange_code_for_tokens(cfg, code)
         id_token = str(tokens.get("id_token") or "")
         if not id_token:
             raise EntraAuthError("Missing Microsoft Entra ID token")
-        claims = parse_id_token(settings, id_token, nonce)
+        claims = parse_id_token(cfg, id_token, nonce)
         refresh_token = (
             tokens.get("refresh_token") if isinstance(tokens.get("refresh_token"), str) else None
         )
@@ -373,6 +384,38 @@ async def login(
 @router.get("/me", response_model=UserPublic)
 async def me(user: Annotated[User, Depends(get_current_user)]) -> UserPublic:
     return UserPublic.model_validate(user)
+
+
+@router.get("/me/settings", response_model=UserSettingsRead)
+async def me_settings(user: Annotated[User, Depends(get_current_user)]) -> UserSettingsRead:
+    return UserSettingsRead(
+        llm_provider=user.llm_provider,
+        llm_api_key_configured=bool(user.llm_api_key_encrypted),
+    )
+
+
+@router.patch("/me/settings", response_model=UserSettingsRead)
+async def me_settings_patch(
+    body: UserSettingsUpdate,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> UserSettingsRead:
+    if body.llm_provider is not None:
+        p = body.llm_provider.strip()
+        user.llm_provider = p or None
+    if body.clear_llm_api_key:
+        user.llm_api_key_encrypted = None
+    elif body.llm_api_key is not None:
+        raw = body.llm_api_key.strip()
+        if raw:
+            user.llm_api_key_encrypted = encrypt_text(settings, raw)
+    await db.commit()
+    await db.refresh(user)
+    return UserSettingsRead(
+        llm_provider=user.llm_provider,
+        llm_api_key_configured=bool(user.llm_api_key_encrypted),
+    )
 
 
 @router.post("/refresh", response_model=LoginResponse)

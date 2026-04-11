@@ -171,6 +171,9 @@ async def test_admin_smtp_settings_get_defaults(client: AsyncClient) -> None:
     assert data["smtp_enabled"] is False
     assert data["smtp_ready"] is False
     assert data["smtp_password_configured"] is False
+    assert data["smtp_validate_certs"] is True
+    assert data["smtp_auth_mode"] == "login"
+    assert data["smtp_password_stored_encrypted"] is True
 
 
 @pytest.mark.asyncio
@@ -204,6 +207,8 @@ async def test_admin_smtp_settings_patch_and_test_mocked(client: AsyncClient) ->
             "smtp_from": "relay@example.com",
             "smtp_starttls": True,
             "smtp_implicit_tls": False,
+            "smtp_validate_certs": True,
+            "smtp_auth_mode": "login",
             "smtp_password": "secret-smtp-pass",
         },
     )
@@ -218,6 +223,87 @@ async def test_admin_smtp_settings_patch_and_test_mocked(client: AsyncClient) ->
         assert t.status_code == 200, t.text
         assert t.json()["to"] == "smtp-patch@example.com"
         send_mock.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_admin_smtp_rejects_plain_transport_when_enabled(client: AsyncClient) -> None:
+    async with session_factory()() as session:
+        session.add(
+            User(
+                id=uuid.uuid4(),
+                email="smtp-plain@example.com",
+                password_hash=hash_password("plain"),
+                role=UserRole.admin,
+            )
+        )
+        await session.commit()
+
+    login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "smtp-plain@example.com", "password": "plain"},
+    )
+    token = login.json()["access_token"]
+    h = {"Authorization": f"Bearer {token}"}
+
+    bad = await client.patch(
+        "/api/v1/admin/settings/smtp",
+        headers=h,
+        json={
+            "smtp_enabled": True,
+            "smtp_host": "insecure.example.com",
+            "smtp_port": 25,
+            "smtp_username": "u@example.com",
+            "smtp_from": "u@example.com",
+            "smtp_starttls": False,
+            "smtp_implicit_tls": False,
+            "smtp_auth_mode": "login",
+            "smtp_password": "x",
+        },
+    )
+    assert bad.status_code == 400
+    detail = bad.json()["detail"].lower()
+    assert "unencrypted" in detail or "exactly one" in detail
+
+
+@pytest.mark.asyncio
+async def test_admin_smtp_auth_none_no_password_ready(client: AsyncClient) -> None:
+    async with session_factory()() as session:
+        session.add(
+            User(
+                id=uuid.uuid4(),
+                email="smtp-relay@example.com",
+                password_hash=hash_password("relay"),
+                role=UserRole.admin,
+            )
+        )
+        await session.commit()
+
+    login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "smtp-relay@example.com", "password": "relay"},
+    )
+    token = login.json()["access_token"]
+    h = {"Authorization": f"Bearer {token}"}
+
+    p = await client.patch(
+        "/api/v1/admin/settings/smtp",
+        headers=h,
+        json={
+            "smtp_enabled": True,
+            "smtp_host": "relay.internal",
+            "smtp_port": 587,
+            "smtp_username": None,
+            "smtp_from": "app@example.com",
+            "smtp_starttls": True,
+            "smtp_implicit_tls": False,
+            "smtp_auth_mode": "none",
+            "smtp_validate_certs": True,
+        },
+    )
+    assert p.status_code == 200, p.text
+    assert p.json()["smtp_ready"] is True
+    assert p.json()["smtp_auth_mode"] == "none"
+    assert p.json()["smtp_password_configured"] is False
 
 
 @pytest.mark.asyncio
@@ -303,3 +389,50 @@ async def test_logs_event_contains_filter(client: AsyncClient) -> None:
     for row in r.json()["items"]:
         ev = row.get("event")
         assert ev is not None and "auth.login" in ev
+
+
+@pytest.mark.asyncio
+async def test_admin_llm_settings_get_and_patch(client: AsyncClient) -> None:
+    async with session_factory()() as session:
+        session.add(
+            User(
+                id=uuid.uuid4(),
+                email="llm-admin@example.com",
+                password_hash=hash_password("llm"),
+                role=UserRole.admin,
+            )
+        )
+        await session.commit()
+
+    login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "llm-admin@example.com", "password": "llm"},
+    )
+    token = login.json()["access_token"]
+    h = {"Authorization": f"Bearer {token}"}
+
+    g = await client.get("/api/v1/admin/settings/llm", headers=h)
+    assert g.status_code == 200
+    data = g.json()
+    assert data["litellm_api_key_configured"] is False
+    assert "litellm_api_base" in data
+
+    p = await client.patch(
+        "/api/v1/admin/settings/llm",
+        headers=h,
+        json={
+            "litellm_api_base": "https://litellm.internal/v1",
+            "litellm_api_key": "sk-test-key",
+        },
+    )
+    assert p.status_code == 200, p.text
+    assert p.json()["litellm_api_base"] == "https://litellm.internal/v1"
+    assert p.json()["litellm_api_key_configured"] is True
+
+    c = await client.patch(
+        "/api/v1/admin/settings/llm",
+        headers=h,
+        json={"clear_litellm_api_key": True},
+    )
+    assert c.status_code == 200
+    assert c.json()["litellm_api_key_configured"] is False

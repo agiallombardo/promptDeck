@@ -107,6 +107,24 @@ export interface paths {
     patch: operations["admin_entra_settings_patch_api_v1_admin_settings_entra_patch"];
     trace?: never;
   };
+  "/api/v1/admin/settings/llm": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Llm Settings Get */
+    get: operations["admin_llm_settings_get_api_v1_admin_settings_llm_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Admin Llm Settings Patch */
+    patch: operations["admin_llm_settings_patch_api_v1_admin_settings_llm_patch"];
+    trace?: never;
+  };
   "/api/v1/admin/settings/smtp": {
     parameters: {
       query?: never;
@@ -693,6 +711,58 @@ export interface components {
        */
       version_id: string;
     };
+    /** AdminLlmSettingsPatch */
+    AdminLlmSettingsPatch: {
+      /**
+       * Clear Litellm Api Base
+       * @description Remove DB base URL; use LITELLM_API_BASE env only.
+       * @default false
+       */
+      clear_litellm_api_base: boolean;
+      /**
+       * Clear Litellm Api Key
+       * @default false
+       */
+      clear_litellm_api_key: boolean;
+      /**
+       * Litellm Api Base
+       * @description OpenAI-compatible API root (e.g. https://litellm.internal/v1). Empty string clears DB override.
+       */
+      litellm_api_base?: string | null;
+      /**
+       * Litellm Api Key
+       * @description Written only on save; stored encrypted server-side and never echoed back.
+       */
+      litellm_api_key?: string | null;
+    };
+    /**
+     * AdminLlmSettingsRead
+     * @description LiteLLM or any OpenAI-compatible proxy (system default for future LLM features).
+     */
+    AdminLlmSettingsRead: {
+      /**
+       * Litellm Api Base
+       * @description Effective base URL (database override, else LITELLM_API_BASE env).
+       */
+      litellm_api_base?: string | null;
+      /**
+       * Litellm Api Base Configured
+       * @description True when a non-empty base URL is set (DB or env).
+       * @default false
+       */
+      litellm_api_base_configured: boolean;
+      /**
+       * Litellm Api Key Configured
+       * @default false
+       */
+      litellm_api_key_configured: boolean;
+      /**
+       * Litellm Api Key Stored Encrypted
+       * @description API key is never returned; stored encrypted (Fernet, same as other secrets).
+       * @default true
+       */
+      litellm_api_key_stored_encrypted: boolean;
+    };
     /** AdminPresentationListResponse */
     AdminPresentationListResponse: {
       /** Items */
@@ -756,6 +826,8 @@ export interface components {
        * @default false
        */
       clear_smtp_password: boolean;
+      /** Smtp Auth Mode */
+      smtp_auth_mode?: ("login" | "none") | null;
       /** Smtp Enabled */
       smtp_enabled?: boolean | null;
       /** Smtp From */
@@ -764,7 +836,10 @@ export interface components {
       smtp_host?: string | null;
       /** Smtp Implicit Tls */
       smtp_implicit_tls?: boolean | null;
-      /** Smtp Password */
+      /**
+       * Smtp Password
+       * @description Written only on save; stored encrypted server-side and never echoed back.
+       */
       smtp_password?: string | null;
       /** Smtp Port */
       smtp_port?: number | null;
@@ -772,9 +847,16 @@ export interface components {
       smtp_starttls?: boolean | null;
       /** Smtp Username */
       smtp_username?: string | null;
+      /** Smtp Validate Certs */
+      smtp_validate_certs?: boolean | null;
     };
     /** AdminSmtpSettingsRead */
     AdminSmtpSettingsRead: {
+      /**
+       * Smtp Auth Mode
+       * @enum {string}
+       */
+      smtp_auth_mode: "login" | "none";
       /** Smtp Enabled */
       smtp_enabled: boolean;
       /** Smtp From */
@@ -785,6 +867,12 @@ export interface components {
       smtp_implicit_tls: boolean;
       /** Smtp Password Configured */
       smtp_password_configured: boolean;
+      /**
+       * Smtp Password Stored Encrypted
+       * @description SMTP password is never returned; at rest it is encrypted (Fernet, same key as Entra secrets).
+       * @default true
+       */
+      smtp_password_stored_encrypted: boolean;
       /** Smtp Port */
       smtp_port: number;
       /** Smtp Ready */
@@ -793,6 +881,8 @@ export interface components {
       smtp_starttls: boolean;
       /** Smtp Username */
       smtp_username?: string | null;
+      /** Smtp Validate Certs */
+      smtp_validate_certs: boolean;
     };
     /**
      * AdminSmtpTestRequest
@@ -1622,6 +1712,59 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["AdminEntraSettingsRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  admin_llm_settings_get_api_v1_admin_settings_llm_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminLlmSettingsRead"];
+        };
+      };
+    };
+  };
+  admin_llm_settings_patch_api_v1_admin_settings_llm_patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminLlmSettingsPatch"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminLlmSettingsRead"];
         };
       };
       /** @description Validation Error */

@@ -24,6 +24,9 @@ type FeedbackSidebarProps = {
   onDeleteComment: (commentId: string) => void;
   /** When true, drop desktop-only left border (e.g. mobile drawer). */
   embedded?: boolean;
+  /** Collapse thread list (presenter mode). Requires `onShowCommentsUi`. */
+  commentsUiHidden?: boolean;
+  onShowCommentsUi?: () => void;
 };
 
 export function FeedbackSidebar({
@@ -47,7 +50,30 @@ export function FeedbackSidebar({
   onResolve,
   onDeleteComment,
   embedded = false,
+  commentsUiHidden = false,
+  onShowCommentsUi,
 }: FeedbackSidebarProps) {
+  if (commentsUiHidden && onShowCommentsUi) {
+    return (
+      <aside
+        className={`flex w-full flex-col bg-bg-elevated md:max-w-sm ${
+          embedded ? "border-0" : "border-border md:border-l"
+        }`}
+      >
+        <div className="border-b border-border px-4 py-3">
+          <p className="font-mono text-[10px] uppercase tracking-wide text-primary">Feedback</p>
+          <button
+            type="button"
+            className="mt-2 w-full rounded-sharp border border-border px-2 py-2 font-mono text-xs hover:bg-bg-recessed"
+            onClick={onShowCommentsUi}
+          >
+            Show comments
+          </button>
+        </div>
+      </aside>
+    );
+  }
+
   return (
     <aside
       className={`flex w-full flex-col bg-bg-elevated md:max-w-sm ${

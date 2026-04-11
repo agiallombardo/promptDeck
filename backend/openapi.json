@@ -234,6 +234,85 @@
         "title": "AdminExportJobRead",
         "type": "object"
       },
+      "AdminLlmSettingsPatch": {
+        "properties": {
+          "clear_litellm_api_base": {
+            "default": false,
+            "description": "Remove DB base URL; use LITELLM_API_BASE env only.",
+            "title": "Clear Litellm Api Base",
+            "type": "boolean"
+          },
+          "clear_litellm_api_key": {
+            "default": false,
+            "title": "Clear Litellm Api Key",
+            "type": "boolean"
+          },
+          "litellm_api_base": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "OpenAI-compatible API root (e.g. https://litellm.internal/v1). Empty string clears DB override.",
+            "title": "Litellm Api Base"
+          },
+          "litellm_api_key": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Written only on save; stored encrypted server-side and never echoed back.",
+            "title": "Litellm Api Key"
+          }
+        },
+        "title": "AdminLlmSettingsPatch",
+        "type": "object"
+      },
+      "AdminLlmSettingsRead": {
+        "description": "LiteLLM or any OpenAI-compatible proxy (system default for future LLM features).",
+        "properties": {
+          "litellm_api_base": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Effective base URL (database override, else LITELLM_API_BASE env).",
+            "title": "Litellm Api Base"
+          },
+          "litellm_api_base_configured": {
+            "default": false,
+            "description": "True when a non-empty base URL is set (DB or env).",
+            "title": "Litellm Api Base Configured",
+            "type": "boolean"
+          },
+          "litellm_api_key_configured": {
+            "default": false,
+            "title": "Litellm Api Key Configured",
+            "type": "boolean"
+          },
+          "litellm_api_key_stored_encrypted": {
+            "default": true,
+            "description": "API key is never returned; stored encrypted (Fernet, same as other secrets).",
+            "title": "Litellm Api Key Stored Encrypted",
+            "type": "boolean"
+          }
+        },
+        "title": "AdminLlmSettingsRead",
+        "type": "object"
+      },
       "AdminPresentationListResponse": {
         "properties": {
           "items": {
@@ -374,6 +453,21 @@
             "title": "Clear Smtp Password",
             "type": "boolean"
           },
+          "smtp_auth_mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "login",
+                  "none"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smtp Auth Mode"
+          },
           "smtp_enabled": {
             "anyOf": [
               {
@@ -430,6 +524,7 @@
                 "type": "null"
               }
             ],
+            "description": "Written only on save; stored encrypted server-side and never echoed back.",
             "title": "Smtp Password"
           },
           "smtp_port": {
@@ -467,6 +562,17 @@
               }
             ],
             "title": "Smtp Username"
+          },
+          "smtp_validate_certs": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smtp Validate Certs"
           }
         },
         "title": "AdminSmtpSettingsPatch",
@@ -474,6 +580,14 @@
       },
       "AdminSmtpSettingsRead": {
         "properties": {
+          "smtp_auth_mode": {
+            "enum": [
+              "login",
+              "none"
+            ],
+            "title": "Smtp Auth Mode",
+            "type": "string"
+          },
           "smtp_enabled": {
             "title": "Smtp Enabled",
             "type": "boolean"
@@ -508,6 +622,12 @@
             "title": "Smtp Password Configured",
             "type": "boolean"
           },
+          "smtp_password_stored_encrypted": {
+            "default": true,
+            "description": "SMTP password is never returned; at rest it is encrypted (Fernet, same key as Entra secrets).",
+            "title": "Smtp Password Stored Encrypted",
+            "type": "boolean"
+          },
           "smtp_port": {
             "title": "Smtp Port",
             "type": "integer"
@@ -530,6 +650,10 @@
               }
             ],
             "title": "Smtp Username"
+          },
+          "smtp_validate_certs": {
+            "title": "Smtp Validate Certs",
+            "type": "boolean"
           }
         },
         "required": [
@@ -537,6 +661,8 @@
           "smtp_port",
           "smtp_starttls",
           "smtp_implicit_tls",
+          "smtp_validate_certs",
+          "smtp_auth_mode",
           "smtp_password_configured",
           "smtp_ready"
         ],
@@ -2629,6 +2755,76 @@
           }
         ],
         "summary": "Admin Entra Settings Patch",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/settings/llm": {
+      "get": {
+        "operationId": "admin_llm_settings_get_api_v1_admin_settings_llm_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminLlmSettingsRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Llm Settings Get",
+        "tags": [
+          "admin"
+        ]
+      },
+      "patch": {
+        "operationId": "admin_llm_settings_patch_api_v1_admin_settings_llm_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminLlmSettingsPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminLlmSettingsRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Llm Settings Patch",
         "tags": [
           "admin"
         ]

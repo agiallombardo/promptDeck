@@ -135,6 +135,43 @@ export async function apiLogout() {
   await fetch(`${API}/auth/logout`, { method: "POST", credentials: "include" });
 }
 
+export type UserSettingsDto = components["schemas"]["UserSettingsRead"];
+export type AdminEntraSettingsDto = components["schemas"]["AdminEntraSettingsRead"];
+
+export async function apiMeSettingsGet(accessToken: string) {
+  return jsonFetch<UserSettingsDto>(`${API}/auth/me/settings`, {
+    headers: { ...authHeaders(accessToken) },
+  });
+}
+
+export async function apiMeSettingsPatch(
+  accessToken: string,
+  body: components["schemas"]["UserSettingsUpdate"],
+) {
+  return jsonFetch<UserSettingsDto>(`${API}/auth/me/settings`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
+    body: JSON.stringify(body),
+  });
+}
+
+export async function apiAdminEntraGet(accessToken: string) {
+  return jsonFetch<AdminEntraSettingsDto>(`${API}/admin/settings/entra`, {
+    headers: { ...authHeaders(accessToken) },
+  });
+}
+
+export async function apiAdminEntraPatch(
+  accessToken: string,
+  body: components["schemas"]["AdminEntraSettingsPatch"],
+) {
+  return jsonFetch<AdminEntraSettingsDto>(`${API}/admin/settings/entra`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
+    body: JSON.stringify(body),
+  });
+}
+
 export async function apiPresentationsList(accessToken: string) {
   return jsonFetch<{ items: PresentationSummary[] }>(`${API}/presentations`, {
     headers: { ...authHeaders(accessToken) },
@@ -423,7 +460,10 @@ export type AdminSmtpSettings = {
   smtp_from: string | null;
   smtp_starttls: boolean;
   smtp_implicit_tls: boolean;
+  smtp_validate_certs: boolean;
+  smtp_auth_mode: "login" | "none";
   smtp_password_configured: boolean;
+  smtp_password_stored_encrypted: boolean;
   smtp_ready: boolean;
 };
 
@@ -443,6 +483,8 @@ export async function apiAdminSmtpPatch(
     smtp_from?: string | null;
     smtp_starttls?: boolean;
     smtp_implicit_tls?: boolean;
+    smtp_validate_certs?: boolean;
+    smtp_auth_mode?: "login" | "none";
     smtp_password?: string | null;
     clear_smtp_password?: boolean;
   },
@@ -459,6 +501,35 @@ export async function apiAdminSmtpTest(accessToken: string, to?: string | null) 
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
     body: JSON.stringify(to ? { to } : {}),
+  });
+}
+
+export type AdminLlmSettings = {
+  litellm_api_base: string | null;
+  litellm_api_base_configured: boolean;
+  litellm_api_key_configured: boolean;
+  litellm_api_key_stored_encrypted: boolean;
+};
+
+export async function apiAdminLlmGet(accessToken: string) {
+  return jsonFetch<AdminLlmSettings>(`${API}/admin/settings/llm`, {
+    headers: { ...authHeaders(accessToken) },
+  });
+}
+
+export async function apiAdminLlmPatch(
+  accessToken: string,
+  body: {
+    litellm_api_base?: string | null;
+    litellm_api_key?: string | null;
+    clear_litellm_api_key?: boolean;
+    clear_litellm_api_base?: boolean;
+  },
+) {
+  return jsonFetch<AdminLlmSettings>(`${API}/admin/settings/llm`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
+    body: JSON.stringify(body),
   });
 }
 
