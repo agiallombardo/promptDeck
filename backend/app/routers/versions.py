@@ -15,6 +15,7 @@ from app.db.models.presentation import PresentationVersion, Slide
 from app.db.session import get_db
 from app.deps import PresentationGrant, get_presentation_editor, get_presentation_reader
 from app.logging_channels import LogChannel, channel_logger
+from app.rate_limit import limiter
 from app.schemas.presentation import SlideRead, VersionRead
 from app.services.app_logging import write_app_log
 from app.services.audit import client_ip_from_request, record_audit
@@ -60,6 +61,7 @@ def _version_read(ver: PresentationVersion) -> VersionRead:
 
 
 @router.post("", response_model=VersionRead, status_code=status.HTTP_201_CREATED)
+@limiter.limit("20/minute")
 async def upload_html_version(
     request: Request,
     file: Annotated[UploadFile, File(...)],

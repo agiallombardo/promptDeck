@@ -24,6 +24,7 @@ async def write_app_log(
     status_code: int | None,
     latency_ms: int | None,
     payload: dict[str, Any] | None = None,
+    auto_commit: bool = True,
 ) -> None:
     """Persist one row to `app_logs`; `channel` maps to the `logger` column."""
     row = AppLog(
@@ -39,4 +40,6 @@ async def write_app_log(
         payload=payload,
     )
     session.add(row)
-    await session.commit()
+    await session.flush()
+    if auto_commit:
+        await session.commit()

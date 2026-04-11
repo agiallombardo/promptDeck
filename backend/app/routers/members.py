@@ -20,6 +20,7 @@ from app.schemas.member import (
     PresentationMemberUpdate,
 )
 from app.services.audit import client_ip_from_request, record_audit
+from app.services.entra_runtime import resolve_entra_oidc_config
 
 router = APIRouter(tags=["members"])
 
@@ -73,7 +74,10 @@ async def create_presentation_member(
     settings: Annotated[Settings, Depends(get_settings)],
     grant: Annotated[PresentationGrant, Depends(get_presentation_editor)],
 ) -> PresentationMemberRead:
-    tenant_id = settings.entra_tenant_id or ""
+    if grant.user is None:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    cfg = await resolve_entra_oidc_config(db, settings)
+    tenant_id = (cfg.tenant_id or "").strip()
     if not tenant_id:
         raise HTTPException(status_code=400, detail="Microsoft Entra tenant is not configured")
     if (
@@ -140,6 +144,8 @@ async def update_presentation_member(
     db: Annotated[AsyncSession, Depends(get_db)],
     grant: Annotated[PresentationGrant, Depends(get_presentation_editor)],
 ) -> PresentationMemberRead:
+    if grant.user is None:
+        raise HTTPException(status_code=403, detail="Forbidden")
     row = await db.get(PresentationMember, member_id)
     if row is None or row.presentation_id != grant.presentation.id or row.revoked_at is not None:
         raise HTTPException(status_code=404, detail="Member not found")
@@ -168,6 +174,8 @@ async def delete_presentation_member(
     db: Annotated[AsyncSession, Depends(get_db)],
     grant: Annotated[PresentationGrant, Depends(get_presentation_editor)],
 ) -> None:
+    if grant.user is None:
+        raise HTTPException(status_code=403, detail="Forbidden")
     row = await db.get(PresentationMember, member_id)
     if row is None or row.presentation_id != grant.presentation.id or row.revoked_at is not None:
         raise HTTPException(status_code=404, detail="Member not found")

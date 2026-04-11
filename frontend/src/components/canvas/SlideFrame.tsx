@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useMemo } from "react";
+import { forwardRef, useCallback, useEffect, useMemo, useRef } from "react";
 import { parseSlideInboundMessage } from "../../lib/slidePostMessage";
 
 export type SlideFrameProps = {
@@ -11,6 +11,19 @@ export const SlideFrame = forwardRef<HTMLIFrameElement, SlideFrameProps>(functio
   { src, onManifest, onSlideClick },
   ref,
 ) {
+  const frameRef = useRef<HTMLIFrameElement | null>(null);
+  const setFrameRef = useCallback(
+    (node: HTMLIFrameElement | null) => {
+      frameRef.current = node;
+      if (typeof ref === "function") {
+        ref(node);
+      } else if (ref) {
+        ref.current = node;
+      }
+    },
+    [ref],
+  );
+
   const expectedOrigin = useMemo(() => {
     try {
       return new URL(src, window.location.href).origin;
@@ -21,7 +34,9 @@ export const SlideFrame = forwardRef<HTMLIFrameElement, SlideFrameProps>(functio
 
   useEffect(() => {
     function onMessage(ev: MessageEvent) {
-      if (ev.origin !== expectedOrigin) return;
+      const frameWindow = frameRef.current?.contentWindow;
+      if (frameWindow && ev.source !== frameWindow) return;
+      if (ev.origin !== "null" && ev.origin !== expectedOrigin) return;
       const msg = parseSlideInboundMessage(ev.data);
       if (!msg) return;
       if (msg.type === "manifest") {
@@ -36,7 +51,7 @@ export const SlideFrame = forwardRef<HTMLIFrameElement, SlideFrameProps>(functio
 
   return (
     <iframe
-      ref={ref}
+      ref={setFrameRef}
       title="Presentation"
       className="h-full w-full rounded-sharp border border-border bg-bg-recessed"
       sandbox="allow-scripts"

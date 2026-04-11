@@ -6,8 +6,13 @@ import {
   apiMemberDelete,
   apiMembersList,
   apiMemberUpdate,
+  apiShareLinkCreate,
+  apiShareLinkRevoke,
+  apiShareLinksList,
   type DirectoryUserDto,
   type PresentationMemberDto,
+  type ShareLinkCreateDto,
+  type ShareLinkDto,
 } from "../lib/api";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { useAuthStore } from "../stores/auth";
@@ -16,9 +21,17 @@ const MEMBER_ROLE_OPTIONS = [
   { value: "user" as const, label: "Viewer" },
   { value: "editor" as const, label: "Editor" },
 ] as const;
+const SHARE_LINK_ROLE_OPTIONS = [
+  { value: "viewer" as const, label: "Viewer" },
+  { value: "commenter" as const, label: "Commenter" },
+] as const;
 
 function roleLabel(role: "editor" | "user"): string {
   return MEMBER_ROLE_OPTIONS.find((o) => o.value === role)?.label ?? role;
+}
+
+function shareRoleLabel(role: "viewer" | "commenter" | "editor"): string {
+  return SHARE_LINK_ROLE_OPTIONS.find((o) => o.value === role)?.label ?? role;
 }
 
 type Props = {
@@ -36,11 +49,19 @@ export function ShareModal({ open, onClose, accessToken, presentationId }: Props
   const debouncedQuery = useDebouncedValue(query, 450);
   const [role, setRole] = useState<"editor" | "user">("user");
   const [selected, setSelected] = useState<DirectoryUserDto | null>(null);
+  const [shareRole, setShareRole] = useState<"viewer" | "commenter" | "editor">("viewer");
+  const [shareExpiryHours, setShareExpiryHours] = useState("24");
+  const [shareNote, setShareNote] = useState("");
+  const [createdLink, setCreatedLink] = useState<ShareLinkCreateDto | null>(null);
 
   useEffect(() => {
     if (!open) {
       setQuery("");
       setSelected(null);
+      setShareRole("viewer");
+      setShareExpiryHours("24");
+      setShareNote("");
+      setCreatedLink(null);
     }
   }, [open]);
 
@@ -90,7 +111,40 @@ export function ShareModal({ open, onClose, accessToken, presentationId }: Props
     },
   });
 
+  const links = useQuery({
+    queryKey: ["share-links", presentationId, accessToken],
+    queryFn: () => apiShareLinksList(accessToken, presentationId),
+    enabled: open,
+  });
+
+  const createLink = useMutation({
+    mutationFn: () => {
+      const parsed = Number.parseInt(shareExpiryHours, 10);
+      return apiShareLinkCreate(accessToken, presentationId, {
+        role: shareRole,
+        expires_in_hours: Number.isFinite(parsed) ? parsed : null,
+        note: shareNote.trim() || null,
+      });
+    },
+    onSuccess: async (resp) => {
+      setCreatedLink(resp);
+      await qc.invalidateQueries({ queryKey: ["share-links", presentationId, accessToken] });
+    },
+  });
+
+  const revokeLink = useMutation({
+    mutationFn: (shareLinkId: string) =>
+      apiShareLinkRevoke(accessToken, presentationId, shareLinkId),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["share-links", presentationId, accessToken] });
+    },
+  });
+
   const results = useMemo(() => search.data?.items ?? [], [search.data]);
+  const activeLinks = useMemo(
+    () => (links.data?.items ?? []).filter((row) => row.revoked_at == null),
+    [links.data?.items],
+  );
 
   if (!open) return null;
 
@@ -180,6 +234,124 @@ export function ShareModal({ open, onClose, accessToken, presentationId }: Props
               ))}
             </ul>
           )}
+        </div>
+
+        <div className="mt-6 border-t border-border pt-6">
+          <h3 className="font-mono text-xs uppercase tracking-wide text-text-muted">Share links</h3>
+          <p className="mt-1 text-sm text-text-muted">
+            Create link-based access for external reviewers. Link tokens are revocable and never
+            stored in plaintext.
+          </p>
+          <div className="mt-4 grid gap-3 md:grid-cols-4">
+            <label className="grid gap-1 font-mono text-xs uppercase tracking-wide text-text-muted">
+              Role
+              <select
+                className="rounded-sharp border border-border bg-bg-recessed px-2 py-2 font-body text-sm text-text-main outline-none ring-primary focus:ring-1"
+                value={shareRole}
+                onChange={(e) => setShareRole(e.target.value as "viewer" | "commenter" | "editor")}
+              >
+                {SHARE_LINK_ROLE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 font-mono text-xs uppercase tracking-wide text-text-muted">
+              Expires (hours)
+              <input
+                className="rounded-sharp border border-border bg-bg-recessed px-2 py-2 font-body text-sm text-text-main outline-none ring-primary focus:ring-1"
+                inputMode="numeric"
+                value={shareExpiryHours}
+                onChange={(e) => setShareExpiryHours(e.target.value)}
+              />
+            </label>
+            <label className="grid gap-1 font-mono text-xs uppercase tracking-wide text-text-muted md:col-span-2">
+              Note (optional)
+              <input
+                className="rounded-sharp border border-border bg-bg-recessed px-2 py-2 font-body text-sm text-text-main outline-none ring-primary focus:ring-1"
+                value={shareNote}
+                onChange={(e) => setShareNote(e.target.value)}
+                maxLength={500}
+              />
+            </label>
+          </div>
+          <div className="mt-3">
+            <button
+              type="button"
+              className="rounded-sharp bg-primary/15 px-3 py-1.5 font-mono text-xs text-primary ring-1 ring-primary/40 hover:bg-primary/25 disabled:opacity-40"
+              disabled={createLink.isPending}
+              onClick={() => createLink.mutate()}
+            >
+              {createLink.isPending ? "Creating link…" : "Create share link"}
+            </button>
+          </div>
+          {createLink.error ? (
+            <p className="mt-2 text-sm text-accent-warning" role="alert">
+              {(createLink.error as Error).message}
+            </p>
+          ) : null}
+          {createdLink ? (
+            <div className="mt-3 rounded-sharp border border-border bg-bg-recessed p-3">
+              <p className="font-mono text-xs text-text-muted">New link (copy now)</p>
+              <p className="mt-1 break-all font-mono text-xs text-text-main">
+                {createdLink.share_url}
+              </p>
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  className="rounded-sharp border border-border px-2 py-1 font-mono text-xs hover:bg-bg-elevated"
+                  onClick={() => void navigator.clipboard?.writeText(createdLink.share_url)}
+                >
+                  Copy URL
+                </button>
+                <button
+                  type="button"
+                  className="rounded-sharp border border-border px-2 py-1 font-mono text-xs hover:bg-bg-elevated"
+                  onClick={() => setCreatedLink(null)}
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          ) : null}
+          <div className="mt-3 rounded-sharp border border-border bg-bg-recessed p-3">
+            <p className="font-mono text-xs uppercase tracking-wide text-text-muted">
+              Active links
+            </p>
+            {links.isLoading ? (
+              <p className="mt-2 text-sm text-text-muted">Loading links…</p>
+            ) : links.isError ? (
+              <p className="mt-2 text-sm text-accent-warning">{(links.error as Error).message}</p>
+            ) : activeLinks.length === 0 ? (
+              <p className="mt-2 text-sm text-text-muted">No active links.</p>
+            ) : (
+              <ul className="mt-2 space-y-2">
+                {activeLinks.map((row: ShareLinkDto) => (
+                  <li
+                    key={row.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-sharp border border-border bg-bg-elevated px-3 py-2"
+                  >
+                    <div>
+                      <p className="font-mono text-xs text-text-main">{shareRoleLabel(row.role)}</p>
+                      <p className="font-mono text-[10px] text-text-muted">
+                        Expires: {row.expires_at ?? "never"}
+                        {row.note ? ` · ${row.note}` : ""}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="rounded-sharp border border-border px-2 py-1 font-mono text-xs uppercase tracking-wide hover:bg-bg-recessed disabled:opacity-40"
+                      disabled={revokeLink.isPending}
+                      onClick={() => revokeLink.mutate(row.id)}
+                    >
+                      Revoke link
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
 
         <div className="mt-6 border-t border-border pt-6">

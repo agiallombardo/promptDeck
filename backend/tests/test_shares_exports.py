@@ -111,6 +111,52 @@ async def test_member_share_grants_reader_access(editor_client) -> None:
 
 
 @pytest.mark.asyncio
+async def test_share_link_exchange_grants_comment_access(editor_client) -> None:
+    c, transport = editor_client
+    p = await c.post("/api/v1/presentations", json={"title": "Share link deck"})
+    assert p.status_code == 201
+    pid = p.json()["id"]
+    up = await c.post(
+        f"/api/v1/presentations/{pid}/versions",
+        files={"file": ("x.html", SAMPLE_HTML, "text/html")},
+    )
+    assert up.status_code == 201
+    version_id = up.json()["id"]
+
+    create_link = await c.post(
+        f"/api/v1/presentations/{pid}/share-links",
+        json={"role": "commenter", "expires_in_hours": 24},
+    )
+    assert create_link.status_code == 201, create_link.text
+    token = create_link.json()["share_token"]
+
+    exchange = await c.post(
+        "/api/v1/share-links/exchange",
+        json={"token": token},
+    )
+    assert exchange.status_code == 200, exchange.text
+    share_access = exchange.json()["access_token"]
+
+    async with AsyncClient(transport=transport, base_url="http://test") as shared_client:
+        shared_client.headers.update({"Authorization": f"Bearer {share_access}"})
+        g = await shared_client.get(f"/api/v1/presentations/{pid}")
+        assert g.status_code == 200
+        assert g.json()["current_user_role"] == "commenter"
+
+        thread = await shared_client.post(
+            f"/api/v1/presentations/{pid}/threads",
+            json={
+                "version_id": version_id,
+                "slide_index": 0,
+                "anchor_x": 0.5,
+                "anchor_y": 0.5,
+                "first_comment": "share link comment",
+            },
+        )
+        assert thread.status_code == 201, thread.text
+
+
+@pytest.mark.asyncio
 async def test_export_job_stub(editor_client) -> None:
     c, _transport = editor_client
     p = await c.post("/api/v1/presentations", json={"title": "Ex"})

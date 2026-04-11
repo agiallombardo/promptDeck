@@ -72,8 +72,13 @@ def create_share_access_token(
     """JWT for share-link viewers; bounded by link expiry and a 7-day cap."""
     now = datetime.now(UTC)
     cap = now + timedelta(days=7)
-    if link_expires_at is not None:
-        cap = min(cap, link_expires_at)
+    normalized_expiry = (
+        link_expires_at.replace(tzinfo=UTC)
+        if link_expires_at is not None and link_expires_at.tzinfo is None
+        else link_expires_at
+    )
+    if normalized_expiry is not None:
+        cap = min(cap, normalized_expiry)
     exp = int(cap.timestamp())
     payload: dict[str, Any] = {
         "sub": str(share_link_id),

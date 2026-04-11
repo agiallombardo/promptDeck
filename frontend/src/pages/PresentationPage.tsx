@@ -240,8 +240,11 @@ export default function PresentationPage() {
       const job = await apiDeckPromptJobCreate(accessToken, id, { prompt });
       let status = job.status;
       let err: string | null = job.error ?? null;
-      for (let i = 0; i < 600 && status !== "succeeded" && status !== "failed"; i++) {
-        await new Promise((r) => setTimeout(r, 400));
+      // Backend LLM call can run up to ~300s; allow headroom for persist + network.
+      const pollMs = 500;
+      const maxPolls = 900;
+      for (let i = 0; i < maxPolls && status !== "succeeded" && status !== "failed"; i++) {
+        await new Promise((r) => setTimeout(r, pollMs));
         const j = await apiDeckPromptJobGet(accessToken, job.id);
         status = j.status;
         err = j.error ?? null;
@@ -251,9 +254,14 @@ export default function PresentationPage() {
         });
       }
       if (status !== "succeeded") {
+        const stillRunning = status === "running" || status === "queued";
         useToastStore.getState().pushToast({
-          level: "error",
-          message: err?.trim() ? err : "AI edit failed",
+          level: stillRunning ? "info" : "error",
+          message: stillRunning
+            ? "AI edit is still running — refresh this page in a bit to see the new version."
+            : err?.trim()
+              ? err
+              : "AI edit failed",
         });
         return;
       }

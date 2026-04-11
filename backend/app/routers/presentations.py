@@ -1,17 +1,18 @@
 from __future__ import annotations
 
 import time
+import uuid
 from typing import Annotated
 from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.config import Settings, get_settings
 from app.db.models.presentation import Presentation, PresentationVersion, Slide
-from app.db.models.presentation_member import PresentationMember
+from app.db.models.presentation_member import PresentationMember, PresentationMemberRole
 from app.db.models.user import User, UserRole
 from app.db.session import get_db
 from app.deps import (
@@ -31,7 +32,7 @@ from app.schemas.presentation import (
     VersionRead,
 )
 from app.security.asset_signing import sign_asset
-from app.services.acl import PresentationAccess, resolve_access
+from app.services.acl import PresentationAccess
 from app.services.audit import client_ip_from_request, record_audit
 
 router = APIRouter(prefix="/presentations", tags=["presentations"])
@@ -92,34 +93,49 @@ async def list_presentations(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> PresentationListResponse:
-    stmt = select(Presentation).where(Presentation.deleted_at.is_(None))
-    if user.role != UserRole.admin:
+    if user.role == UserRole.admin:
         stmt = (
-            stmt.outerjoin(
-                PresentationMember,
-                and_(
-                    PresentationMember.presentation_id == Presentation.id,
-                    PresentationMember.revoked_at.is_(None),
-                ),
-            )
-            .where(
-                or_(
-                    Presentation.owner_id == user.id,
-                    PresentationMember.user_id == user.id,
-                    and_(
-                        PresentationMember.principal_tenant_id == user.entra_tenant_id,
-                        PresentationMember.principal_entra_object_id == user.entra_object_id,
-                    ),
-                )
-            )
-            .distinct()
+            select(Presentation)
+            .where(Presentation.deleted_at.is_(None))
+            .order_by(Presentation.updated_at.desc())
         )
-    stmt = stmt.order_by(Presentation.updated_at.desc())
-    result = await db.execute(stmt)
-    rows = result.scalars().all()
-    items = []
-    for row in rows:
-        access = await resolve_access(db, row, user)
+        rows = (await db.execute(stmt)).scalars().all()
+        return PresentationListResponse(
+            items=[_presentation_read(row, access=PresentationAccess.admin) for row in rows]
+        )
+
+    join_cond = and_(
+        PresentationMember.presentation_id == Presentation.id,
+        PresentationMember.revoked_at.is_(None),
+        or_(
+            PresentationMember.user_id == user.id,
+            and_(
+                PresentationMember.principal_tenant_id == user.entra_tenant_id,
+                PresentationMember.principal_entra_object_id == user.entra_object_id,
+            ),
+        ),
+    )
+    access_rank = case(
+        (Presentation.owner_id == user.id, 3),
+        (PresentationMember.role == PresentationMemberRole.editor, 2),
+        else_=1,
+    )
+    stmt = (
+        select(Presentation, func.max(access_rank).label("access_rank"))
+        .outerjoin(PresentationMember, join_cond)
+        .where(Presentation.deleted_at.is_(None))
+        .where(or_(Presentation.owner_id == user.id, PresentationMember.id.is_not(None)))
+        .group_by(Presentation.id)
+        .order_by(Presentation.updated_at.desc())
+    )
+    rows = (await db.execute(stmt)).all()
+    items: list[PresentationRead] = []
+    for row, rank in rows:
+        access = PresentationAccess.user
+        if int(rank or 1) >= 3:
+            access = PresentationAccess.owner
+        elif int(rank or 1) == 2:
+            access = PresentationAccess.editor
         items.append(_presentation_read(row, access=access))
     return PresentationListResponse(items=items)
 
@@ -162,7 +178,7 @@ async def update_presentation(
     await db.refresh(presentation)
     await record_audit(
         db,
-        actor_id=grant.user.id,
+        actor_id=grant.user.id if grant.user is not None else None,
         action="presentation.updated",
         target_kind="presentation",
         target_id=presentation.id,
@@ -186,7 +202,7 @@ async def delete_presentation(
     await db.commit()
     await record_audit(
         db,
-        actor_id=grant.user.id,
+        actor_id=grant.user.id if grant.user is not None else None,
         action="presentation.deleted",
         target_kind="presentation",
         target_id=pres_id,
@@ -210,10 +226,11 @@ async def embed_iframe(
     slide_rows = await db.execute(select(Slide).where(Slide.version_id == ver.id))
     slides = slide_rows.scalars().all()
     exp = int(time.time()) + settings.asset_url_ttl_seconds
+    sig_sub = grant.user.id if grant.user is not None else uuid.uuid4()
     sig = sign_asset(
         settings,
         version_id=ver.id,
-        user_id=grant.user.id,
+        user_id=sig_sub,
         role=grant.access.value,
         exp=exp,
     )
@@ -221,7 +238,7 @@ async def embed_iframe(
         {
             "exp": str(exp),
             "sig": sig,
-            "sub": str(grant.user.id),
+            "sub": str(sig_sub),
             "role": grant.access.value,
         }
     )

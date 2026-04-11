@@ -34,6 +34,7 @@ async def record_audit(
     target_id: uuid.UUID | None = None,
     metadata: dict[str, Any] | None = None,
     client_ip: str | None = None,
+    auto_commit: bool = True,
 ) -> None:
     session.add(
         AuditLog(
@@ -45,4 +46,6 @@ async def record_audit(
             ip=client_ip,
         )
     )
-    await session.commit()
+    await session.flush()
+    if auto_commit:
+        await session.commit()

@@ -15,6 +15,7 @@ from app.db.models.user import User
 from app.db.session import get_db
 from app.deps import PresentationGrant, get_current_user, get_presentation_editor
 from app.jobs.export_runner import run_export_job
+from app.rate_limit import limiter
 from app.schemas.export import ExportCreate, ExportJobRead
 from app.services.acl import can_manage_presentation, resolve_access
 from app.services.audit import client_ip_from_request, record_audit
@@ -44,6 +45,7 @@ def _merge_export_options(body: ExportCreate) -> dict[str, object]:
     response_model=ExportJobRead,
     status_code=status.HTTP_202_ACCEPTED,
 )
+@limiter.limit("30/minute")
 async def create_export_job(
     request: Request,
     body: ExportCreate,

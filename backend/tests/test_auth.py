@@ -1,6 +1,7 @@
 import uuid
 
 import pytest
+from app.config import get_settings
 from app.db.models.user import User, UserRole
 from app.db.session import session_factory
 from app.security.passwords import hash_password
@@ -103,3 +104,37 @@ async def test_last_login_updated(client: AsyncClient) -> None:
     async with session_factory()() as session:
         row = (await session.execute(select(User).where(User.id == uid))).scalar_one()
         assert row.last_login_at is not None
+
+
+@pytest.mark.asyncio
+async def test_refresh_rejects_cross_site_origin(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ENVIRONMENT", "development")
+    monkeypatch.setenv("PUBLIC_APP_URL", "http://app.local")
+    get_settings.cache_clear()
+
+    uid = uuid.uuid4()
+    async with session_factory()() as session:
+        session.add(
+            User(
+                id=uid,
+                email="csrf-refresh@example.com",
+                display_name="Refresh",
+                password_hash=hash_password("secret-pass-9"),
+                role=UserRole.user,
+            )
+        )
+        await session.commit()
+
+    login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "csrf-refresh@example.com", "password": "secret-pass-9"},
+    )
+    assert login.status_code == 200
+
+    bad = await client.post("/api/v1/auth/refresh", headers={"Origin": "http://evil.local"})
+    assert bad.status_code == 403
+
+    ok = await client.post("/api/v1/auth/refresh", headers={"Origin": "http://app.local"})
+    assert ok.status_code == 200

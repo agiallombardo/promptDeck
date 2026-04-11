@@ -4,7 +4,7 @@ import secrets
 import uuid
 from datetime import UTC, datetime
 from typing import Annotated
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy import select
@@ -71,6 +71,7 @@ async def _persist_auth_log(
         status_code=status_code,
         latency_ms=None,
         payload=payload,
+        auto_commit=False,
     )
 
 
@@ -116,6 +117,35 @@ def _safe_next_path(raw: str | None) -> str:
     if raw and raw.startswith("/") and not raw.startswith("//"):
         return raw
     return "/files"
+
+
+def _normalized_origin(raw: str | None) -> str | None:
+    if raw is None:
+        return None
+    try:
+        parsed = urlparse(raw.strip())
+    except ValueError:
+        return None
+    if not parsed.scheme or not parsed.netloc:
+        return None
+    return f"{parsed.scheme}://{parsed.netloc}".lower()
+
+
+def _assert_same_origin_for_cookie_auth(request: Request, settings: Settings) -> None:
+    if settings.environment == "test":
+        return
+    expected = _normalized_origin(settings.public_app_url)
+    if expected is None:
+        return
+    origin = _normalized_origin(request.headers.get("origin"))
+    if origin is None:
+        referer = request.headers.get("referer")
+        origin = _normalized_origin(referer)
+    if origin is None or origin != expected:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cross-site cookie request blocked",
+        )
 
 
 async def _upsert_entra_user(
@@ -310,7 +340,9 @@ async def entra_callback(
         action="auth.entra.login.success",
         metadata={"email": user.email},
         client_ip=client_ip_from_request(request),
+        auto_commit=False,
     )
+    await db.commit()
     return session_response
 
 
@@ -350,7 +382,9 @@ async def login(
             action="auth.login.failure",
             metadata={"email": email},
             client_ip=client_ip_from_request(request),
+            auto_commit=False,
         )
+        await db.commit()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
@@ -377,7 +411,9 @@ async def login(
         action="auth.login.success",
         metadata={"email": user.email},
         client_ip=client_ip_from_request(request),
+        auto_commit=False,
     )
+    await db.commit()
     return out
 
 
@@ -426,6 +462,7 @@ async def refresh(
     db: Annotated[AsyncSession, Depends(get_db)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> LoginResponse:
+    _assert_same_origin_for_cookie_auth(request, settings)
     token = request.cookies.get(REFRESH_COOKIE)
     if not token:
         log.warning("auth.refresh.missing_cookie")
@@ -438,6 +475,7 @@ async def refresh(
             status_code=401,
             payload=None,
         )
+        await db.commit()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing refresh token",
@@ -456,6 +494,7 @@ async def refresh(
             status_code=401,
             payload=None,
         )
+        await db.commit()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid refresh token",
@@ -476,6 +515,7 @@ async def refresh(
             status_code=401,
             payload={"sub": str(uid)},
         )
+        await db.commit()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",
@@ -492,15 +532,19 @@ async def refresh(
         status_code=200,
         payload=None,
     )
+    await db.commit()
     return out
 
 
 @router.post("/logout", response_model=MessageResponse)
+@limiter.limit("60/minute")
 async def logout(
     request: Request,
     response: Response,
     db: Annotated[AsyncSession, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> MessageResponse:
+    _assert_same_origin_for_cookie_auth(request, settings)
     _clear_refresh_cookie(response)
     _clear_entra_cookies(response)
     log.info("auth.logout")
@@ -513,4 +557,5 @@ async def logout(
         status_code=200,
         payload=None,
     )
+    await db.commit()
     return MessageResponse(message="Logged out")

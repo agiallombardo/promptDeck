@@ -15,6 +15,7 @@ class PresentationAccess(enum.StrEnum):
     admin = "admin"
     owner = "owner"
     editor = "editor"
+    commenter = "commenter"
     user = "user"
 
 
@@ -54,7 +55,12 @@ def can_read(access: PresentationAccess | None) -> bool:
 
 
 def can_write_comments(access: PresentationAccess | None) -> bool:
-    return access in (PresentationAccess.admin, PresentationAccess.owner, PresentationAccess.editor)
+    return access in (
+        PresentationAccess.admin,
+        PresentationAccess.owner,
+        PresentationAccess.editor,
+        PresentationAccess.commenter,
+    )
 
 
 def can_manage_presentation(access: PresentationAccess | None) -> bool:

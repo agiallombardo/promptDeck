@@ -5,6 +5,7 @@ import { useAuthStore } from "../stores/auth";
 
 export default function SettingsPage() {
   const accessToken = useAuthStore((s) => s.accessToken);
+  const user = useAuthStore((s) => s.user);
   const qc = useQueryClient();
   const [provider, setProvider] = useState("");
   const [apiKey, setApiKey] = useState("");
@@ -65,6 +66,17 @@ export default function SettingsPage() {
         </p>
       ) : (
         <div className="mt-8 space-y-6 rounded-sharp border border-border bg-bg-elevated p-6 shadow-elevated">
+          <div className="rounded-sharp border border-border bg-bg-recessed p-3 font-mono text-xs">
+            <p className="text-text-muted">Session</p>
+            <p className="mt-1 text-text-main">
+              {user?.email ?? "Unknown user"} · role {user?.role ?? "user"} · provider{" "}
+              {user?.auth_provider ?? "local"}
+            </p>
+            <p className="mt-2 text-text-muted">
+              Sessions auto-refresh via secure HttpOnly cookies and idle sign-out runs after 4 hours
+              of inactivity.
+            </p>
+          </div>
           <label className="grid gap-1 font-mono text-xs">
             <span className="text-text-muted">LLM provider (optional)</span>
             <input
@@ -120,6 +132,26 @@ export default function SettingsPage() {
               {clearKey.isPending ? "Clearing…" : "Clear API key"}
             </button>
           </div>
+          {save.isSuccess ? (
+            <p className="text-sm text-primary" role="status">
+              Settings saved.
+            </p>
+          ) : null}
+          {save.isError ? (
+            <p className="text-sm text-accent-warning" role="alert">
+              {(save.error as Error).message}
+            </p>
+          ) : null}
+          {clearKey.isSuccess ? (
+            <p className="text-sm text-primary" role="status">
+              API key removed.
+            </p>
+          ) : null}
+          {clearKey.isError ? (
+            <p className="text-sm text-accent-warning" role="alert">
+              {(clearKey.error as Error).message}
+            </p>
+          ) : null}
         </div>
       )}
     </main>
