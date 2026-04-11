@@ -86,7 +86,7 @@ async def get_deck_prompt_job(
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
     pres = await db.get(Presentation, job.presentation_id)
-    if pres is None:
+    if pres is None or pres.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Presentation not found")
     access = await resolve_access(db, pres, user)
     if not can_manage_presentation(access):

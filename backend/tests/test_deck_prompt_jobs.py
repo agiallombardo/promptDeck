@@ -127,6 +127,41 @@ async def test_deck_prompt_job_happy_path(editor_client: AsyncClient, monkeypatc
 
 
 @pytest.mark.asyncio
+async def test_deck_prompt_job_get_404_when_presentation_deleted(
+    editor_client: AsyncClient,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "app.routers.deck_prompt_jobs.run_deck_prompt_job",
+        lambda _job_id: None,
+    )
+
+    c = editor_client
+    r0 = await c.post("/api/v1/presentations", json={"title": "Del me"})
+    assert r0.status_code == 201
+    pid = r0.json()["id"]
+
+    up = await c.post(
+        f"/api/v1/presentations/{pid}/versions",
+        files={"file": ("deck.html", SAMPLE_HTML, "text/html")},
+    )
+    assert up.status_code == 201
+
+    job = await c.post(
+        f"/api/v1/presentations/{pid}/deck-prompt-jobs",
+        json={"prompt": "x"},
+    )
+    assert job.status_code == 202
+    jid = job.json()["id"]
+
+    del_r = await c.delete(f"/api/v1/presentations/{pid}")
+    assert del_r.status_code == 204
+
+    g = await c.get(f"/api/v1/deck-prompt-jobs/{jid}")
+    assert g.status_code == 404
+
+
+@pytest.mark.asyncio
 async def test_deck_prompt_job_requires_version(editor_client: AsyncClient) -> None:
     c = editor_client
     r0 = await c.post("/api/v1/presentations", json={"title": "Empty"})

@@ -31,6 +31,31 @@ async def test_logs_forbidden_for_non_admin(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
+async def test_deck_prompt_jobs_admin_forbidden_for_non_admin(client: AsyncClient) -> None:
+    async with session_factory()() as session:
+        session.add(
+            User(
+                id=uuid.uuid4(),
+                email="viewer-dpj@example.com",
+                password_hash=hash_password("x"),
+                role=UserRole.user,
+            )
+        )
+        await session.commit()
+
+    login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "viewer-dpj@example.com", "password": "x"},
+    )
+    token = login.json()["access_token"]
+    r = await client.get(
+        "/api/v1/admin/deck-prompt-jobs",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 403
+
+
+@pytest.mark.asyncio
 async def test_logs_ok_for_admin(client: AsyncClient) -> None:
     async with session_factory()() as session:
         session.add(

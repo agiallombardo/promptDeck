@@ -80,10 +80,19 @@ async def complete_deck_html_edit(
             detail = r.text[:2000]
             raise ValueError(f"LLM request failed ({r.status_code}): {detail}")
         data = r.json()
+    if not isinstance(data, dict):
+        raise ValueError("LLM response was not a JSON object")
     choices = data.get("choices")
-    if not choices:
+    if not isinstance(choices, list) or not choices:
         raise ValueError("LLM response missing choices")
-    msg = (choices[0] or {}).get("message") or {}
+    first = choices[0]
+    if not isinstance(first, dict):
+        raise ValueError("LLM response choice malformed")
+    msg = first.get("message")
+    if msg is None:
+        msg = {}
+    elif not isinstance(msg, dict):
+        raise ValueError("LLM response message malformed")
     content = msg.get("content")
     if not isinstance(content, str) or not content.strip():
         raise ValueError("LLM returned empty content")
