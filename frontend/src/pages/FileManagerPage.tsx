@@ -13,7 +13,6 @@ function deckTitleForCreate(raw: string): string {
   return t.length > MAX_TITLE_LEN ? t.slice(0, MAX_TITLE_LEN) : t;
 }
 
-/** When uploading without a typed title, use the file base name (strips .html/.htm/.zip). */
 function deckTitleFromUpload(rawField: string, file: File): string {
   const typed = rawField.trim();
   if (typed) {
@@ -133,7 +132,9 @@ export default function FileManagerPage() {
       </div>
 
       <div className="mt-10">
-        <h2 className="font-mono text-sm uppercase tracking-wide text-text-muted">Your decks</h2>
+        <h2 className="font-mono text-sm uppercase tracking-wide text-text-muted">
+          Your decks and shares
+        </h2>
         {q.isLoading ? (
           <p className="mt-4 font-mono text-sm text-text-muted">Loading…</p>
         ) : q.isError ? (
@@ -149,6 +150,7 @@ export default function FileManagerPage() {
                   <div>
                     <p className="font-heading text-base font-medium">{p.title}</p>
                     <p className="font-mono text-xs text-text-muted">
+                      Role: {p.current_user_role ?? "user"} ·{" "}
                       {p.current_version_id ? "Has version" : "No upload yet"}
                     </p>
                   </div>

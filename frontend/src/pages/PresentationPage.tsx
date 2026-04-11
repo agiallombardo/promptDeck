@@ -2,31 +2,21 @@ import { Drawer } from "vaul";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { PresentationCanvas } from "../components/canvas/PresentationCanvas";
-import { PresentationDeckHeader } from "../components/layout/PresentationDeckHeader";
 import { ExportModal } from "../components/ExportModal";
 import { FeedbackSidebar } from "../components/feedback/FeedbackSidebar";
 import { RequireDeckAccess } from "../components/RequireDeckAccess";
+import { PresentationDeckHeader } from "../components/layout/PresentationDeckHeader";
 import { ShareModal } from "../components/ShareModal";
 import { useComments } from "../hooks/useComments";
 import { usePresentation } from "../hooks/usePresentation";
 import { ApiError } from "../lib/api";
-import { deckAccessToken } from "../lib/deckAuth";
 import { postSetCommentMode, postSlideGoto } from "../lib/slidePostMessage";
 import { useAuthStore } from "../stores/auth";
-import { useShareAccessStore } from "../stores/shareAccess";
 
 export default function PresentationPage() {
   const { id } = useParams<{ id: string }>();
   const accessToken = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
-  const shareToken = useShareAccessStore((s) => s.token);
-  const sharePresentationId = useShareAccessStore((s) => s.presentationId);
-  const shareRole = useShareAccessStore((s) => s.role);
-  const token = deckAccessToken(id ?? "", accessToken, {
-    token: shareToken,
-    presentationId: sharePresentationId,
-  })!;
-  const isShareSession = Boolean(shareToken && id && sharePresentationId === id);
   const [shareOpen, setShareOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [mobileFeedbackOpen, setMobileFeedbackOpen] = useState(false);
@@ -35,12 +25,11 @@ export default function PresentationPage() {
   const [slideIndex, setSlideIndex] = useState(0);
   const [slideCount, setSlideCount] = useState(1);
 
-  const canComment = isShareSession
-    ? shareRole === "commenter" || shareRole === "editor"
-    : Boolean(user && user.role !== "viewer");
-
-  const { pres, embed, upload, uploadError, iframeSrc, qc } = usePresentation(id, token);
+  const { pres, embed, upload, uploadError, iframeSrc } = usePresentation(id, accessToken);
   const versionId = pres.data?.current_version_id;
+  const accessRole = pres.data?.current_user_role ?? null;
+  const canComment = accessRole === "owner" || accessRole === "editor" || accessRole === "admin";
+  const canManage = canComment;
 
   const {
     threads,
@@ -56,7 +45,7 @@ export default function PresentationPage() {
     addReply,
     resolveThread,
     deleteComment,
-  } = useComments(id ?? "", token, versionId);
+  } = useComments(id ?? "", accessToken ?? "", versionId);
 
   const onManifest = useCallback(
     (count: number, _titles?: string[]) => {
@@ -119,8 +108,6 @@ export default function PresentationPage() {
           ? String(threads.error)
           : null;
 
-  const isOwner = Boolean(user && pres.data && pres.data.owner_id === user.id);
-
   function handleReply(threadId: string) {
     const body = (replyDrafts[threadId] ?? "").trim();
     if (!body) return;
@@ -178,17 +165,16 @@ export default function PresentationPage() {
         body: draftNewThread.trim(),
       });
     },
-    onClearPending: () => {
-      setPendingPin(null);
-      setDraftNewThread("");
-    },
-    onRefresh: () => void qc.invalidateQueries({ queryKey: ["threads", id, token] }),
+    creatingThread: createThread.isPending,
     replyDrafts,
-    onReplyDraft: (threadId: string, value: string) =>
-      setReplyDrafts((prev) => ({ ...prev, [threadId]: value })),
-    onReply: handleReply,
-    onResolve: (threadId: string) => resolveThread.mutate(threadId),
+    onReplyDraft: (threadId: string, body: string) =>
+      setReplyDrafts((prev) => ({ ...prev, [threadId]: body })),
+    onSubmitReply: handleReply,
+    resolvingThreadId: resolveThread.isPending ? (resolveThread.variables ?? null) : null,
+    onResolveThread: (threadId: string) => resolveThread.mutate(threadId),
+    deletingCommentId: deleteComment.isPending ? (deleteComment.variables ?? null) : null,
     onDeleteComment: (commentId: string) => deleteComment.mutate(commentId),
+    onJumpToSlide: go,
   };
 
   if (!id) {
@@ -201,130 +187,89 @@ export default function PresentationPage() {
 
   return (
     <RequireDeckAccess presentationId={id}>
-      <div className="flex min-h-dvh flex-col bg-bg-void text-text-main">
+      <div className="min-h-dvh bg-bg-void text-text-main">
         <PresentationDeckHeader
-          title={pres.data?.title ?? "…"}
-          isShareSession={isShareSession}
-          shareRole={shareRole ?? null}
-          showOwnerActions={Boolean(isOwner && pres.data?.current_version_id && accessToken)}
+          title={pres.data?.title ?? "Presentation"}
+          accessRole={accessRole}
+          showShareAction={Boolean(canManage && accessToken)}
+          showExportAction={Boolean(canManage && accessToken && pres.data?.current_version_id)}
           onShare={() => setShareOpen(true)}
           onExport={() => setExportOpen(true)}
           slideIndex={slideIndex}
           slideCount={slideCount}
-          canNavigate={Boolean(embed.data)}
+          canNavigate={Boolean(embed.data?.slide_count)}
           onPrev={() => go(slideIndex - 1)}
           onNext={() => go(slideIndex + 1)}
         />
 
-        <main className="flex min-h-0 flex-1 flex-col md:flex-row">
-          {!pres.data?.current_version_id ? (
-            <div className="mx-auto w-full max-w-xl flex-1 px-4 py-10">
-              <div className="rounded-sharp border border-border bg-bg-elevated p-6 shadow-elevated">
-                <h2 className="font-heading text-lg font-semibold">Upload deck</h2>
-                <p className="mt-2 text-sm text-text-muted">
-                  One <span className="font-mono">.html</span> file, or a{" "}
-                  <span className="font-mono">.zip</span> of a built site (e.g. Vite/npm export)
-                  with <span className="font-mono">index.html</span> at the root or in a folder such
-                  as <span className="font-mono">dist/</span>, plus your JS/CSS assets.
-                </p>
-                <label className="mt-4 flex cursor-pointer flex-col gap-2 font-mono text-xs uppercase tracking-wide text-text-muted">
-                  File
-                  <input
-                    type="file"
-                    accept=".html,.htm,.zip,text/html,application/zip"
-                    className="font-body text-sm text-text-main file:mr-3 file:rounded-sharp file:border file:border-border file:bg-bg-recessed file:px-3 file:py-2"
-                    onChange={(ev) => {
-                      const f = ev.target.files?.[0];
-                      if (f) upload.mutate(f);
-                    }}
-                  />
-                </label>
-                {uploadError ? (
-                  <p className="mt-3 text-sm text-accent-warning" role="alert">
-                    {uploadError}
-                  </p>
-                ) : null}
-                {upload.isPending ? (
-                  <p className="mt-3 font-mono text-sm text-text-muted">Uploading…</p>
-                ) : null}
-              </div>
-            </div>
-          ) : pres.isError ? (
-            <p className="flex-1 p-6 text-center text-sm text-accent-warning">
-              {pres.error instanceof Error ? pres.error.message : String(pres.error)}
-            </p>
-          ) : embed.isError ? (
-            <p className="flex-1 p-6 text-center text-sm text-accent-warning">
-              {embed.error instanceof Error ? embed.error.message : String(embed.error)}
-            </p>
-          ) : (
-            <>
-              <div className="flex min-h-0 flex-1 flex-col px-4 py-6">
-                <PresentationCanvas
-                  iframeSrc={iframeSrc}
-                  iframeRef={iframeRef}
-                  onManifest={onManifest}
-                  onSlideClick={onSlideClick}
-                  commentMode={commentMode}
-                  canComment={canComment}
-                  threads={threads.data?.items ?? []}
-                  slideIndex={slideIndex}
-                  onSelectThread={onThreadSelectFromCanvas}
-                  onLongPressCommentMode={
-                    canComment
-                      ? () => {
-                          setCommentMode(true);
-                          setPendingPin(null);
-                        }
-                      : undefined
-                  }
+        <div className="mx-auto grid max-w-7xl gap-6 px-4 py-4 md:grid-cols-[minmax(0,1fr)_360px]">
+          <section className="space-y-4">
+            <PresentationCanvas
+              iframeRef={iframeRef}
+              iframeSrc={iframeSrc}
+              slideIndex={slideIndex}
+              slideCount={slideCount}
+              onManifest={onManifest}
+              onThreadSelect={onThreadSelectFromCanvas}
+              onSlideClick={onSlideClick}
+            />
+            {uploadError ? (
+              <p className="text-sm text-accent-warning" role="alert">
+                {uploadError}
+              </p>
+            ) : null}
+            {canManage && accessToken ? (
+              <label className="inline-flex cursor-pointer items-center gap-3 rounded-sharp border border-border px-3 py-2 font-mono text-xs text-text-muted hover:bg-bg-elevated">
+                <span>Upload new version</span>
+                <input
+                  type="file"
+                  accept=".html,.htm,.zip,text/html,application/zip"
+                  className="hidden"
+                  onChange={(ev) => {
+                    const f = ev.target.files?.[0];
+                    ev.target.value = "";
+                    if (f) upload.mutate(f);
+                  }}
                 />
+              </label>
+            ) : null}
+          </section>
+
+          <div className="hidden md:block">
+            <FeedbackSidebar {...feedbackSidebarProps} />
+          </div>
+        </div>
+
+        <Drawer.Root open={mobileFeedbackOpen} onOpenChange={setMobileFeedbackOpen}>
+          <Drawer.Portal>
+            <Drawer.Overlay className="fixed inset-0 z-40 bg-black/40 md:hidden" />
+            <Drawer.Content className="fixed inset-x-0 bottom-0 z-50 max-h-[88vh] rounded-t-[20px] border border-border bg-bg-elevated md:hidden">
+              <div className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-border" />
+              <div className="max-h-[calc(88vh-24px)] overflow-y-auto p-4">
+                <FeedbackSidebar {...feedbackSidebarProps} compact />
               </div>
-              <div className="hidden min-h-0 md:flex md:max-w-sm md:flex-shrink-0 md:flex-col">
-                <FeedbackSidebar {...feedbackSidebarProps} />
-              </div>
-              <div className="md:hidden">
-                <Drawer.Root open={mobileFeedbackOpen} onOpenChange={setMobileFeedbackOpen}>
-                  <Drawer.Trigger asChild>
-                    <button
-                      type="button"
-                      className="fixed bottom-5 right-5 z-30 rounded-sharp border border-border bg-bg-elevated px-4 py-2 font-mono text-xs shadow-elevated"
-                    >
-                      Threads
-                    </button>
-                  </Drawer.Trigger>
-                  <Drawer.Portal>
-                    <Drawer.Overlay className="fixed inset-0 z-40 bg-black/50" />
-                    <Drawer.Content className="fixed inset-x-0 bottom-0 z-50 flex max-h-[90vh] flex-col rounded-t-2xl border border-border bg-bg-elevated pb-4">
-                      <Drawer.Handle className="mx-auto mt-3 mb-2 h-1.5 w-10 rounded-full bg-border" />
-                      <div className="min-h-0 flex-1 overflow-y-auto">
-                        <FeedbackSidebar {...feedbackSidebarProps} embedded />
-                      </div>
-                    </Drawer.Content>
-                  </Drawer.Portal>
-                </Drawer.Root>
-              </div>
-            </>
-          )}
-        </main>
+            </Drawer.Content>
+          </Drawer.Portal>
+        </Drawer.Root>
+
+        {canManage && accessToken ? (
+          <>
+            <ShareModal
+              open={shareOpen}
+              onClose={() => setShareOpen(false)}
+              accessToken={accessToken}
+              presentationId={id}
+            />
+            <ExportModal
+              open={exportOpen}
+              onClose={() => setExportOpen(false)}
+              accessToken={accessToken}
+              presentationId={id}
+              versionId={pres.data?.current_version_id ?? null}
+            />
+          </>
+        ) : null}
       </div>
-      {isOwner && accessToken ? (
-        <>
-          <ShareModal
-            open={shareOpen}
-            onClose={() => setShareOpen(false)}
-            accessToken={accessToken}
-            presentationId={id}
-          />
-          <ExportModal
-            open={exportOpen}
-            onClose={() => setExportOpen(false)}
-            accessToken={accessToken}
-            presentationId={id}
-            versionId={pres.data?.current_version_id ?? null}
-          />
-        </>
-      ) : null}
     </RequireDeckAccess>
   );
 }

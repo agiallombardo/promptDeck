@@ -12,6 +12,7 @@ from httpx import ASGITransport, AsyncClient
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 os.environ.setdefault("JWT_SECRET_KEY", "x" * 32)
 os.environ.setdefault("ENVIRONMENT", "test")
+os.environ.setdefault("LOCAL_PASSWORD_AUTH_ENABLED", "true")
 
 from app.config import get_settings
 
@@ -66,7 +67,7 @@ async def authed_client(client: AsyncClient):
                 email="authed-fixture@example.com",
                 display_name="Authed fixture",
                 password_hash=hash_password("fixture-pw-1"),
-                role=UserRole.editor,
+                role=UserRole.user,
             )
         )
         await session.commit()

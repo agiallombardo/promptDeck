@@ -5,6 +5,7 @@ import {
   apiAdminJobs,
   apiAdminLogs,
   apiAdminPresentations,
+  apiAdminSetup,
   apiAdminStats,
   apiAdminUsers,
 } from "../lib/api";
@@ -12,11 +13,11 @@ import { useAuthStore } from "../stores/auth";
 
 const CHANNELS = ["", "http", "auth", "audit", "script"] as const;
 
-type Tab = "stats" | "logs" | "jobs" | "presentations" | "users" | "audit";
+type Tab = "setup" | "stats" | "logs" | "jobs" | "presentations" | "users" | "audit";
 
 export default function AdminPage() {
   const accessToken = useAuthStore((s) => s.accessToken);
-  const [tab, setTab] = useState<Tab>("stats");
+  const [tab, setTab] = useState<Tab>("setup");
   const [channel, setChannel] = useState<string>("");
   const [requestId, setRequestId] = useState("");
   const [level, setLevel] = useState("");
@@ -40,6 +41,12 @@ export default function AdminPage() {
     queryKey: ["admin", "stats", accessToken],
     enabled: Boolean(accessToken) && tab === "stats",
     queryFn: () => apiAdminStats(accessToken!),
+  });
+
+  const setup = useQuery({
+    queryKey: ["admin", "setup", accessToken],
+    enabled: Boolean(accessToken) && tab === "setup",
+    queryFn: () => apiAdminSetup(accessToken!),
   });
 
   const logs = useQuery({
@@ -81,6 +88,7 @@ export default function AdminPage() {
   }
 
   const tabs: { id: Tab; label: string }[] = [
+    { id: "setup", label: "Setup" },
     { id: "stats", label: "Stats" },
     { id: "logs", label: "Logs" },
     { id: "jobs", label: "Jobs" },
@@ -116,7 +124,66 @@ export default function AdminPage() {
         ))}
       </nav>
 
-      {tab === "stats" ? (
+      {tab === "setup" ? (
+        setup.isLoading ? (
+          <p className="mt-10 font-mono text-sm text-text-muted">Loading…</p>
+        ) : setup.isError ? (
+          <p className="mt-10 text-accent-warning" role="alert">
+            {(setup.error as Error).message}
+          </p>
+        ) : (
+          <div className="mt-8 space-y-5">
+            <div className="rounded-sharp border border-border bg-bg-elevated p-4 shadow-elevated">
+              <p className="font-mono text-[10px] uppercase tracking-wide text-text-muted">
+                Entra setup checklist
+              </p>
+              <ul className="mt-3 space-y-2 font-mono text-xs">
+                {(
+                  [
+                    ["ENTRA_ENABLED", setup.data!.entra_enabled],
+                    ["ENTRA_TENANT_ID", setup.data!.entra_tenant_id_configured],
+                    ["ENTRA_CLIENT_ID", setup.data!.entra_client_id_configured],
+                    ["ENTRA_CLIENT_SECRET", setup.data!.entra_client_secret_configured],
+                  ] as const
+                ).map(([label, ok]) => (
+                  <li key={label} className="flex items-center justify-between gap-3">
+                    <span className="text-text-muted">{label}</span>
+                    <span className={ok ? "text-primary" : "text-accent-warning"}>
+                      {ok ? "OK" : "MISSING"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="rounded-sharp border border-border bg-bg-elevated p-4 shadow-elevated">
+              <p className="font-mono text-[10px] uppercase tracking-wide text-text-muted">
+                App values
+              </p>
+              <dl className="mt-3 grid gap-2 font-mono text-xs">
+                <div className="grid gap-1">
+                  <dt className="text-text-muted">PUBLIC_APP_URL</dt>
+                  <dd className="break-all text-text-main">{setup.data!.public_app_url}</dd>
+                </div>
+                <div className="grid gap-1">
+                  <dt className="text-text-muted">PUBLIC_API_URL</dt>
+                  <dd className="break-all text-text-main">{setup.data!.public_api_url}</dd>
+                </div>
+                <div className="grid gap-1">
+                  <dt className="text-text-muted">Redirect URI (register in Entra)</dt>
+                  <dd className="break-all text-primary">{setup.data!.entra_redirect_uri}</dd>
+                </div>
+                <div className="grid gap-1">
+                  <dt className="text-text-muted">Local password auth</dt>
+                  <dd className="text-text-main">
+                    {setup.data!.local_password_auth_enabled ? "Enabled" : "Disabled"}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+          </div>
+        )
+      ) : tab === "stats" ? (
         stats.isLoading ? (
           <p className="mt-10 font-mono text-sm text-text-muted">Loading…</p>
         ) : stats.isError ? (

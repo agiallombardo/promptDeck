@@ -15,7 +15,7 @@ async def test_logs_forbidden_for_non_admin(client: AsyncClient) -> None:
                 id=uuid.uuid4(),
                 email="viewer2@example.com",
                 password_hash=hash_password("x"),
-                role=UserRole.viewer,
+                role=UserRole.user,
             )
         )
         await session.commit()
@@ -112,6 +112,33 @@ async def test_admin_stats_and_audit_ok(client: AsyncClient) -> None:
     a = await client.get("/api/v1/admin/audit", headers=h)
     assert a.status_code == 200
     assert "items" in a.json()
+
+
+@pytest.mark.asyncio
+async def test_admin_setup_ok(client: AsyncClient) -> None:
+    async with session_factory()() as session:
+        session.add(
+            User(
+                id=uuid.uuid4(),
+                email="setup-admin@example.com",
+                password_hash=hash_password("setup"),
+                role=UserRole.admin,
+            )
+        )
+        await session.commit()
+
+    login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "setup-admin@example.com", "password": "setup"},
+    )
+    token = login.json()["access_token"]
+    h = {"Authorization": f"Bearer {token}"}
+
+    s = await client.get("/api/v1/admin/setup", headers=h)
+    assert s.status_code == 200
+    body = s.json()
+    assert "entra_redirect_uri" in body
+    assert "public_app_url" in body
 
 
 @pytest.mark.asyncio

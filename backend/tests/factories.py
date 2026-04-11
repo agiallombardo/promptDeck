@@ -18,4 +18,4 @@ class UserFactory(SQLAlchemyFactory[User]):
     email = Use(lambda: f"user-{uuid.uuid4().hex[:8]}@example.com")
     display_name = "Test user"
     password_hash = "x" * 60
-    role = UserRole.editor
+    role = UserRole.user

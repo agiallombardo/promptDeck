@@ -11,10 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.config import Settings, get_settings
-from app.db.models.presentation import Presentation, PresentationVersion, Slide
-from app.db.models.user import User
+from app.db.models.presentation import PresentationVersion, Slide
 from app.db.session import get_db
-from app.deps import get_current_user, get_presentation_owner, get_presentation_reader
+from app.deps import PresentationGrant, get_presentation_editor, get_presentation_reader
 from app.logging_channels import LogChannel, channel_logger
 from app.schemas.presentation import SlideRead, VersionRead
 from app.services.app_logging import write_app_log
@@ -65,9 +64,8 @@ async def upload_html_version(
     request: Request,
     file: Annotated[UploadFile, File(...)],
     settings: Annotated[Settings, Depends(get_settings)],
-    user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    presentation: Annotated[Presentation, Depends(get_presentation_owner)],
+    grant: Annotated[PresentationGrant, Depends(get_presentation_editor)],
 ) -> VersionRead:
     raw = await file.read()
     if len(raw) == 0:
@@ -75,6 +73,7 @@ async def upload_html_version(
 
     name = file.filename or "index.html"
     lower = name.lower()
+    presentation = grant.presentation
 
     result = await db.execute(
         select(func.coalesce(func.max(PresentationVersion.version_number), 0)).where(
@@ -128,7 +127,7 @@ async def upload_html_version(
         presentation_id=presentation.id,
         version_number=next_num,
         origin="upload",
-        created_by=user.id,
+        created_by=grant.user.id,
         storage_kind=storage_kind,
         storage_prefix=storage_prefix,
         entry_path=entry_path,
@@ -172,7 +171,7 @@ async def upload_html_version(
         level="info",
         event="presentation.version.uploaded",
         request_id=getattr(request.state, "request_id", None),
-        user_id=user.id,
+        user_id=grant.user.id,
         path=str(request.url.path),
         method=request.method,
         status_code=201,
@@ -186,7 +185,7 @@ async def upload_html_version(
     )
     await record_audit(
         db,
-        actor_id=user.id,
+        actor_id=grant.user.id,
         action="presentation.version.uploaded",
         target_kind="presentation_version",
         target_id=ver2.id,
@@ -204,11 +203,11 @@ async def upload_html_version(
 @router.get("", response_model=list[VersionRead])
 async def list_versions(
     db: Annotated[AsyncSession, Depends(get_db)],
-    presentation: Annotated[Presentation, Depends(get_presentation_reader)],
+    grant: Annotated[PresentationGrant, Depends(get_presentation_reader)],
 ) -> list[VersionRead]:
     result = await db.execute(
         select(PresentationVersion)
-        .where(PresentationVersion.presentation_id == presentation.id)
+        .where(PresentationVersion.presentation_id == grant.presentation.id)
         .order_by(PresentationVersion.version_number.desc())
         .options(selectinload(PresentationVersion.slides))
     )
@@ -220,20 +219,20 @@ async def list_versions(
 async def activate_version(
     version_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    presentation: Annotated[Presentation, Depends(get_presentation_owner)],
+    grant: Annotated[PresentationGrant, Depends(get_presentation_editor)],
 ) -> VersionRead:
     result = await db.execute(
         select(PresentationVersion)
         .where(
             PresentationVersion.id == version_id,
-            PresentationVersion.presentation_id == presentation.id,
+            PresentationVersion.presentation_id == grant.presentation.id,
         )
         .options(selectinload(PresentationVersion.slides))
     )
     ver = result.scalar_one_or_none()
     if ver is None:
         raise HTTPException(status_code=404, detail="Version not found")
-    presentation.current_version_id = ver.id
+    grant.presentation.current_version_id = ver.id
     await db.commit()
     result3 = await db.execute(
         select(PresentationVersion)

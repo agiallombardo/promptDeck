@@ -11,7 +11,7 @@ import {
 
 export function useComments(
   presentationId: string,
-  token: string,
+  token: string | null,
   versionId: string | null | undefined,
 ) {
   const qc = useQueryClient();
@@ -22,13 +22,13 @@ export function useComments(
 
   const threads = useQuery({
     queryKey: ["threads", presentationId, token, versionId],
-    queryFn: () => apiThreadsList(token, presentationId, versionId ?? null),
-    enabled: Boolean(versionId),
+    queryFn: () => apiThreadsList(token!, presentationId, versionId ?? null),
+    enabled: Boolean(token) && Boolean(versionId),
   });
 
   const createThread = useMutation({
     mutationFn: (args: { pin: PendingPin; versionId: string; body: string }) =>
-      apiThreadCreate(token, presentationId, {
+      apiThreadCreate(token!, presentationId, {
         version_id: args.versionId,
         slide_index: args.pin.slide,
         anchor_x: args.pin.x,
@@ -41,29 +41,27 @@ export function useComments(
       setCommentMode(false);
       await qc.invalidateQueries({ queryKey: ["threads", presentationId, token] });
     },
-    onError: () =>
-      undefined /* keep pin, draft, comment mode; errors surface via jsonFetch toasts */,
+    onError: () => undefined,
   });
 
   const addReply = useMutation({
     mutationFn: ({ threadId, body }: { threadId: string; body: string }) =>
-      apiCommentCreate(token, threadId, body),
+      apiCommentCreate(token!, threadId, body),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["threads", presentationId, token] });
     },
-    onError: () =>
-      undefined /* reply draft cleared only from caller onSuccess; leave unchanged on failure */,
+    onError: () => undefined,
   });
 
   const resolveThread = useMutation({
-    mutationFn: (threadId: string) => apiThreadPatch(token, threadId, "resolved"),
+    mutationFn: (threadId: string) => apiThreadPatch(token!, threadId, "resolved"),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["threads", presentationId, token] });
     },
   });
 
   const deleteComment = useMutation({
-    mutationFn: (commentId: string) => apiCommentDelete(token, commentId),
+    mutationFn: (commentId: string) => apiCommentDelete(token!, commentId),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["threads", presentationId, token] });
     },

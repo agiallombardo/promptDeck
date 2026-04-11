@@ -9,6 +9,13 @@ from sqlalchemy import select
 
 
 @pytest.mark.asyncio
+async def test_auth_config_exposes_local_login_in_tests(client: AsyncClient) -> None:
+    r = await client.get("/api/v1/auth/config")
+    assert r.status_code == 200
+    assert r.json()["local_password_auth_enabled"] is True
+
+
+@pytest.mark.asyncio
 async def test_login_invalid_credentials(client: AsyncClient) -> None:
     r = await client.post(
         "/api/v1/auth/login",
@@ -24,21 +31,22 @@ async def test_login_and_me(client: AsyncClient) -> None:
         session.add(
             User(
                 id=uid,
-                email="editor@example.com",
-                display_name="Ed",
+                email="member@example.com",
+                display_name="Member",
                 password_hash=hash_password("secret-pass-1"),
-                role=UserRole.editor,
+                role=UserRole.user,
             )
         )
         await session.commit()
 
     r = await client.post(
         "/api/v1/auth/login",
-        json={"email": "editor@example.com", "password": "secret-pass-1"},
+        json={"email": "member@example.com", "password": "secret-pass-1"},
     )
     assert r.status_code == 200
     body = r.json()
-    assert body["user"]["email"] == "editor@example.com"
+    assert body["user"]["email"] == "member@example.com"
+    assert body["user"]["role"] == "user"
     token = body["access_token"]
 
     me = await client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
@@ -82,7 +90,7 @@ async def test_last_login_updated(client: AsyncClient) -> None:
                 id=uid,
                 email="viewer@example.com",
                 password_hash=hash_password("v"),
-                role=UserRole.viewer,
+                role=UserRole.user,
             )
         )
         await session.commit()

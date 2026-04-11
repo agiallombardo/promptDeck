@@ -48,7 +48,7 @@ async def _run() -> None:
                 email="smoke@example.com",
                 display_name="Smoke",
                 password_hash=hash_password("smoke-pass-1"),
-                role=UserRole.editor,
+                role=UserRole.user,
             )
         )
         await session.commit()

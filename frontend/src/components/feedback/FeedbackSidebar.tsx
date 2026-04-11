@@ -231,7 +231,7 @@ function CommentLine({
   );
   const label =
     comment.author_display_name ??
-    (comment.author_id ? comment.author_id.slice(0, 8) : "Shared commenter");
+    (comment.author_id ? comment.author_id.slice(0, 8) : "Unknown user");
   return (
     <li className="rounded-sharp border border-border/60 bg-bg-void/40 px-2 py-2">
       <div className="flex flex-wrap items-start justify-between gap-2">

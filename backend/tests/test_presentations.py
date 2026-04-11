@@ -44,7 +44,7 @@ async def editor_client(tmp_path, monkeypatch):
                 email="pres@example.com",
                 display_name="Pres",
                 password_hash=hash_password("secret-pass-1"),
-                role=UserRole.editor,
+                role=UserRole.user,
             )
         )
         await session.commit()

@@ -7,7 +7,6 @@ import AdminPage from "./pages/AdminPage";
 import FileManagerPage from "./pages/FileManagerPage";
 import LoginPage from "./pages/LoginPage";
 import PresentationPage from "./pages/PresentationPage";
-import ShareEntryPage from "./pages/ShareEntryPage";
 
 function AuthenticatedLayout() {
   return (
@@ -33,7 +32,6 @@ export function AppRouter() {
           }
         />
       </Route>
-      <Route path="/share/:token" element={<ShareEntryPage />} />
       <Route path="/p/:id" element={<PresentationPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

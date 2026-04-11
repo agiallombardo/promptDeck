@@ -12,7 +12,17 @@ from app.logging_conf import configure_logging
 from app.middleware.access_log import AccessLogMiddleware
 from app.middleware.auth_context import AuthContextMiddleware
 from app.rate_limit import limiter
-from app.routers import admin, assets, auth, comments, exports, presentations, shares, versions
+from app.routers import (
+    admin,
+    assets,
+    auth,
+    comments,
+    directory,
+    exports,
+    members,
+    presentations,
+    versions,
+)
 
 settings = get_settings()
 
@@ -55,10 +65,11 @@ app.add_middleware(AccessLogMiddleware)
 api = APIRouter(prefix="/api/v1")
 api.include_router(auth.router, prefix="/auth", tags=["auth"])
 api.include_router(admin.router, prefix="/admin", tags=["admin"])
+api.include_router(directory.router)
 api.include_router(presentations.router)
 api.include_router(versions.router)
 api.include_router(comments.router)
-api.include_router(shares.router)
+api.include_router(members.router)
 api.include_router(exports.router)
 app.include_router(api)
 app.include_router(assets.router)

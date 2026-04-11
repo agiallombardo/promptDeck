@@ -5,7 +5,7 @@ import uuid
 
 import pytest
 from app.config import get_settings
-from app.db.models.user import User, UserRole
+from app.db.models.user import AuthProvider, User, UserRole
 from app.db.session import session_factory
 from app.security.passwords import hash_password
 from httpx import ASGITransport, AsyncClient
@@ -16,6 +16,7 @@ SAMPLE_HTML = b"""<!DOCTYPE html><html><body><section>A</section></body></html>"
 @pytest.fixture
 async def editor_client(tmp_path, monkeypatch):
     monkeypatch.setenv("STORAGE_ROOT", str(tmp_path / "store"))
+    monkeypatch.setenv("ENTRA_TENANT_ID", "tenant-123")
     get_settings.cache_clear()
 
     from app.db.base import Base
@@ -29,16 +30,29 @@ async def editor_client(tmp_path, monkeypatch):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    uid = uuid.uuid4()
+    owner_id = uuid.uuid4()
+    recipient_id = uuid.uuid4()
     async with session_factory()() as session:
-        session.add(
-            User(
-                id=uid,
-                email="share@example.com",
-                display_name="Share",
-                password_hash=hash_password("secret-pass-1"),
-                role=UserRole.editor,
-            )
+        session.add_all(
+            [
+                User(
+                    id=owner_id,
+                    email="share@example.com",
+                    display_name="Share",
+                    password_hash=hash_password("secret-pass-1"),
+                    role=UserRole.user,
+                ),
+                User(
+                    id=recipient_id,
+                    email="recipient@example.com",
+                    display_name="Recipient",
+                    password_hash=hash_password("secret-pass-2"),
+                    role=UserRole.user,
+                    auth_provider=AuthProvider.entra,
+                    entra_tenant_id="tenant-123",
+                    entra_object_id="recipient-oid",
+                ),
+            ]
         )
         await session.commit()
 
@@ -60,7 +74,7 @@ async def editor_client(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_share_create_exchange_and_reader_access(editor_client) -> None:
+async def test_member_share_grants_reader_access(editor_client) -> None:
     c, transport = editor_client
     p = await c.post("/api/v1/presentations", json={"title": "Shared"})
     assert p.status_code == 201
@@ -71,23 +85,29 @@ async def test_share_create_exchange_and_reader_access(editor_client) -> None:
     )
     assert up.status_code == 201
 
-    sh = await c.post(
-        f"/api/v1/presentations/{pid}/shares",
-        json={"role": "viewer"},
+    member = await c.post(
+        f"/api/v1/presentations/{pid}/members",
+        json={
+            "entra_object_id": "recipient-oid",
+            "email": "recipient@example.com",
+            "display_name": "Recipient",
+            "user_type": "Member",
+            "role": "user",
+        },
     )
-    assert sh.status_code == 201
-    secret = sh.json()["token"]
+    assert member.status_code == 201
 
-    async with AsyncClient(transport=transport, base_url="http://test") as exc:
-        ex = await exc.post("/api/v1/shares/exchange", json={"token": secret})
-    assert ex.status_code == 200
-    share_token = ex.json()["access_token"]
-
-    async with AsyncClient(transport=transport, base_url="http://test") as anon:
-        anon.headers.update({"Authorization": f"Bearer {share_token}"})
-        g = await anon.get(f"/api/v1/presentations/{pid}")
+    async with AsyncClient(transport=transport, base_url="http://test") as recipient:
+        login = await recipient.post(
+            "/api/v1/auth/login",
+            json={"email": "recipient@example.com", "password": "secret-pass-2"},
+        )
+        assert login.status_code == 200
+        recipient.headers.update({"Authorization": f"Bearer {login.json()['access_token']}"})
+        g = await recipient.get(f"/api/v1/presentations/{pid}")
         assert g.status_code == 200
         assert g.json()["title"] == "Shared"
+        assert g.json()["current_user_role"] == "user"
 
 
 @pytest.mark.asyncio

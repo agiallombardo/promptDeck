@@ -8,13 +8,41 @@ export type AuthUser = {
   email: string;
   display_name: string | null;
   role: string;
+  auth_provider: "local" | "entra";
+};
+
+export type AuthConfig = {
+  local_password_auth_enabled: boolean;
+  entra_enabled: boolean;
+  entra_login_url: string | null;
 };
 
 export type PresentationSummary = components["schemas"]["PresentationRead"];
 export type ThreadDto = components["schemas"]["ThreadRead"];
 export type CommentDto = components["schemas"]["CommentRead"];
-export type ShareLinkDto = components["schemas"]["ShareRead"];
 export type ExportJobDto = components["schemas"]["ExportJobRead"];
+
+export type DirectoryUserDto = {
+  entra_object_id: string;
+  email: string;
+  display_name: string | null;
+  user_type: string | null;
+};
+
+export type PresentationMemberDto = {
+  id: string;
+  presentation_id: string;
+  role: "editor" | "user";
+  principal_tenant_id: string;
+  principal_entra_object_id: string;
+  principal_email: string;
+  principal_display_name: string | null;
+  principal_user_type: string | null;
+  user_id: string | null;
+  granted_by: string;
+  created_at: string;
+  updated_at: string;
+};
 
 export class ApiError extends Error {
   readonly status: number;
@@ -35,7 +63,6 @@ function authHeaders(accessToken: string) {
 }
 
 type JsonFetchOpts = {
-  /** Set true for flows that handle errors inline (e.g. login form). */
   skipErrorToast?: boolean;
 };
 
@@ -70,6 +97,10 @@ export function iframeSrcForDev(iframeSrc: string): string {
     /* ignore */
   }
   return iframeSrc;
+}
+
+export async function apiAuthConfig() {
+  return jsonFetch<AuthConfig>(`${API}/auth/config`, undefined, { skipErrorToast: true });
 }
 
 export async function apiLogin(email: string, password: string) {
@@ -211,42 +242,62 @@ export async function apiVersionUpload(accessToken: string, presentationId: stri
   });
 }
 
-export async function apiShareExchange(plaintextToken: string) {
-  return jsonFetch<{
-    access_token: string;
-    expires_in: number;
-    presentation_id: string;
-    role: string;
-  }>(`${API}/shares/exchange`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token: plaintextToken }),
-  });
-}
-
-export async function apiSharesList(accessToken: string, presentationId: string) {
-  return jsonFetch<{ items: ShareLinkDto[] }>(`${API}/presentations/${presentationId}/shares`, {
+export async function apiDirectoryUsers(accessToken: string, query: string) {
+  const params = new URLSearchParams({ q: query });
+  return jsonFetch<{ items: DirectoryUserDto[] }>(`${API}/directory/users?${params.toString()}`, {
     headers: { ...authHeaders(accessToken) },
   });
 }
 
-export async function apiShareCreate(
-  accessToken: string,
-  presentationId: string,
-  body: { role: string; expires_at?: string | null; note?: string | null },
-) {
-  return jsonFetch<ShareLinkDto & { token: string }>(
-    `${API}/presentations/${presentationId}/shares`,
+export async function apiMembersList(accessToken: string, presentationId: string) {
+  return jsonFetch<{ items: PresentationMemberDto[] }>(
+    `${API}/presentations/${presentationId}/members`,
     {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
-      body: JSON.stringify(body),
+      headers: { ...authHeaders(accessToken) },
     },
   );
 }
 
-export async function apiShareRevoke(accessToken: string, presentationId: string, shareId: string) {
-  await jsonFetch<void>(`${API}/presentations/${presentationId}/shares/${shareId}`, {
+export async function apiMemberCreate(
+  accessToken: string,
+  presentationId: string,
+  body: {
+    entra_object_id: string;
+    email: string;
+    display_name?: string | null;
+    user_type?: string | null;
+    role: "editor" | "user";
+  },
+) {
+  return jsonFetch<PresentationMemberDto>(`${API}/presentations/${presentationId}/members`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
+    body: JSON.stringify(body),
+  });
+}
+
+export async function apiMemberUpdate(
+  accessToken: string,
+  presentationId: string,
+  memberId: string,
+  role: "editor" | "user",
+) {
+  return jsonFetch<PresentationMemberDto>(
+    `${API}/presentations/${presentationId}/members/${memberId}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
+      body: JSON.stringify({ role }),
+    },
+  );
+}
+
+export async function apiMemberDelete(
+  accessToken: string,
+  presentationId: string,
+  memberId: string,
+) {
+  await jsonFetch<void>(`${API}/presentations/${presentationId}/members/${memberId}`, {
     method: "DELETE",
     headers: { ...authHeaders(accessToken) },
   });
@@ -321,6 +372,19 @@ export async function apiAdminStats(accessToken: string) {
     audit_events_24h: number;
     app_log_rows_24h: number;
   }>(`${API}/admin/stats`, { headers: { ...authHeaders(accessToken) } });
+}
+
+export async function apiAdminSetup(accessToken: string) {
+  return jsonFetch<{
+    local_password_auth_enabled: boolean;
+    entra_enabled: boolean;
+    entra_tenant_id_configured: boolean;
+    entra_client_id_configured: boolean;
+    entra_client_secret_configured: boolean;
+    public_app_url: string;
+    public_api_url: string;
+    entra_redirect_uri: string;
+  }>(`${API}/admin/setup`, { headers: { ...authHeaders(accessToken) } });
 }
 
 export async function apiAdminAudit(accessToken: string, limit = 100) {

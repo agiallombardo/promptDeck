@@ -3,6 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
+from app.services.acl import PresentationAccess
 from pydantic import BaseModel, Field
 
 
@@ -48,6 +49,7 @@ class PresentationRead(BaseModel):
     current_version_id: uuid.UUID | None
     created_at: datetime
     updated_at: datetime
+    current_user_role: PresentationAccess | None = None
     current_version: VersionRead | None = None
 
     model_config = {"from_attributes": True}

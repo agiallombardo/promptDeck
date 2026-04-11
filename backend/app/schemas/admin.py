@@ -102,3 +102,14 @@ class AdminStatsRead(BaseModel):
     export_jobs: int
     audit_events_24h: int
     app_log_rows_24h: int
+
+
+class AdminSetupRead(BaseModel):
+    local_password_auth_enabled: bool
+    entra_enabled: bool
+    entra_tenant_id_configured: bool
+    entra_client_id_configured: bool
+    entra_client_secret_configured: bool
+    public_app_url: str
+    public_api_url: str
+    entra_redirect_uri: str

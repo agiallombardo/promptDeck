@@ -89,6 +89,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/admin/setup": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Setup */
+    get: operations["admin_setup_api_v1_admin_setup_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/admin/stats": {
     parameters: {
       query?: never;
@@ -115,6 +132,57 @@ export interface paths {
     };
     /** List Users */
     get: operations["list_users_api_v1_admin_users_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/config": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Auth Config */
+    get: operations["auth_config_api_v1_auth_config_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/entra/callback": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Entra Callback */
+    get: operations["entra_callback_api_v1_auth_entra_callback_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/entra/login": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Entra Login */
+    get: operations["entra_login_api_v1_auth_entra_login_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -208,6 +276,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/directory/users": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Directory Users */
+    get: operations["directory_users_api_v1_directory_users_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/exports/{job_id}": {
     parameters: {
       query?: never;
@@ -296,25 +381,25 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/v1/presentations/{presentation_id}/shares": {
+  "/api/v1/presentations/{presentation_id}/members": {
     parameters: {
       query?: never;
       header?: never;
       path?: never;
       cookie?: never;
     };
-    /** List Share Links */
-    get: operations["list_share_links_api_v1_presentations__presentation_id__shares_get"];
+    /** List Presentation Members */
+    get: operations["list_presentation_members_api_v1_presentations__presentation_id__members_get"];
     put?: never;
-    /** Create Share Link */
-    post: operations["create_share_link_api_v1_presentations__presentation_id__shares_post"];
+    /** Create Presentation Member */
+    post: operations["create_presentation_member_api_v1_presentations__presentation_id__members_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/v1/presentations/{presentation_id}/shares/{share_id}": {
+  "/api/v1/presentations/{presentation_id}/members/{member_id}": {
     parameters: {
       query?: never;
       header?: never;
@@ -324,11 +409,12 @@ export interface paths {
     get?: never;
     put?: never;
     post?: never;
-    /** Revoke Share Link */
-    delete: operations["revoke_share_link_api_v1_presentations__presentation_id__shares__share_id__delete"];
+    /** Delete Presentation Member */
+    delete: operations["delete_presentation_member_api_v1_presentations__presentation_id__members__member_id__delete"];
     options?: never;
     head?: never;
-    patch?: never;
+    /** Update Presentation Member */
+    patch: operations["update_presentation_member_api_v1_presentations__presentation_id__members__member_id__patch"];
     trace?: never;
   };
   "/api/v1/presentations/{presentation_id}/threads": {
@@ -378,23 +464,6 @@ export interface paths {
     put?: never;
     /** Activate Version */
     post: operations["activate_version_api_v1_presentations__presentation_id__versions__version_id__activate_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/shares/exchange": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Exchange Share Token */
-    post: operations["exchange_share_token_api_v1_shares_exchange_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -532,6 +601,25 @@ export interface components {
       /** Version Count */
       version_count: number;
     };
+    /** AdminSetupRead */
+    AdminSetupRead: {
+      /** Entra Client Id Configured */
+      entra_client_id_configured: boolean;
+      /** Entra Client Secret Configured */
+      entra_client_secret_configured: boolean;
+      /** Entra Enabled */
+      entra_enabled: boolean;
+      /** Entra Redirect Uri */
+      entra_redirect_uri: string;
+      /** Entra Tenant Id Configured */
+      entra_tenant_id_configured: boolean;
+      /** Local Password Auth Enabled */
+      local_password_auth_enabled: boolean;
+      /** Public Api Url */
+      public_api_url: string;
+      /** Public App Url */
+      public_app_url: string;
+    };
     /** AdminStatsRead */
     AdminStatsRead: {
       /** App Log Rows 24H */
@@ -647,6 +735,20 @@ export interface components {
        */
       ts: string;
     };
+    /** AuthConfigResponse */
+    AuthConfigResponse: {
+      /** Entra Enabled */
+      entra_enabled: boolean;
+      /** Entra Login Url */
+      entra_login_url?: string | null;
+      /** Local Password Auth Enabled */
+      local_password_auth_enabled: boolean;
+    };
+    /**
+     * AuthProvider
+     * @enum {string}
+     */
+    AuthProvider: "local" | "entra";
     /** Body_upload_html_version_api_v1_presentations__presentation_id__versions_post */
     Body_upload_html_version_api_v1_presentations__presentation_id__versions_post: {
       /** File */
@@ -679,6 +781,25 @@ export interface components {
        * Format: uuid
        */
       id: string;
+    };
+    /** DirectoryUserListResponse */
+    DirectoryUserListResponse: {
+      /** Items */
+      items: components["schemas"]["DirectoryUserRead"][];
+    };
+    /** DirectoryUserRead */
+    DirectoryUserRead: {
+      /** Display Name */
+      display_name?: string | null;
+      /**
+       * Email
+       * Format: email
+       */
+      email: string;
+      /** Entra Object Id */
+      entra_object_id: string;
+      /** User Type */
+      user_type?: string | null;
     };
     /** EmbedResponse */
     EmbedResponse: {
@@ -785,6 +906,11 @@ export interface components {
       /** Message */
       message: string;
     };
+    /**
+     * PresentationAccess
+     * @enum {string}
+     */
+    PresentationAccess: "admin" | "owner" | "editor" | "user";
     /** PresentationCreate */
     PresentationCreate: {
       /** Description */
@@ -797,6 +923,76 @@ export interface components {
       /** Items */
       items: components["schemas"]["PresentationRead"][];
     };
+    /** PresentationMemberCreate */
+    PresentationMemberCreate: {
+      /** Display Name */
+      display_name?: string | null;
+      /**
+       * Email
+       * Format: email
+       */
+      email: string;
+      /** Entra Object Id */
+      entra_object_id: string;
+      role: components["schemas"]["PresentationMemberRole"];
+      /** User Type */
+      user_type?: string | null;
+    };
+    /** PresentationMemberListResponse */
+    PresentationMemberListResponse: {
+      /** Items */
+      items: components["schemas"]["PresentationMemberRead"][];
+    };
+    /** PresentationMemberRead */
+    PresentationMemberRead: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Granted By
+       * Format: uuid
+       */
+      granted_by: string;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Presentation Id
+       * Format: uuid
+       */
+      presentation_id: string;
+      /** Principal Display Name */
+      principal_display_name: string | null;
+      /** Principal Email */
+      principal_email: string;
+      /** Principal Entra Object Id */
+      principal_entra_object_id: string;
+      /** Principal Tenant Id */
+      principal_tenant_id: string;
+      /** Principal User Type */
+      principal_user_type: string | null;
+      role: components["schemas"]["PresentationMemberRole"];
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** User Id */
+      user_id: string | null;
+    };
+    /**
+     * PresentationMemberRole
+     * @enum {string}
+     */
+    PresentationMemberRole: "editor" | "user";
+    /** PresentationMemberUpdate */
+    PresentationMemberUpdate: {
+      role: components["schemas"]["PresentationMemberRole"];
+    };
     /** PresentationRead */
     PresentationRead: {
       /**
@@ -804,6 +1000,7 @@ export interface components {
        * Format: date-time
        */
       created_at: string;
+      current_user_role?: components["schemas"]["PresentationAccess"] | null;
       current_version?: components["schemas"]["VersionRead"] | null;
       /** Current Version Id */
       current_version_id: string | null;
@@ -834,103 +1031,6 @@ export interface components {
       /** Title */
       title?: string | null;
     };
-    /** ShareCreate */
-    ShareCreate: {
-      /** Expires At */
-      expires_at?: string | null;
-      /** Note */
-      note?: string | null;
-      /** @default viewer */
-      role: components["schemas"]["ShareRole"];
-    };
-    /**
-     * ShareCreated
-     * @description Returned once when creating a link; includes the secret token.
-     */
-    ShareCreated: {
-      /**
-       * Created At
-       * Format: date-time
-       */
-      created_at: string;
-      /** Expires At */
-      expires_at: string | null;
-      /**
-       * Id
-       * Format: uuid
-       */
-      id: string;
-      /** Note */
-      note: string | null;
-      /**
-       * Presentation Id
-       * Format: uuid
-       */
-      presentation_id: string;
-      /** Revoked At */
-      revoked_at: string | null;
-      role: components["schemas"]["ShareRole"];
-      /** Token */
-      token: string;
-    };
-    /** ShareExchangeRequest */
-    ShareExchangeRequest: {
-      /** Token */
-      token: string;
-    };
-    /** ShareExchangeResponse */
-    ShareExchangeResponse: {
-      /** Access Token */
-      access_token: string;
-      /** Expires In */
-      expires_in: number;
-      /**
-       * Presentation Id
-       * Format: uuid
-       */
-      presentation_id: string;
-      role: components["schemas"]["ShareRole"];
-      /**
-       * Token Type
-       * @default bearer
-       */
-      token_type: string;
-    };
-    /** ShareListResponse */
-    ShareListResponse: {
-      /** Items */
-      items: components["schemas"]["ShareRead"][];
-    };
-    /** ShareRead */
-    ShareRead: {
-      /**
-       * Created At
-       * Format: date-time
-       */
-      created_at: string;
-      /** Expires At */
-      expires_at: string | null;
-      /**
-       * Id
-       * Format: uuid
-       */
-      id: string;
-      /** Note */
-      note: string | null;
-      /**
-       * Presentation Id
-       * Format: uuid
-       */
-      presentation_id: string;
-      /** Revoked At */
-      revoked_at: string | null;
-      role: components["schemas"]["ShareRole"];
-    };
-    /**
-     * ShareRole
-     * @enum {string}
-     */
-    ShareRole: "viewer" | "commenter" | "editor";
     /** SlideRead */
     SlideRead: {
       /**
@@ -1016,6 +1116,7 @@ export interface components {
     ThreadStatus: "open" | "resolved";
     /** UserPublic */
     UserPublic: {
+      auth_provider: components["schemas"]["AuthProvider"];
       /** Display Name */
       display_name: string | null;
       /** Email */
@@ -1031,7 +1132,7 @@ export interface components {
      * UserRole
      * @enum {string}
      */
-    UserRole: "admin" | "editor" | "commenter" | "viewer";
+    UserRole: "admin" | "user";
     /** ValidationError */
     ValidationError: {
       /** Context */
@@ -1264,6 +1365,26 @@ export interface operations {
       };
     };
   };
+  admin_setup_api_v1_admin_setup_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminSetupRead"];
+        };
+      };
+    };
+  };
   admin_stats_api_v1_admin_stats_get: {
     parameters: {
       query?: never;
@@ -1302,6 +1423,90 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["AdminUserListResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  auth_config_api_v1_auth_config_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AuthConfigResponse"];
+        };
+      };
+    };
+  };
+  entra_callback_api_v1_auth_entra_callback_get: {
+    parameters: {
+      query?: {
+        code?: string | null;
+        state?: string | null;
+        error?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  entra_login_api_v1_auth_entra_login_get: {
+    parameters: {
+      query?: {
+        next?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
         };
       };
       /** @description Validation Error */
@@ -1425,6 +1630,37 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  directory_users_api_v1_directory_users_get: {
+    parameters: {
+      query: {
+        q: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DirectoryUserListResponse"];
+        };
       };
       /** @description Validation Error */
       422: {
@@ -1682,7 +1918,7 @@ export interface operations {
       };
     };
   };
-  list_share_links_api_v1_presentations__presentation_id__shares_get: {
+  list_presentation_members_api_v1_presentations__presentation_id__members_get: {
     parameters: {
       query?: never;
       header?: never;
@@ -1699,7 +1935,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["ShareListResponse"];
+          "application/json": components["schemas"]["PresentationMemberListResponse"];
         };
       };
       /** @description Validation Error */
@@ -1713,7 +1949,7 @@ export interface operations {
       };
     };
   };
-  create_share_link_api_v1_presentations__presentation_id__shares_post: {
+  create_presentation_member_api_v1_presentations__presentation_id__members_post: {
     parameters: {
       query?: never;
       header?: never;
@@ -1724,7 +1960,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": components["schemas"]["ShareCreate"];
+        "application/json": components["schemas"]["PresentationMemberCreate"];
       };
     };
     responses: {
@@ -1734,7 +1970,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["ShareCreated"];
+          "application/json": components["schemas"]["PresentationMemberRead"];
         };
       };
       /** @description Validation Error */
@@ -1748,12 +1984,12 @@ export interface operations {
       };
     };
   };
-  revoke_share_link_api_v1_presentations__presentation_id__shares__share_id__delete: {
+  delete_presentation_member_api_v1_presentations__presentation_id__members__member_id__delete: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        share_id: string;
+        member_id: string;
         presentation_id: string;
       };
       cookie?: never;
@@ -1766,6 +2002,42 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_presentation_member_api_v1_presentations__presentation_id__members__member_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        member_id: string;
+        presentation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PresentationMemberUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PresentationMemberRead"];
+        };
       };
       /** @description Validation Error */
       422: {
@@ -1932,39 +2204,6 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["VersionRead"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  exchange_share_token_api_v1_shares_exchange_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ShareExchangeRequest"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ShareExchangeResponse"];
         };
       };
       /** @description Validation Error */

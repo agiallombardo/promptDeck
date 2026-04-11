@@ -13,9 +13,9 @@ describe("PresentationDeckHeader", () => {
     wrap(
       <PresentationDeckHeader
         title="T"
-        isShareSession={false}
-        shareRole={null}
-        showOwnerActions
+        accessRole={"owner"}
+        showShareAction
+        showExportAction
         onShare={() => {}}
         onExport={() => {}}
         slideIndex={0}

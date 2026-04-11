@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create initial login users (admin + optional editor). Requires DATABASE_URL and applied migrations."""
+"""Create initial local users (admin + optional demo user)."""
 
 from __future__ import annotations
 
@@ -13,8 +13,8 @@ sys.path.insert(0, str(_BACKEND))
 
 os.environ.setdefault("BOOTSTRAP_ADMIN_EMAIL", "admin@example.com")
 os.environ.setdefault("BOOTSTRAP_ADMIN_PASSWORD", "changeme123")
-os.environ.setdefault("BOOTSTRAP_EDITOR_EMAIL", "editor@example.com")
-os.environ.setdefault("BOOTSTRAP_EDITOR_PASSWORD", "changeme123")
+os.environ.setdefault("BOOTSTRAP_USER_EMAIL", "user@example.com")
+os.environ.setdefault("BOOTSTRAP_USER_PASSWORD", "changeme123")
 
 
 def _truthy_env(name: str) -> bool | None:
@@ -42,19 +42,17 @@ async def main() -> None:
     settings = get_settings()
 
     demo_flag = _truthy_env("BOOTSTRAP_DEMO_USERS")
-    include_editor = (
-        demo_flag if demo_flag is not None else (settings.environment == "development")
-    )
+    include_demo_user = demo_flag if demo_flag is not None else (settings.environment == "development")
 
     admin_email = os.environ["BOOTSTRAP_ADMIN_EMAIL"].lower().strip()
     admin_password = os.environ["BOOTSTRAP_ADMIN_PASSWORD"]
-    editor_email = os.environ["BOOTSTRAP_EDITOR_EMAIL"].lower().strip()
-    editor_password = os.environ["BOOTSTRAP_EDITOR_PASSWORD"]
+    demo_user_email = os.environ["BOOTSTRAP_USER_EMAIL"].lower().strip()
+    demo_user_password = os.environ["BOOTSTRAP_USER_PASSWORD"]
 
     log.info(
         "script.bootstrap_users.start",
         admin_email=admin_email,
-        include_editor=include_editor,
+        include_demo_user=include_demo_user,
         environment=settings.environment,
     )
 
@@ -91,24 +89,27 @@ async def main() -> None:
             role=UserRole.admin,
             display_name="Administrator",
         )
-        if include_editor:
-            if editor_email == admin_email:
+        if include_demo_user:
+            if demo_user_email == admin_email:
                 log.info(
-                    "script.bootstrap_users.skip_editor",
-                    reason="editor email matches admin",
+                    "script.bootstrap_users.skip_demo_user",
+                    reason="demo user email matches admin",
                 )
-                print("bootstrap_users: skipped editor (same email as admin)")
+                print("bootstrap_users: skipped demo user (same email as admin)")
             else:
                 await ensure_user(
                     session,
-                    email=editor_email,
-                    password=editor_password,
-                    role=UserRole.editor,
-                    display_name="Editor",
+                    email=demo_user_email,
+                    password=demo_user_password,
+                    role=UserRole.user,
+                    display_name="Demo user",
                 )
         else:
-            log.info("script.bootstrap_users.skip_editor", reason="BOOTSTRAP_DEMO_USERS off / non-development")
-            print("bootstrap_users: skipped editor (set BOOTSTRAP_DEMO_USERS=1 to force, or use development)")
+            log.info(
+                "script.bootstrap_users.skip_demo_user",
+                reason="BOOTSTRAP_DEMO_USERS off / non-development",
+            )
+            print("bootstrap_users: skipped demo user (set BOOTSTRAP_DEMO_USERS=1 to force)")
 
     await dispose_engine()
 

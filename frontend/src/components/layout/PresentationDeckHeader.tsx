@@ -2,9 +2,9 @@ import { Link } from "react-router-dom";
 
 type Props = {
   title: string;
-  isShareSession: boolean;
-  shareRole: string | null;
-  showOwnerActions: boolean;
+  accessRole: string | null;
+  showShareAction: boolean;
+  showExportAction: boolean;
   onShare: () => void;
   onExport: () => void;
   slideIndex: number;
@@ -16,9 +16,9 @@ type Props = {
 
 export function PresentationDeckHeader({
   title,
-  isShareSession,
-  shareRole,
-  showOwnerActions,
+  accessRole,
+  showShareAction,
+  showExportAction,
   onShare,
   onExport,
   slideIndex,
@@ -37,32 +37,30 @@ export function PresentationDeckHeader({
           <div>
             <p className="font-mono text-[10px] uppercase tracking-wide text-primary">Deck</p>
             <h1 className="font-heading text-lg font-semibold leading-tight">{title}</h1>
-            {isShareSession ? (
-              <p className="mt-0.5 font-mono text-[10px] text-text-muted">
-                Shared access{shareRole ? ` · ${shareRole}` : ""}
-              </p>
+            {accessRole ? (
+              <p className="mt-0.5 font-mono text-[10px] text-text-muted">Access · {accessRole}</p>
             ) : null}
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {showOwnerActions ? (
-            <>
-              <button
-                type="button"
-                className="rounded-sharp border border-border px-2 py-1 font-mono text-xs hover:bg-bg-elevated"
-                onClick={onShare}
-              >
-                Share
-              </button>
-              <button
-                type="button"
-                className="hidden rounded-sharp border border-border px-2 py-1 font-mono text-xs hover:bg-bg-elevated md:inline-flex"
-                onClick={onExport}
-              >
-                Export
-              </button>
-            </>
+          {showShareAction ? (
+            <button
+              type="button"
+              className="rounded-sharp border border-border px-2 py-1 font-mono text-xs hover:bg-bg-elevated"
+              onClick={onShare}
+            >
+              Share
+            </button>
+          ) : null}
+          {showExportAction ? (
+            <button
+              type="button"
+              className="hidden rounded-sharp border border-border px-2 py-1 font-mono text-xs hover:bg-bg-elevated md:inline-flex"
+              onClick={onExport}
+            >
+              Export
+            </button>
           ) : null}
           <span className="font-mono text-xs text-text-muted">
             Slide {slideCount ? slideIndex + 1 : 0} / {slideCount || "—"}

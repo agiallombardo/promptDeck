@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from functools import lru_cache
 from pathlib import Path
 
@@ -40,6 +42,10 @@ class Settings(BaseSettings):
             "Origin for absolute embed URLs (no trailing slash); defaults to Vite dev server"
         ),
     )
+    public_api_url: str = Field(
+        default="http://127.0.0.1:8005",
+        description="Public API origin for OAuth callbacks (no trailing slash)",
+    )
     argon2_time_cost: int = Field(default=3, ge=1, le=10, description="Argon2id time cost")
     argon2_memory_cost: int = Field(
         default=65536,
@@ -47,6 +53,23 @@ class Settings(BaseSettings):
         description="Argon2id memory cost (KiB)",
     )
     argon2_parallelism: int = Field(default=1, ge=1, le=8, description="Argon2id parallelism")
+
+    local_password_auth_enabled: bool = True
+    entra_enabled: bool = False
+    entra_tenant_id: str | None = None
+    entra_client_id: str | None = None
+    entra_client_secret: str | None = None
+    entra_authority_host: str = "https://login.microsoftonline.com"
+    entra_token_encryption_key: str | None = None
+
+    @property
+    def entra_redirect_uri(self) -> str:
+        return f"{self.public_api_url.rstrip('/')}/api/v1/auth/entra/callback"
+
+    @property
+    def entra_authority(self) -> str:
+        tenant = (self.entra_tenant_id or "common").strip()
+        return f"{self.entra_authority_host.rstrip('/')}/{tenant}/oauth2/v2.0"
 
 
 @lru_cache

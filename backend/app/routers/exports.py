@@ -8,24 +8,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.export_job import ExportJob, ExportStatus
 from app.db.models.presentation import Presentation, PresentationVersion
-from app.db.models.user import User, UserRole
+from app.db.models.user import User
 from app.db.session import get_db
-from app.deps import get_current_user, get_presentation_owner
+from app.deps import PresentationGrant, get_current_user, get_presentation_editor
 from app.jobs.export_runner import run_export_job
 from app.schemas.export import ExportCreate, ExportJobRead
+from app.services.acl import can_manage_presentation, resolve_access
 from app.services.audit import client_ip_from_request, record_audit
 
 router = APIRouter(tags=["exports"])
-
-
-def _can_view_job(user: User, pres: Presentation, job: ExportJob) -> bool:
-    if user.role == UserRole.admin:
-        return True
-    if pres.owner_id == user.id:
-        return True
-    if job.created_by == user.id:
-        return True
-    return False
 
 
 @router.post(
@@ -37,10 +28,10 @@ async def create_export_job(
     request: Request,
     body: ExportCreate,
     background_tasks: BackgroundTasks,
-    user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    presentation: Annotated[Presentation, Depends(get_presentation_owner)],
+    grant: Annotated[PresentationGrant, Depends(get_presentation_editor)],
 ) -> ExportJobRead:
+    presentation = grant.presentation
     vid = body.version_id or presentation.current_version_id
     if vid is None:
         raise HTTPException(status_code=400, detail="No version to export; upload a deck first")
@@ -55,14 +46,14 @@ async def create_export_job(
         scope=dict(body.scope),
         options=dict(body.options),
         status=ExportStatus.queued,
-        created_by=user.id,
+        created_by=grant.user.id,
     )
     db.add(job)
     await db.commit()
     await db.refresh(job)
     await record_audit(
         db,
-        actor_id=user.id,
+        actor_id=grant.user.id,
         action="export_job.created",
         target_kind="export_job",
         target_id=job.id,
@@ -85,6 +76,7 @@ async def get_export_job(
     pres = await db.get(Presentation, job.presentation_id)
     if pres is None:
         raise HTTPException(status_code=404, detail="Presentation not found")
-    if not _can_view_job(user, pres, job):
+    access = await resolve_access(db, pres, user)
+    if not can_manage_presentation(access):
         raise HTTPException(status_code=403, detail="Forbidden")
     return ExportJobRead.model_validate(job)

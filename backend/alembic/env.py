@@ -9,6 +9,7 @@ from app.db.models import AppLog, User  # noqa: F401
 from app.db.models.comment_thread import Comment, CommentThread  # noqa: F401
 from app.db.models.export_job import ExportJob  # noqa: F401
 from app.db.models.presentation import Presentation, PresentationVersion, Slide  # noqa: F401
+from app.db.models.presentation_member import PresentationMember  # noqa: F401
 from app.db.models.share_link import ShareLink  # noqa: F401
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection

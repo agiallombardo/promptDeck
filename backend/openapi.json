@@ -170,6 +170,54 @@
         "title": "AdminPresentationRow",
         "type": "object"
       },
+      "AdminSetupRead": {
+        "properties": {
+          "entra_client_id_configured": {
+            "title": "Entra Client Id Configured",
+            "type": "boolean"
+          },
+          "entra_client_secret_configured": {
+            "title": "Entra Client Secret Configured",
+            "type": "boolean"
+          },
+          "entra_enabled": {
+            "title": "Entra Enabled",
+            "type": "boolean"
+          },
+          "entra_redirect_uri": {
+            "title": "Entra Redirect Uri",
+            "type": "string"
+          },
+          "entra_tenant_id_configured": {
+            "title": "Entra Tenant Id Configured",
+            "type": "boolean"
+          },
+          "local_password_auth_enabled": {
+            "title": "Local Password Auth Enabled",
+            "type": "boolean"
+          },
+          "public_api_url": {
+            "title": "Public Api Url",
+            "type": "string"
+          },
+          "public_app_url": {
+            "title": "Public App Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "local_password_auth_enabled",
+          "entra_enabled",
+          "entra_tenant_id_configured",
+          "entra_client_id_configured",
+          "entra_client_secret_configured",
+          "public_app_url",
+          "public_api_url",
+          "entra_redirect_uri"
+        ],
+        "title": "AdminSetupRead",
+        "type": "object"
+      },
       "AdminStatsRead": {
         "properties": {
           "app_log_rows_24h": {
@@ -524,6 +572,43 @@
         "title": "AuditLogRead",
         "type": "object"
       },
+      "AuthConfigResponse": {
+        "properties": {
+          "entra_enabled": {
+            "title": "Entra Enabled",
+            "type": "boolean"
+          },
+          "entra_login_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entra Login Url"
+          },
+          "local_password_auth_enabled": {
+            "title": "Local Password Auth Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "local_password_auth_enabled",
+          "entra_enabled"
+        ],
+        "title": "AuthConfigResponse",
+        "type": "object"
+      },
+      "AuthProvider": {
+        "enum": [
+          "local",
+          "entra"
+        ],
+        "title": "AuthProvider",
+        "type": "string"
+      },
       "Body_upload_html_version_api_v1_presentations__presentation_id__versions_post": {
         "properties": {
           "file": {
@@ -617,6 +702,64 @@
           "edited_at"
         ],
         "title": "CommentRead",
+        "type": "object"
+      },
+      "DirectoryUserListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DirectoryUserRead"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "DirectoryUserListResponse",
+        "type": "object"
+      },
+      "DirectoryUserRead": {
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          },
+          "entra_object_id": {
+            "minLength": 1,
+            "title": "Entra Object Id",
+            "type": "string"
+          },
+          "user_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Type"
+          }
+        },
+        "required": [
+          "entra_object_id",
+          "email"
+        ],
+        "title": "DirectoryUserRead",
         "type": "object"
       },
       "EmbedResponse": {
@@ -862,6 +1005,16 @@
         "title": "MessageResponse",
         "type": "object"
       },
+      "PresentationAccess": {
+        "enum": [
+          "admin",
+          "owner",
+          "editor",
+          "user"
+        ],
+        "title": "PresentationAccess",
+        "type": "string"
+      },
       "PresentationCreate": {
         "properties": {
           "description": {
@@ -905,12 +1058,201 @@
         "title": "PresentationListResponse",
         "type": "object"
       },
+      "PresentationMemberCreate": {
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          },
+          "entra_object_id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Entra Object Id",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/PresentationMemberRole"
+          },
+          "user_type": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Type"
+          }
+        },
+        "required": [
+          "entra_object_id",
+          "email",
+          "role"
+        ],
+        "title": "PresentationMemberCreate",
+        "type": "object"
+      },
+      "PresentationMemberListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PresentationMemberRead"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "PresentationMemberListResponse",
+        "type": "object"
+      },
+      "PresentationMemberRead": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "granted_by": {
+            "format": "uuid",
+            "title": "Granted By",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "presentation_id": {
+            "format": "uuid",
+            "title": "Presentation Id",
+            "type": "string"
+          },
+          "principal_display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Principal Display Name"
+          },
+          "principal_email": {
+            "title": "Principal Email",
+            "type": "string"
+          },
+          "principal_entra_object_id": {
+            "title": "Principal Entra Object Id",
+            "type": "string"
+          },
+          "principal_tenant_id": {
+            "title": "Principal Tenant Id",
+            "type": "string"
+          },
+          "principal_user_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Principal User Type"
+          },
+          "role": {
+            "$ref": "#/components/schemas/PresentationMemberRole"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          }
+        },
+        "required": [
+          "id",
+          "presentation_id",
+          "role",
+          "principal_tenant_id",
+          "principal_entra_object_id",
+          "principal_email",
+          "principal_display_name",
+          "principal_user_type",
+          "user_id",
+          "granted_by",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "PresentationMemberRead",
+        "type": "object"
+      },
+      "PresentationMemberRole": {
+        "enum": [
+          "editor",
+          "user"
+        ],
+        "title": "PresentationMemberRole",
+        "type": "string"
+      },
+      "PresentationMemberUpdate": {
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/PresentationMemberRole"
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "title": "PresentationMemberUpdate",
+        "type": "object"
+      },
       "PresentationRead": {
         "properties": {
           "created_at": {
             "format": "date-time",
             "title": "Created At",
             "type": "string"
+          },
+          "current_user_role": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PresentationAccess"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "current_version": {
             "anyOf": [
@@ -1006,256 +1348,6 @@
         },
         "title": "PresentationUpdate",
         "type": "object"
-      },
-      "ShareCreate": {
-        "properties": {
-          "expires_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Expires At"
-          },
-          "note": {
-            "anyOf": [
-              {
-                "maxLength": 2000,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Note"
-          },
-          "role": {
-            "$ref": "#/components/schemas/ShareRole",
-            "default": "viewer"
-          }
-        },
-        "title": "ShareCreate",
-        "type": "object"
-      },
-      "ShareCreated": {
-        "description": "Returned once when creating a link; includes the secret token.",
-        "properties": {
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "expires_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Expires At"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "note": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Note"
-          },
-          "presentation_id": {
-            "format": "uuid",
-            "title": "Presentation Id",
-            "type": "string"
-          },
-          "revoked_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Revoked At"
-          },
-          "role": {
-            "$ref": "#/components/schemas/ShareRole"
-          },
-          "token": {
-            "minLength": 1,
-            "title": "Token",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "presentation_id",
-          "role",
-          "expires_at",
-          "revoked_at",
-          "note",
-          "created_at",
-          "token"
-        ],
-        "title": "ShareCreated",
-        "type": "object"
-      },
-      "ShareExchangeRequest": {
-        "properties": {
-          "token": {
-            "maxLength": 500,
-            "minLength": 1,
-            "title": "Token",
-            "type": "string"
-          }
-        },
-        "required": [
-          "token"
-        ],
-        "title": "ShareExchangeRequest",
-        "type": "object"
-      },
-      "ShareExchangeResponse": {
-        "properties": {
-          "access_token": {
-            "title": "Access Token",
-            "type": "string"
-          },
-          "expires_in": {
-            "title": "Expires In",
-            "type": "integer"
-          },
-          "presentation_id": {
-            "format": "uuid",
-            "title": "Presentation Id",
-            "type": "string"
-          },
-          "role": {
-            "$ref": "#/components/schemas/ShareRole"
-          },
-          "token_type": {
-            "default": "bearer",
-            "title": "Token Type",
-            "type": "string"
-          }
-        },
-        "required": [
-          "access_token",
-          "expires_in",
-          "presentation_id",
-          "role"
-        ],
-        "title": "ShareExchangeResponse",
-        "type": "object"
-      },
-      "ShareListResponse": {
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/ShareRead"
-            },
-            "title": "Items",
-            "type": "array"
-          }
-        },
-        "required": [
-          "items"
-        ],
-        "title": "ShareListResponse",
-        "type": "object"
-      },
-      "ShareRead": {
-        "properties": {
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "expires_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Expires At"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "note": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Note"
-          },
-          "presentation_id": {
-            "format": "uuid",
-            "title": "Presentation Id",
-            "type": "string"
-          },
-          "revoked_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Revoked At"
-          },
-          "role": {
-            "$ref": "#/components/schemas/ShareRole"
-          }
-        },
-        "required": [
-          "id",
-          "presentation_id",
-          "role",
-          "expires_at",
-          "revoked_at",
-          "note",
-          "created_at"
-        ],
-        "title": "ShareRead",
-        "type": "object"
-      },
-      "ShareRole": {
-        "enum": [
-          "viewer",
-          "commenter",
-          "editor"
-        ],
-        "title": "ShareRole",
-        "type": "string"
       },
       "SlideRead": {
         "properties": {
@@ -1456,6 +1548,9 @@
       },
       "UserPublic": {
         "properties": {
+          "auth_provider": {
+            "$ref": "#/components/schemas/AuthProvider"
+          },
           "display_name": {
             "anyOf": [
               {
@@ -1484,7 +1579,8 @@
           "id",
           "email",
           "display_name",
-          "role"
+          "role",
+          "auth_provider"
         ],
         "title": "UserPublic",
         "type": "object"
@@ -1492,9 +1588,7 @@
       "UserRole": {
         "enum": [
           "admin",
-          "editor",
-          "commenter",
-          "viewer"
+          "user"
         ],
         "title": "UserRole",
         "type": "string"
@@ -2050,6 +2144,32 @@
         ]
       }
     },
+    "/api/v1/admin/setup": {
+      "get": {
+        "operationId": "admin_setup_api_v1_admin_setup_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminSetupRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Setup",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/admin/stats": {
       "get": {
         "operationId": "admin_stats_api_v1_admin_stats_get",
@@ -2123,6 +2243,153 @@
         "summary": "List Users",
         "tags": [
           "admin"
+        ]
+      }
+    },
+    "/api/v1/auth/config": {
+      "get": {
+        "operationId": "auth_config_api_v1_auth_config_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthConfigResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Auth Config",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/entra/callback": {
+      "get": {
+        "operationId": "entra_callback_api_v1_auth_entra_callback_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "code",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Code"
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "error",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Error"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Entra Callback",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/entra/login": {
+      "get": {
+        "operationId": "entra_login_api_v1_auth_entra_login_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "next",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Next"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Entra Login",
+        "tags": [
+          "auth"
         ]
       }
     },
@@ -2273,6 +2540,55 @@
         "summary": "Delete Comment",
         "tags": [
           "comments"
+        ]
+      }
+    },
+    "/api/v1/directory/users": {
+      "get": {
+        "operationId": "directory_users_api_v1_directory_users_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "maxLength": 100,
+              "minLength": 2,
+              "title": "Q",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryUserListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Directory Users",
+        "tags": [
+          "directory"
         ]
       }
     },
@@ -2643,9 +2959,9 @@
         ]
       }
     },
-    "/api/v1/presentations/{presentation_id}/shares": {
+    "/api/v1/presentations/{presentation_id}/members": {
       "get": {
-        "operationId": "list_share_links_api_v1_presentations__presentation_id__shares_get",
+        "operationId": "list_presentation_members_api_v1_presentations__presentation_id__members_get",
         "parameters": [
           {
             "in": "path",
@@ -2663,7 +2979,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ShareListResponse"
+                  "$ref": "#/components/schemas/PresentationMemberListResponse"
                 }
               }
             },
@@ -2685,13 +3001,13 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "List Share Links",
+        "summary": "List Presentation Members",
         "tags": [
-          "shares"
+          "members"
         ]
       },
       "post": {
-        "operationId": "create_share_link_api_v1_presentations__presentation_id__shares_post",
+        "operationId": "create_presentation_member_api_v1_presentations__presentation_id__members_post",
         "parameters": [
           {
             "in": "path",
@@ -2708,7 +3024,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ShareCreate"
+                "$ref": "#/components/schemas/PresentationMemberCreate"
               }
             }
           },
@@ -2719,7 +3035,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ShareCreated"
+                  "$ref": "#/components/schemas/PresentationMemberRead"
                 }
               }
             },
@@ -2741,23 +3057,23 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Create Share Link",
+        "summary": "Create Presentation Member",
         "tags": [
-          "shares"
+          "members"
         ]
       }
     },
-    "/api/v1/presentations/{presentation_id}/shares/{share_id}": {
+    "/api/v1/presentations/{presentation_id}/members/{member_id}": {
       "delete": {
-        "operationId": "revoke_share_link_api_v1_presentations__presentation_id__shares__share_id__delete",
+        "operationId": "delete_presentation_member_api_v1_presentations__presentation_id__members__member_id__delete",
         "parameters": [
           {
             "in": "path",
-            "name": "share_id",
+            "name": "member_id",
             "required": true,
             "schema": {
               "format": "uuid",
-              "title": "Share Id",
+              "title": "Member Id",
               "type": "string"
             }
           },
@@ -2792,9 +3108,75 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Revoke Share Link",
+        "summary": "Delete Presentation Member",
         "tags": [
-          "shares"
+          "members"
+        ]
+      },
+      "patch": {
+        "operationId": "update_presentation_member_api_v1_presentations__presentation_id__members__member_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "member_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Member Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "presentation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Presentation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PresentationMemberUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresentationMemberRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Presentation Member",
+        "tags": [
+          "members"
         ]
       }
     },
@@ -3084,47 +3466,6 @@
         "summary": "Activate Version",
         "tags": [
           "versions"
-        ]
-      }
-    },
-    "/api/v1/shares/exchange": {
-      "post": {
-        "operationId": "exchange_share_token_api_v1_shares_exchange_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ShareExchangeRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ShareExchangeResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Exchange Share Token",
-        "tags": [
-          "shares"
         ]
       }
     },

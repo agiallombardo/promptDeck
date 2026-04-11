@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import Settings, get_settings
 from app.db.models.app_log import AppLog
 from app.db.models.audit_log import AuditLog
 from app.db.models.export_job import ExportJob
@@ -21,6 +22,7 @@ from app.schemas.admin import (
     AdminExportJobRead,
     AdminPresentationListResponse,
     AdminPresentationRow,
+    AdminSetupRead,
     AdminStatsRead,
     AdminUserListResponse,
     AdminUserRead,
@@ -33,6 +35,24 @@ from app.services.app_logging import write_app_log
 
 router = APIRouter()
 audit_log = channel_logger(LogChannel.audit)
+
+
+@router.get("/setup", response_model=AdminSetupRead)
+async def admin_setup(
+    admin_user: Annotated[User, Depends(require_admin)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> AdminSetupRead:
+    _ = admin_user
+    return AdminSetupRead(
+        local_password_auth_enabled=settings.local_password_auth_enabled,
+        entra_enabled=settings.entra_enabled,
+        entra_tenant_id_configured=bool(settings.entra_tenant_id),
+        entra_client_id_configured=bool(settings.entra_client_id),
+        entra_client_secret_configured=bool(settings.entra_client_secret),
+        public_app_url=settings.public_app_url,
+        public_api_url=settings.public_api_url,
+        entra_redirect_uri=settings.entra_redirect_uri,
+    )
 
 
 @router.get("/logs", response_model=AppLogListResponse)
