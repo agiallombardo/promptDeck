@@ -1,6 +1,5 @@
 # Sample nginx site for promptDeck on a single machine (local / LAN, no public domain).
-# HTTP:  http://SERVER_IP/
-# HTTPS: https://SERVER_IP/  (port 443; use the same origin in PUBLIC_APP_URL and CORS_ORIGINS)
+# Port 80 redirects to HTTPS. UI and API: https://SERVER_IP/ (use that origin in PUBLIC_APP_URL and CORS_ORIGINS).
 #
 # DRY option: copy deploy/nginx/snippets/promptdeck-locations.conf.sample to
 # /etc/nginx/snippets/promptdeck-locations.conf, then replace the location blocks below with:
@@ -13,42 +12,8 @@ upstream promptdeck_api {
 
 server {
     listen 80;
-    # Catch-all HTTP. For HTTPS-only LAN, replace this whole server with:
-    #   return 301 https://$host$request_uri;
     server_name _;
-
-    client_max_body_size 12m;
-
-    root /opt/promptDeck/frontend/dist;
-    index index.html;
-
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    location /api/ {
-        proxy_pass http://promptdeck_api;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    location /a/ {
-        proxy_pass http://promptdeck_api;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    location /health {
-        proxy_pass http://promptdeck_api;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-    }
+    return 301 https://$host$request_uri;
 }
 
 # HTTPS — self-signed or CA-issued. For browser access via IP, the cert must include
