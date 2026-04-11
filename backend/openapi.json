@@ -1,6 +1,140 @@
 {
   "components": {
     "schemas": {
+      "AdminEntraSettingsPatch": {
+        "properties": {
+          "clear_entra_client_secret": {
+            "default": false,
+            "title": "Clear Entra Client Secret",
+            "type": "boolean"
+          },
+          "entra_authority_host": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entra Authority Host"
+          },
+          "entra_client_id": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entra Client Id"
+          },
+          "entra_client_secret": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entra Client Secret"
+          },
+          "entra_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entra Enabled"
+          },
+          "entra_tenant_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entra Tenant Id"
+          }
+        },
+        "title": "AdminEntraSettingsPatch",
+        "type": "object"
+      },
+      "AdminEntraSettingsRead": {
+        "properties": {
+          "entra_authority_host": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entra Authority Host"
+          },
+          "entra_client_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entra Client Id"
+          },
+          "entra_client_secret_configured": {
+            "title": "Entra Client Secret Configured",
+            "type": "boolean"
+          },
+          "entra_enabled": {
+            "title": "Entra Enabled",
+            "type": "boolean"
+          },
+          "entra_redirect_uri": {
+            "title": "Entra Redirect Uri",
+            "type": "string"
+          },
+          "entra_tenant_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entra Tenant Id"
+          },
+          "public_api_url": {
+            "title": "Public Api Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entra_enabled",
+          "entra_tenant_id",
+          "entra_client_id",
+          "entra_client_secret_configured",
+          "entra_authority_host",
+          "public_api_url",
+          "entra_redirect_uri"
+        ],
+        "title": "AdminEntraSettingsRead",
+        "type": "object"
+      },
       "AdminExportJobListResponse": {
         "properties": {
           "items": {
@@ -184,6 +318,10 @@
             "title": "Entra Enabled",
             "type": "boolean"
           },
+          "entra_login_ready": {
+            "title": "Entra Login Ready",
+            "type": "boolean"
+          },
           "entra_redirect_uri": {
             "title": "Entra Redirect Uri",
             "type": "string"
@@ -203,6 +341,14 @@
           "public_app_url": {
             "title": "Public App Url",
             "type": "string"
+          },
+          "smtp_enabled": {
+            "title": "Smtp Enabled",
+            "type": "boolean"
+          },
+          "smtp_ready": {
+            "title": "Smtp Ready",
+            "type": "boolean"
           }
         },
         "required": [
@@ -211,11 +357,228 @@
           "entra_tenant_id_configured",
           "entra_client_id_configured",
           "entra_client_secret_configured",
+          "entra_login_ready",
+          "smtp_enabled",
+          "smtp_ready",
           "public_app_url",
           "public_api_url",
           "entra_redirect_uri"
         ],
         "title": "AdminSetupRead",
+        "type": "object"
+      },
+      "AdminSmtpSettingsPatch": {
+        "properties": {
+          "clear_smtp_password": {
+            "default": false,
+            "title": "Clear Smtp Password",
+            "type": "boolean"
+          },
+          "smtp_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smtp Enabled"
+          },
+          "smtp_from": {
+            "anyOf": [
+              {
+                "format": "email",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smtp From"
+          },
+          "smtp_host": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smtp Host"
+          },
+          "smtp_implicit_tls": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smtp Implicit Tls"
+          },
+          "smtp_password": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smtp Password"
+          },
+          "smtp_port": {
+            "anyOf": [
+              {
+                "maximum": 65535.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smtp Port"
+          },
+          "smtp_starttls": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smtp Starttls"
+          },
+          "smtp_username": {
+            "anyOf": [
+              {
+                "maxLength": 320,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smtp Username"
+          }
+        },
+        "title": "AdminSmtpSettingsPatch",
+        "type": "object"
+      },
+      "AdminSmtpSettingsRead": {
+        "properties": {
+          "smtp_enabled": {
+            "title": "Smtp Enabled",
+            "type": "boolean"
+          },
+          "smtp_from": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smtp From"
+          },
+          "smtp_host": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smtp Host"
+          },
+          "smtp_implicit_tls": {
+            "title": "Smtp Implicit Tls",
+            "type": "boolean"
+          },
+          "smtp_password_configured": {
+            "title": "Smtp Password Configured",
+            "type": "boolean"
+          },
+          "smtp_port": {
+            "title": "Smtp Port",
+            "type": "integer"
+          },
+          "smtp_ready": {
+            "title": "Smtp Ready",
+            "type": "boolean"
+          },
+          "smtp_starttls": {
+            "title": "Smtp Starttls",
+            "type": "boolean"
+          },
+          "smtp_username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smtp Username"
+          }
+        },
+        "required": [
+          "smtp_enabled",
+          "smtp_port",
+          "smtp_starttls",
+          "smtp_implicit_tls",
+          "smtp_password_configured",
+          "smtp_ready"
+        ],
+        "title": "AdminSmtpSettingsRead",
+        "type": "object"
+      },
+      "AdminSmtpTestRequest": {
+        "description": "Optional override; defaults to the signed-in admin user's email.",
+        "properties": {
+          "to": {
+            "anyOf": [
+              {
+                "format": "email",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To"
+          }
+        },
+        "title": "AdminSmtpTestRequest",
+        "type": "object"
+      },
+      "AdminSmtpTestResponse": {
+        "properties": {
+          "ok": {
+            "default": true,
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "to": {
+            "format": "email",
+            "title": "To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "to"
+        ],
+        "title": "AdminSmtpTestResponse",
         "type": "object"
       },
       "AdminStatsRead": {
@@ -1593,6 +1956,63 @@
         "title": "UserRole",
         "type": "string"
       },
+      "UserSettingsRead": {
+        "properties": {
+          "llm_api_key_configured": {
+            "default": false,
+            "title": "Llm Api Key Configured",
+            "type": "boolean"
+          },
+          "llm_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Llm Provider"
+          }
+        },
+        "title": "UserSettingsRead",
+        "type": "object"
+      },
+      "UserSettingsUpdate": {
+        "properties": {
+          "clear_llm_api_key": {
+            "default": false,
+            "title": "Clear Llm Api Key",
+            "type": "boolean"
+          },
+          "llm_api_key": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Llm Api Key"
+          },
+          "llm_provider": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Llm Provider"
+          }
+        },
+        "title": "UserSettingsUpdate",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -2144,6 +2564,199 @@
         ]
       }
     },
+    "/api/v1/admin/settings/entra": {
+      "get": {
+        "operationId": "admin_entra_settings_get_api_v1_admin_settings_entra_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminEntraSettingsRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Entra Settings Get",
+        "tags": [
+          "admin"
+        ]
+      },
+      "patch": {
+        "operationId": "admin_entra_settings_patch_api_v1_admin_settings_entra_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminEntraSettingsPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminEntraSettingsRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Entra Settings Patch",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/settings/smtp": {
+      "get": {
+        "operationId": "admin_smtp_settings_get_api_v1_admin_settings_smtp_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminSmtpSettingsRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Smtp Settings Get",
+        "tags": [
+          "admin"
+        ]
+      },
+      "patch": {
+        "operationId": "admin_smtp_settings_patch_api_v1_admin_settings_smtp_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminSmtpSettingsPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminSmtpSettingsRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Smtp Settings Patch",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/settings/smtp/test": {
+      "post": {
+        "operationId": "admin_smtp_test_api_v1_admin_settings_smtp_test_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/AdminSmtpTestRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminSmtpTestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Smtp Test",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/admin/setup": {
       "get": {
         "operationId": "admin_setup_api_v1_admin_setup_get",
@@ -2481,6 +3094,76 @@
         ]
       }
     },
+    "/api/v1/auth/me/settings": {
+      "get": {
+        "operationId": "me_settings_api_v1_auth_me_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserSettingsRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Me Settings",
+        "tags": [
+          "auth"
+        ]
+      },
+      "patch": {
+        "operationId": "me_settings_patch_api_v1_auth_me_settings_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserSettingsRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Me Settings Patch",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/auth/refresh": {
       "post": {
         "operationId": "refresh_api_v1_auth_refresh_post",
@@ -2635,6 +3318,52 @@
           }
         ],
         "summary": "Get Export Job",
+        "tags": [
+          "exports"
+        ]
+      }
+    },
+    "/api/v1/exports/{job_id}/file": {
+      "get": {
+        "operationId": "download_export_file_api_v1_exports__job_id__file_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Download Export File",
         "tags": [
           "exports"
         ]

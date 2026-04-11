@@ -62,6 +62,16 @@ class Settings(BaseSettings):
     entra_authority_host: str = "https://login.microsoftonline.com"
     entra_token_encryption_key: str | None = None
 
+    # Optional SMTP (env fallback; admin UI persists overrides in system_settings)
+    smtp_enabled: bool = False
+    smtp_host: str | None = None
+    smtp_port: int = Field(default=587, ge=1, le=65535)
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    smtp_from: str | None = None
+    smtp_starttls: bool = True
+    smtp_implicit_tls: bool = False
+
     @property
     def entra_redirect_uri(self) -> str:
         return f"{self.public_api_url.rstrip('/')}/api/v1/auth/entra/callback"

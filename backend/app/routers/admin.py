@@ -4,7 +4,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,11 +18,17 @@ from app.db.session import get_db
 from app.deps import require_admin
 from app.logging_channels import LogChannel, channel_logger
 from app.schemas.admin import (
+    AdminEntraSettingsPatch,
+    AdminEntraSettingsRead,
     AdminExportJobListResponse,
     AdminExportJobRead,
     AdminPresentationListResponse,
     AdminPresentationRow,
     AdminSetupRead,
+    AdminSmtpSettingsPatch,
+    AdminSmtpSettingsRead,
+    AdminSmtpTestRequest,
+    AdminSmtpTestResponse,
     AdminStatsRead,
     AdminUserListResponse,
     AdminUserRead,
@@ -32,27 +38,228 @@ from app.schemas.admin import (
     AuditLogRead,
 )
 from app.services.app_logging import write_app_log
+from app.services.audit import client_ip_from_request, record_audit
+from app.services.entra_runtime import (
+    entra_login_ready,
+    load_system_settings_kv,
+    persist_entra_system_settings,
+    resolve_entra_oidc_config,
+)
+from app.services.smtp_runtime import (
+    persist_smtp_system_settings,
+    resolve_smtp_config,
+    send_smtp_message,
+    smtp_password_configured,
+    smtp_ready,
+)
 
 router = APIRouter()
 audit_log = channel_logger(LogChannel.audit)
 
 
+async def _admin_smtp_read(db: AsyncSession, settings: Settings) -> AdminSmtpSettingsRead:
+    cfg = await resolve_smtp_config(db, settings)
+    kv = await load_system_settings_kv(db)
+    return AdminSmtpSettingsRead(
+        smtp_enabled=cfg.enabled,
+        smtp_host=cfg.host,
+        smtp_port=cfg.port,
+        smtp_username=cfg.username,
+        smtp_from=cfg.from_address,
+        smtp_starttls=cfg.starttls,
+        smtp_implicit_tls=cfg.implicit_tls,
+        smtp_password_configured=smtp_password_configured(settings, kv),
+        smtp_ready=smtp_ready(cfg),
+    )
+
+
+async def _admin_entra_read(db: AsyncSession, settings: Settings) -> AdminEntraSettingsRead:
+    cfg = await resolve_entra_oidc_config(db, settings)
+    kv = await load_system_settings_kv(db)
+    secret_ok = bool(settings.entra_client_secret) or bool(
+        kv.get("entra_client_secret_encrypted", "").strip()
+    )
+    return AdminEntraSettingsRead(
+        entra_enabled=cfg.enabled,
+        entra_tenant_id=cfg.tenant_id,
+        entra_client_id=cfg.client_id,
+        entra_client_secret_configured=secret_ok,
+        entra_authority_host=cfg.authority_host,
+        public_api_url=settings.public_api_url,
+        entra_redirect_uri=settings.entra_redirect_uri,
+    )
+
+
 @router.get("/setup", response_model=AdminSetupRead)
 async def admin_setup(
     admin_user: Annotated[User, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> AdminSetupRead:
     _ = admin_user
+    cfg = await resolve_entra_oidc_config(db, settings)
+    kv = await load_system_settings_kv(db)
+    secret_db = bool(kv.get("entra_client_secret_encrypted", "").strip())
+    smtp_cfg = await resolve_smtp_config(db, settings)
     return AdminSetupRead(
         local_password_auth_enabled=settings.local_password_auth_enabled,
         entra_enabled=settings.entra_enabled,
-        entra_tenant_id_configured=bool(settings.entra_tenant_id),
-        entra_client_id_configured=bool(settings.entra_client_id),
-        entra_client_secret_configured=bool(settings.entra_client_secret),
+        entra_tenant_id_configured=(
+            bool(settings.entra_tenant_id) or bool(kv.get("entra_tenant_id"))
+        ),
+        entra_client_id_configured=(
+            bool(settings.entra_client_id) or bool(kv.get("entra_client_id"))
+        ),
+        entra_client_secret_configured=bool(settings.entra_client_secret) or secret_db,
+        entra_login_ready=entra_login_ready(cfg),
+        smtp_enabled=smtp_cfg.enabled,
+        smtp_ready=smtp_ready(smtp_cfg),
         public_app_url=settings.public_app_url,
         public_api_url=settings.public_api_url,
         entra_redirect_uri=settings.entra_redirect_uri,
     )
+
+
+@router.get("/settings/entra", response_model=AdminEntraSettingsRead)
+async def admin_entra_settings_get(
+    admin_user: Annotated[User, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> AdminEntraSettingsRead:
+    _ = admin_user
+    return await _admin_entra_read(db, settings)
+
+
+@router.patch("/settings/entra", response_model=AdminEntraSettingsRead)
+async def admin_entra_settings_patch(
+    request: Request,
+    body: AdminEntraSettingsPatch,
+    admin_user: Annotated[User, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> AdminEntraSettingsRead:
+    dump = body.model_dump()
+    has_change = body.clear_entra_client_secret or any(
+        dump[k] is not None for k in dump if k not in ("clear_entra_client_secret",)
+    )
+    if has_change:
+        await persist_entra_system_settings(
+            db,
+            settings,
+            enabled=body.entra_enabled,
+            tenant_id=body.entra_tenant_id,
+            client_id=body.entra_client_id,
+            client_secret=body.entra_client_secret,
+            clear_client_secret=body.clear_entra_client_secret,
+            authority_host=body.entra_authority_host,
+        )
+        await record_audit(
+            db,
+            actor_id=admin_user.id,
+            action="admin.entra_settings.updated",
+            metadata={"keys": [k for k, v in dump.items() if v is not None]},
+            client_ip=client_ip_from_request(request),
+        )
+    return await _admin_entra_read(db, settings)
+
+
+@router.get("/settings/smtp", response_model=AdminSmtpSettingsRead)
+async def admin_smtp_settings_get(
+    admin_user: Annotated[User, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> AdminSmtpSettingsRead:
+    _ = admin_user
+    return await _admin_smtp_read(db, settings)
+
+
+@router.patch("/settings/smtp", response_model=AdminSmtpSettingsRead)
+async def admin_smtp_settings_patch(
+    request: Request,
+    body: AdminSmtpSettingsPatch,
+    admin_user: Annotated[User, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> AdminSmtpSettingsRead:
+    dump = body.model_dump()
+    has_change = body.clear_smtp_password or any(
+        dump[k] is not None for k in dump if k not in ("clear_smtp_password",)
+    )
+    if has_change:
+        from_str = str(body.smtp_from) if body.smtp_from is not None else None
+        await persist_smtp_system_settings(
+            db,
+            settings,
+            enabled=body.smtp_enabled,
+            host=body.smtp_host,
+            port=body.smtp_port,
+            username=body.smtp_username,
+            from_address=from_str,
+            starttls=body.smtp_starttls,
+            implicit_tls=body.smtp_implicit_tls,
+            password=body.smtp_password,
+            clear_password=body.clear_smtp_password,
+        )
+        await record_audit(
+            db,
+            actor_id=admin_user.id,
+            action="admin.smtp_settings.updated",
+            metadata={"keys": [k for k, v in dump.items() if v is not None]},
+            client_ip=client_ip_from_request(request),
+        )
+    return await _admin_smtp_read(db, settings)
+
+
+@router.post("/settings/smtp/test", response_model=AdminSmtpTestResponse)
+async def admin_smtp_test(
+    request: Request,
+    admin_user: Annotated[User, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    body: Annotated[AdminSmtpTestRequest | None, Body()] = None,
+) -> AdminSmtpTestResponse:
+    payload = body or AdminSmtpTestRequest()
+    cfg = await resolve_smtp_config(db, settings)
+    if not smtp_ready(cfg):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="SMTP is disabled or missing host, From address, or password",
+        )
+    to_addr = str(payload.to) if payload.to is not None else admin_user.email
+    subject = "promptDeck SMTP test"
+    text = (
+        "This is a test message from the promptDeck admin console.\n\n"
+        "If you received it, outbound SMTP (e.g. Microsoft 365) is configured correctly."
+    )
+    try:
+        await send_smtp_message(cfg, to_addrs=[to_addr], subject=subject, text_body=text)
+    except Exception as e:
+        audit_log.warning("admin.smtp.test.failed", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"SMTP send failed: {e}",
+        ) from e
+    await write_app_log(
+        db,
+        channel=LogChannel.audit,
+        level="info",
+        event="audit.admin.smtp.test.sent",
+        request_id=getattr(request.state, "request_id", None),
+        user_id=admin_user.id,
+        path=str(request.url.path),
+        method=request.method,
+        status_code=200,
+        latency_ms=None,
+        payload={"to": to_addr},
+    )
+    await record_audit(
+        db,
+        actor_id=admin_user.id,
+        action="admin.smtp.test.sent",
+        metadata={"to": to_addr},
+        client_ip=client_ip_from_request(request),
+    )
+    return AdminSmtpTestResponse(to=to_addr)
 
 
 @router.get("/logs", response_model=AppLogListResponse)

@@ -89,6 +89,59 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/admin/settings/entra": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Entra Settings Get */
+    get: operations["admin_entra_settings_get_api_v1_admin_settings_entra_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Admin Entra Settings Patch */
+    patch: operations["admin_entra_settings_patch_api_v1_admin_settings_entra_patch"];
+    trace?: never;
+  };
+  "/api/v1/admin/settings/smtp": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Smtp Settings Get */
+    get: operations["admin_smtp_settings_get_api_v1_admin_settings_smtp_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Admin Smtp Settings Patch */
+    patch: operations["admin_smtp_settings_patch_api_v1_admin_settings_smtp_patch"];
+    trace?: never;
+  };
+  "/api/v1/admin/settings/smtp/test": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Smtp Test */
+    post: operations["admin_smtp_test_api_v1_admin_settings_smtp_test_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/admin/setup": {
     parameters: {
       query?: never;
@@ -242,6 +295,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/auth/me/settings": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Me Settings */
+    get: operations["me_settings_api_v1_auth_me_settings_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Me Settings Patch */
+    patch: operations["me_settings_patch_api_v1_auth_me_settings_patch"];
+    trace?: never;
+  };
   "/api/v1/auth/refresh": {
     parameters: {
       query?: never;
@@ -302,6 +373,23 @@ export interface paths {
     };
     /** Get Export Job */
     get: operations["get_export_job_api_v1_exports__job_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/exports/{job_id}/file": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Download Export File */
+    get: operations["download_export_file_api_v1_exports__job_id__file_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -525,6 +613,41 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** AdminEntraSettingsPatch */
+    AdminEntraSettingsPatch: {
+      /**
+       * Clear Entra Client Secret
+       * @default false
+       */
+      clear_entra_client_secret: boolean;
+      /** Entra Authority Host */
+      entra_authority_host?: string | null;
+      /** Entra Client Id */
+      entra_client_id?: string | null;
+      /** Entra Client Secret */
+      entra_client_secret?: string | null;
+      /** Entra Enabled */
+      entra_enabled?: boolean | null;
+      /** Entra Tenant Id */
+      entra_tenant_id?: string | null;
+    };
+    /** AdminEntraSettingsRead */
+    AdminEntraSettingsRead: {
+      /** Entra Authority Host */
+      entra_authority_host: string | null;
+      /** Entra Client Id */
+      entra_client_id: string | null;
+      /** Entra Client Secret Configured */
+      entra_client_secret_configured: boolean;
+      /** Entra Enabled */
+      entra_enabled: boolean;
+      /** Entra Redirect Uri */
+      entra_redirect_uri: string;
+      /** Entra Tenant Id */
+      entra_tenant_id: string | null;
+      /** Public Api Url */
+      public_api_url: string;
+    };
     /** AdminExportJobListResponse */
     AdminExportJobListResponse: {
       /** Items */
@@ -609,6 +732,8 @@ export interface components {
       entra_client_secret_configured: boolean;
       /** Entra Enabled */
       entra_enabled: boolean;
+      /** Entra Login Ready */
+      entra_login_ready: boolean;
       /** Entra Redirect Uri */
       entra_redirect_uri: string;
       /** Entra Tenant Id Configured */
@@ -619,6 +744,76 @@ export interface components {
       public_api_url: string;
       /** Public App Url */
       public_app_url: string;
+      /** Smtp Enabled */
+      smtp_enabled: boolean;
+      /** Smtp Ready */
+      smtp_ready: boolean;
+    };
+    /** AdminSmtpSettingsPatch */
+    AdminSmtpSettingsPatch: {
+      /**
+       * Clear Smtp Password
+       * @default false
+       */
+      clear_smtp_password: boolean;
+      /** Smtp Enabled */
+      smtp_enabled?: boolean | null;
+      /** Smtp From */
+      smtp_from?: string | null;
+      /** Smtp Host */
+      smtp_host?: string | null;
+      /** Smtp Implicit Tls */
+      smtp_implicit_tls?: boolean | null;
+      /** Smtp Password */
+      smtp_password?: string | null;
+      /** Smtp Port */
+      smtp_port?: number | null;
+      /** Smtp Starttls */
+      smtp_starttls?: boolean | null;
+      /** Smtp Username */
+      smtp_username?: string | null;
+    };
+    /** AdminSmtpSettingsRead */
+    AdminSmtpSettingsRead: {
+      /** Smtp Enabled */
+      smtp_enabled: boolean;
+      /** Smtp From */
+      smtp_from?: string | null;
+      /** Smtp Host */
+      smtp_host?: string | null;
+      /** Smtp Implicit Tls */
+      smtp_implicit_tls: boolean;
+      /** Smtp Password Configured */
+      smtp_password_configured: boolean;
+      /** Smtp Port */
+      smtp_port: number;
+      /** Smtp Ready */
+      smtp_ready: boolean;
+      /** Smtp Starttls */
+      smtp_starttls: boolean;
+      /** Smtp Username */
+      smtp_username?: string | null;
+    };
+    /**
+     * AdminSmtpTestRequest
+     * @description Optional override; defaults to the signed-in admin user's email.
+     */
+    AdminSmtpTestRequest: {
+      /** To */
+      to?: string | null;
+    };
+    /** AdminSmtpTestResponse */
+    AdminSmtpTestResponse: {
+      /**
+       * Ok
+       * @default true
+       */
+      ok: boolean;
+      /**
+       * To
+       * Format: email
+       */
+      to: string;
     };
     /** AdminStatsRead */
     AdminStatsRead: {
@@ -1133,6 +1328,28 @@ export interface components {
      * @enum {string}
      */
     UserRole: "admin" | "user";
+    /** UserSettingsRead */
+    UserSettingsRead: {
+      /**
+       * Llm Api Key Configured
+       * @default false
+       */
+      llm_api_key_configured: boolean;
+      /** Llm Provider */
+      llm_provider?: string | null;
+    };
+    /** UserSettingsUpdate */
+    UserSettingsUpdate: {
+      /**
+       * Clear Llm Api Key
+       * @default false
+       */
+      clear_llm_api_key: boolean;
+      /** Llm Api Key */
+      llm_api_key?: string | null;
+      /** Llm Provider */
+      llm_provider?: string | null;
+    };
     /** ValidationError */
     ValidationError: {
       /** Context */
@@ -1352,6 +1569,145 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["AdminPresentationListResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  admin_entra_settings_get_api_v1_admin_settings_entra_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminEntraSettingsRead"];
+        };
+      };
+    };
+  };
+  admin_entra_settings_patch_api_v1_admin_settings_entra_patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminEntraSettingsPatch"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminEntraSettingsRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  admin_smtp_settings_get_api_v1_admin_settings_smtp_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminSmtpSettingsRead"];
+        };
+      };
+    };
+  };
+  admin_smtp_settings_patch_api_v1_admin_settings_smtp_patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminSmtpSettingsPatch"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminSmtpSettingsRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  admin_smtp_test_api_v1_admin_settings_smtp_test_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        "application/json": components["schemas"]["AdminSmtpTestRequest"] | null;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminSmtpTestResponse"];
         };
       };
       /** @description Validation Error */
@@ -1593,6 +1949,59 @@ export interface operations {
       };
     };
   };
+  me_settings_api_v1_auth_me_settings_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UserSettingsRead"];
+        };
+      };
+    };
+  };
+  me_settings_patch_api_v1_auth_me_settings_patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UserSettingsUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UserSettingsRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   refresh_api_v1_auth_refresh_post: {
     parameters: {
       query?: never;
@@ -1691,6 +2100,37 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ExportJobRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  download_export_file_api_v1_exports__job_id__file_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        job_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
         };
       };
       /** @description Validation Error */

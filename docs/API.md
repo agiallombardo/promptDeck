@@ -9,6 +9,11 @@ Regenerate with `just api-contract` after changing `backend/openapi.json`.
 | GET | `/api/v1/admin/jobs` | List Export Jobs Admin |
 | GET | `/api/v1/admin/logs` | List Logs |
 | GET | `/api/v1/admin/presentations` | List Presentations Admin |
+| GET | `/api/v1/admin/settings/entra` | Admin Entra Settings Get |
+| PATCH | `/api/v1/admin/settings/entra` | Admin Entra Settings Patch |
+| GET | `/api/v1/admin/settings/smtp` | Admin Smtp Settings Get |
+| PATCH | `/api/v1/admin/settings/smtp` | Admin Smtp Settings Patch |
+| POST | `/api/v1/admin/settings/smtp/test` | Admin Smtp Test |
 | GET | `/api/v1/admin/setup` | Admin Setup |
 | GET | `/api/v1/admin/stats` | Admin Stats |
 | GET | `/api/v1/admin/users` | List Users |
@@ -18,10 +23,13 @@ Regenerate with `just api-contract` after changing `backend/openapi.json`.
 | POST | `/api/v1/auth/login` | Login |
 | POST | `/api/v1/auth/logout` | Logout |
 | GET | `/api/v1/auth/me` | Me |
+| GET | `/api/v1/auth/me/settings` | Me Settings |
+| PATCH | `/api/v1/auth/me/settings` | Me Settings Patch |
 | POST | `/api/v1/auth/refresh` | Refresh |
 | DELETE | `/api/v1/comments/{comment_id}` | Delete Comment |
 | GET | `/api/v1/directory/users` | Directory Users |
 | GET | `/api/v1/exports/{job_id}` | Get Export Job |
+| GET | `/api/v1/exports/{job_id}/file` | Download Export File |
 | GET | `/api/v1/presentations` | List Presentations |
 | POST | `/api/v1/presentations` | Create Presentation |
 | DELETE | `/api/v1/presentations/{presentation_id}` | Delete Presentation |

@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
 
 class AppLogRead(BaseModel):
@@ -110,6 +110,69 @@ class AdminSetupRead(BaseModel):
     entra_tenant_id_configured: bool
     entra_client_id_configured: bool
     entra_client_secret_configured: bool
+    entra_login_ready: bool
+    smtp_enabled: bool
+    smtp_ready: bool
     public_app_url: str
     public_api_url: str
     entra_redirect_uri: str
+
+
+class AdminEntraSettingsRead(BaseModel):
+    entra_enabled: bool
+    entra_tenant_id: str | None
+    entra_client_id: str | None
+    entra_client_secret_configured: bool
+    entra_authority_host: str | None
+    public_api_url: str
+    entra_redirect_uri: str
+
+
+class AdminEntraSettingsPatch(BaseModel):
+    entra_enabled: bool | None = None
+    entra_tenant_id: str | None = Field(default=None, max_length=64)
+    entra_client_id: str | None = Field(default=None, max_length=128)
+    entra_client_secret: str | None = Field(default=None, max_length=512)
+    clear_entra_client_secret: bool = False
+    entra_authority_host: str | None = Field(default=None, max_length=256)
+
+
+class AdminSmtpSettingsRead(BaseModel):
+    smtp_enabled: bool
+    smtp_host: str | None = None
+    smtp_port: int
+    smtp_username: str | None = None
+    smtp_from: str | None = None
+    smtp_starttls: bool
+    smtp_implicit_tls: bool
+    smtp_password_configured: bool
+    smtp_ready: bool
+
+
+class AdminSmtpSettingsPatch(BaseModel):
+    smtp_enabled: bool | None = None
+    smtp_host: str | None = Field(default=None, max_length=255)
+    smtp_port: int | None = Field(default=None, ge=1, le=65535)
+    smtp_username: str | None = Field(default=None, max_length=320)
+    smtp_from: EmailStr | None = None
+    smtp_starttls: bool | None = None
+    smtp_implicit_tls: bool | None = None
+    smtp_password: str | None = Field(default=None, max_length=512)
+    clear_smtp_password: bool = False
+
+    @model_validator(mode="after")
+    def tls_not_both(self) -> AdminSmtpSettingsPatch:
+        if self.smtp_starttls is True and self.smtp_implicit_tls is True:
+            raise ValueError("Use STARTTLS (e.g. port 587) or implicit TLS (port 465), not both")
+        return self
+
+
+class AdminSmtpTestRequest(BaseModel):
+    """Optional override; defaults to the signed-in admin user's email."""
+
+    to: EmailStr | None = None
+
+
+class AdminSmtpTestResponse(BaseModel):
+    ok: bool = True
+    to: EmailStr

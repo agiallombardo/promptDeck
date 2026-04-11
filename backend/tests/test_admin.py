@@ -1,4 +1,5 @@
 import uuid
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from app.db.models.user import User, UserRole
@@ -139,6 +140,108 @@ async def test_admin_setup_ok(client: AsyncClient) -> None:
     body = s.json()
     assert "entra_redirect_uri" in body
     assert "public_app_url" in body
+    assert "entra_login_ready" in body
+    assert "smtp_enabled" in body
+    assert "smtp_ready" in body
+
+
+@pytest.mark.asyncio
+async def test_admin_smtp_settings_get_defaults(client: AsyncClient) -> None:
+    async with session_factory()() as session:
+        session.add(
+            User(
+                id=uuid.uuid4(),
+                email="smtp-admin@example.com",
+                password_hash=hash_password("smtp"),
+                role=UserRole.admin,
+            )
+        )
+        await session.commit()
+
+    login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "smtp-admin@example.com", "password": "smtp"},
+    )
+    token = login.json()["access_token"]
+    h = {"Authorization": f"Bearer {token}"}
+
+    r = await client.get("/api/v1/admin/settings/smtp", headers=h)
+    assert r.status_code == 200
+    data = r.json()
+    assert data["smtp_enabled"] is False
+    assert data["smtp_ready"] is False
+    assert data["smtp_password_configured"] is False
+
+
+@pytest.mark.asyncio
+async def test_admin_smtp_settings_patch_and_test_mocked(client: AsyncClient) -> None:
+    async with session_factory()() as session:
+        session.add(
+            User(
+                id=uuid.uuid4(),
+                email="smtp-patch@example.com",
+                password_hash=hash_password("patch"),
+                role=UserRole.admin,
+            )
+        )
+        await session.commit()
+
+    login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "smtp-patch@example.com", "password": "patch"},
+    )
+    token = login.json()["access_token"]
+    h = {"Authorization": f"Bearer {token}"}
+
+    p = await client.patch(
+        "/api/v1/admin/settings/smtp",
+        headers=h,
+        json={
+            "smtp_enabled": True,
+            "smtp_host": "smtp.office365.com",
+            "smtp_port": 587,
+            "smtp_username": "relay@example.com",
+            "smtp_from": "relay@example.com",
+            "smtp_starttls": True,
+            "smtp_implicit_tls": False,
+            "smtp_password": "secret-smtp-pass",
+        },
+    )
+    assert p.status_code == 200, p.text
+    assert p.json()["smtp_ready"] is True
+
+    with patch(
+        "app.routers.admin.send_smtp_message",
+        new_callable=AsyncMock,
+    ) as send_mock:
+        t = await client.post("/api/v1/admin/settings/smtp/test", headers=h, json={})
+        assert t.status_code == 200, t.text
+        assert t.json()["to"] == "smtp-patch@example.com"
+        send_mock.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_admin_smtp_test_rejects_when_not_ready(client: AsyncClient) -> None:
+    async with session_factory()() as session:
+        session.add(
+            User(
+                id=uuid.uuid4(),
+                email="smtp-nope@example.com",
+                password_hash=hash_password("nope"),
+                role=UserRole.admin,
+            )
+        )
+        await session.commit()
+
+    login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "smtp-nope@example.com", "password": "nope"},
+    )
+    token = login.json()["access_token"]
+    h = {"Authorization": f"Bearer {token}"}
+
+    t = await client.post("/api/v1/admin/settings/smtp/test", headers=h, json={})
+    assert t.status_code == 400
 
 
 @pytest.mark.asyncio

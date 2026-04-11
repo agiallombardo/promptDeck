@@ -332,6 +332,20 @@ export async function apiExportGet(accessToken: string, jobId: string) {
   });
 }
 
+export async function apiExportDownloadFile(accessToken: string, jobId: string): Promise<Blob> {
+  const r = await fetch(`${API}/exports/${jobId}/file`, {
+    credentials: "include",
+    headers: { ...authHeaders(accessToken) },
+  });
+  const requestId = r.headers.get("x-request-id");
+  if (!r.ok) {
+    const body = await r.json().catch(() => ({}));
+    const detail = (body as { detail?: string }).detail;
+    throw new ApiError({ status: r.status, detail, requestId });
+  }
+  return r.blob();
+}
+
 export type AdminAppLogRow = {
   id: number;
   ts: string;
@@ -392,10 +406,60 @@ export async function apiAdminSetup(accessToken: string) {
     entra_tenant_id_configured: boolean;
     entra_client_id_configured: boolean;
     entra_client_secret_configured: boolean;
+    entra_login_ready: boolean;
+    smtp_enabled: boolean;
+    smtp_ready: boolean;
     public_app_url: string;
     public_api_url: string;
     entra_redirect_uri: string;
   }>(`${API}/admin/setup`, { headers: { ...authHeaders(accessToken) } });
+}
+
+export type AdminSmtpSettings = {
+  smtp_enabled: boolean;
+  smtp_host: string | null;
+  smtp_port: number;
+  smtp_username: string | null;
+  smtp_from: string | null;
+  smtp_starttls: boolean;
+  smtp_implicit_tls: boolean;
+  smtp_password_configured: boolean;
+  smtp_ready: boolean;
+};
+
+export async function apiAdminSmtpGet(accessToken: string) {
+  return jsonFetch<AdminSmtpSettings>(`${API}/admin/settings/smtp`, {
+    headers: { ...authHeaders(accessToken) },
+  });
+}
+
+export async function apiAdminSmtpPatch(
+  accessToken: string,
+  body: {
+    smtp_enabled?: boolean;
+    smtp_host?: string | null;
+    smtp_port?: number;
+    smtp_username?: string | null;
+    smtp_from?: string | null;
+    smtp_starttls?: boolean;
+    smtp_implicit_tls?: boolean;
+    smtp_password?: string | null;
+    clear_smtp_password?: boolean;
+  },
+) {
+  return jsonFetch<AdminSmtpSettings>(`${API}/admin/settings/smtp`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
+    body: JSON.stringify(body),
+  });
+}
+
+export async function apiAdminSmtpTest(accessToken: string, to?: string | null) {
+  return jsonFetch<{ ok: boolean; to: string }>(`${API}/admin/settings/smtp/test`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
+    body: JSON.stringify(to ? { to } : {}),
+  });
 }
 
 export async function apiAdminAudit(accessToken: string, limit = 100) {

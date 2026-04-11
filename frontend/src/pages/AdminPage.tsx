@@ -1,22 +1,33 @@
-import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseMutationResult,
+  type UseQueryResult,
+} from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
 import {
   apiAdminAudit,
   apiAdminJobs,
   apiAdminLogs,
   apiAdminPresentations,
   apiAdminSetup,
+  apiAdminSmtpGet,
+  apiAdminSmtpPatch,
+  apiAdminSmtpTest,
   apiAdminStats,
   apiAdminUsers,
+  type AdminSmtpSettings,
 } from "../lib/api";
 import { useAuthStore } from "../stores/auth";
 
 const CHANNELS = ["", "http", "auth", "audit", "script"] as const;
 
-type Tab = "setup" | "stats" | "logs" | "jobs" | "presentations" | "users" | "audit";
+type Tab = "setup" | "email" | "stats" | "logs" | "jobs" | "presentations" | "users" | "audit";
 
 export default function AdminPage() {
   const accessToken = useAuthStore((s) => s.accessToken);
+  const qc = useQueryClient();
   const [tab, setTab] = useState<Tab>("setup");
   const [channel, setChannel] = useState<string>("");
   const [level, setLevel] = useState("");
@@ -77,8 +88,28 @@ export default function AdminPage() {
     queryFn: () => apiAdminAudit(accessToken!),
   });
 
+  const smtp = useQuery({
+    queryKey: ["admin", "smtp", accessToken],
+    enabled: Boolean(accessToken) && tab === "email",
+    queryFn: () => apiAdminSmtpGet(accessToken!),
+  });
+
+  const smtpPatch = useMutation({
+    mutationFn: (body: Parameters<typeof apiAdminSmtpPatch>[1]) =>
+      apiAdminSmtpPatch(accessToken!, body),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["admin", "smtp", accessToken] });
+      await qc.invalidateQueries({ queryKey: ["admin", "setup", accessToken] });
+    },
+  });
+
+  const smtpTest = useMutation({
+    mutationFn: (to?: string | null) => apiAdminSmtpTest(accessToken!, to),
+  });
+
   const tabs: { id: Tab; label: string }[] = [
     { id: "setup", label: "Setup" },
+    { id: "email", label: "Email / SMTP" },
     { id: "stats", label: "Stats" },
     { id: "logs", label: "Logs" },
     { id: "jobs", label: "Jobs" },
@@ -171,8 +202,36 @@ export default function AdminPage() {
                 </div>
               </dl>
             </div>
+
+            <div className="rounded-sharp border border-border bg-bg-elevated p-4 shadow-elevated">
+              <p className="font-mono text-[10px] uppercase tracking-wide text-text-muted">
+                Outbound email (SMTP)
+              </p>
+              <ul className="mt-3 space-y-2 font-mono text-xs">
+                <li className="flex items-center justify-between gap-3">
+                  <span className="text-text-muted">SMTP enabled</span>
+                  <span className={setup.data!.smtp_enabled ? "text-primary" : "text-text-muted"}>
+                    {setup.data!.smtp_enabled ? "Yes" : "No"}
+                  </span>
+                </li>
+                <li className="flex items-center justify-between gap-3">
+                  <span className="text-text-muted">Ready to send</span>
+                  <span className={setup.data!.smtp_ready ? "text-primary" : "text-accent-warning"}>
+                    {setup.data!.smtp_ready ? "OK" : "Incomplete"}
+                  </span>
+                </li>
+              </ul>
+              <p className="mt-3 text-xs text-text-muted">
+                Configure relay on the{" "}
+                <span className="font-mono text-text-main">Email / SMTP</span> tab (e.g. Microsoft
+                365: <span className="font-mono text-text-main">smtp.office365.com</span>, port{" "}
+                <span className="font-mono text-text-main">587</span>, STARTTLS on).
+              </p>
+            </div>
           </div>
         )
+      ) : tab === "email" ? (
+        <AdminSmtpPanel smtp={smtp} smtpPatch={smtpPatch} smtpTest={smtpTest} />
       ) : tab === "stats" ? (
         stats.isLoading ? (
           <p className="mt-10 font-mono text-sm text-text-muted">Loading…</p>
@@ -501,5 +560,246 @@ export default function AdminPage() {
         )
       ) : null}
     </main>
+  );
+}
+
+function AdminSmtpPanel({
+  smtp,
+  smtpPatch,
+  smtpTest,
+}: {
+  smtp: UseQueryResult<AdminSmtpSettings, Error>;
+  smtpPatch: UseMutationResult<AdminSmtpSettings, Error, Parameters<typeof apiAdminSmtpPatch>[1]>;
+  smtpTest: UseMutationResult<{ ok: boolean; to: string }, Error, string | null | undefined>;
+}) {
+  const [enabled, setEnabled] = useState(false);
+  const [host, setHost] = useState("");
+  const [port, setPort] = useState("587");
+  const [username, setUsername] = useState("");
+  const [from, setFrom] = useState("");
+  const [starttls, setStarttls] = useState(true);
+  const [implicitTls, setImplicitTls] = useState(false);
+  const [password, setPassword] = useState("");
+  const [clearPassword, setClearPassword] = useState(false);
+  const [testTo, setTestTo] = useState("");
+
+  useEffect(() => {
+    if (!smtp.data) {
+      return;
+    }
+    setEnabled(smtp.data.smtp_enabled);
+    setHost(smtp.data.smtp_host ?? "");
+    setPort(String(smtp.data.smtp_port));
+    setUsername(smtp.data.smtp_username ?? "");
+    setFrom(smtp.data.smtp_from ?? "");
+    setStarttls(smtp.data.smtp_starttls);
+    setImplicitTls(smtp.data.smtp_implicit_tls);
+    setPassword("");
+    setClearPassword(false);
+  }, [smtp.data]);
+
+  const fieldClass =
+    "w-full rounded-sharp border border-border bg-bg-recessed px-2 py-2 font-mono text-sm text-text-main outline-none ring-primary focus:ring-1";
+
+  if (smtp.isLoading) {
+    return <p className="mt-10 font-mono text-sm text-text-muted">Loading…</p>;
+  }
+  if (smtp.isError) {
+    return (
+      <p className="mt-10 text-accent-warning" role="alert">
+        {(smtp.error as Error).message}
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-8 max-w-xl space-y-6">
+      <p className="text-sm text-text-muted">
+        Store SMTP credentials in the database (password encrypted with the same key as Entra token
+        secrets). Typical{" "}
+        <a
+          className="text-primary underline-offset-2 hover:underline"
+          href="https://learn.microsoft.com/en-us/exchange/mail-flow-best-practices/how-to-set-up-a-multifunction-device-or-application-to-send-email-using-microsoft-365-or-office-365"
+          rel="noreferrer"
+          target="_blank"
+        >
+          Microsoft 365 SMTP client submission
+        </a>
+        : host <span className="font-mono text-text-main">smtp.office365.com</span>, port{" "}
+        <span className="font-mono text-text-main">587</span>, enable STARTTLS, disable implicit
+        TLS, authenticate with a licensed mailbox (username is usually the full email address).
+      </p>
+
+      <div className="rounded-sharp border border-border bg-bg-elevated p-4 shadow-elevated space-y-4">
+        <label className="flex cursor-pointer items-center gap-2 font-mono text-xs text-text-main">
+          <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+          Enable outbound SMTP
+        </label>
+
+        <label className="grid gap-1 font-mono text-xs">
+          <span className="text-text-muted">Host</span>
+          <input
+            className={fieldClass}
+            value={host}
+            onChange={(e) => setHost(e.target.value)}
+            placeholder="smtp.office365.com"
+          />
+        </label>
+
+        <label className="grid gap-1 font-mono text-xs">
+          <span className="text-text-muted">Port</span>
+          <input
+            className={fieldClass}
+            inputMode="numeric"
+            value={port}
+            onChange={(e) => setPort(e.target.value)}
+          />
+        </label>
+
+        <label className="grid gap-1 font-mono text-xs">
+          <span className="text-text-muted">Username</span>
+          <input
+            className={fieldClass}
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="mailbox@yourtenant.onmicrosoft.com"
+            autoComplete="off"
+          />
+        </label>
+
+        <label className="grid gap-1 font-mono text-xs">
+          <span className="text-text-muted">From address</span>
+          <input
+            className={fieldClass}
+            type="email"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+            placeholder="same as username for many tenants"
+            autoComplete="off"
+          />
+        </label>
+
+        <label className="flex cursor-pointer items-center gap-2 font-mono text-xs text-text-main">
+          <input
+            type="checkbox"
+            checked={starttls}
+            onChange={(e) => {
+              setStarttls(e.target.checked);
+              if (e.target.checked) {
+                setImplicitTls(false);
+              }
+            }}
+          />
+          STARTTLS (recommended for port 587)
+        </label>
+
+        <label className="flex cursor-pointer items-center gap-2 font-mono text-xs text-text-main">
+          <input
+            type="checkbox"
+            checked={implicitTls}
+            onChange={(e) => {
+              setImplicitTls(e.target.checked);
+              if (e.target.checked) {
+                setStarttls(false);
+              }
+            }}
+          />
+          Implicit TLS (SSL on connect, e.g. port 465)
+        </label>
+
+        <label className="grid gap-1 font-mono text-xs">
+          <span className="text-text-muted">SMTP password</span>
+          <input
+            className={fieldClass}
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder={
+              smtp.data?.smtp_password_configured ? "Leave blank to keep current" : "App password"
+            }
+            autoComplete="new-password"
+          />
+        </label>
+
+        <label className="flex cursor-pointer items-center gap-2 font-mono text-xs text-text-main">
+          <input
+            type="checkbox"
+            checked={clearPassword}
+            onChange={(e) => setClearPassword(e.target.checked)}
+          />
+          Remove stored password
+        </label>
+
+        <div className="flex flex-wrap gap-2 pt-2">
+          <button
+            type="button"
+            disabled={smtpPatch.isPending}
+            className="rounded-sharp bg-primary/15 px-3 py-1.5 font-mono text-xs text-primary ring-1 ring-primary/40 disabled:opacity-40"
+            onClick={() => {
+              const parsedPort = Number.parseInt(port, 10);
+              smtpPatch.mutate({
+                smtp_enabled: enabled,
+                smtp_host: host.trim() || null,
+                smtp_port: Number.isFinite(parsedPort) ? parsedPort : 587,
+                smtp_username: username.trim() || null,
+                smtp_from: from.trim() || null,
+                smtp_starttls: starttls,
+                smtp_implicit_tls: implicitTls,
+                ...(password.trim() ? { smtp_password: password.trim() } : {}),
+                ...(clearPassword ? { clear_smtp_password: true } : {}),
+              });
+            }}
+          >
+            {smtpPatch.isPending ? "Saving…" : "Save settings"}
+          </button>
+        </div>
+        {smtpPatch.isError ? (
+          <p className="text-sm text-accent-warning" role="alert">
+            {(smtpPatch.error as Error).message}
+          </p>
+        ) : null}
+        {smtpPatch.isSuccess ? (
+          <p className="text-sm text-primary" role="status">
+            Saved. Ready to send: {smtpPatch.data.smtp_ready ? "yes" : "no"}.
+          </p>
+        ) : null}
+      </div>
+
+      <div className="rounded-sharp border border-border bg-bg-elevated p-4 shadow-elevated space-y-3">
+        <p className="font-mono text-[10px] uppercase tracking-wide text-text-muted">Test send</p>
+        <label className="grid gap-1 font-mono text-xs">
+          <span className="text-text-muted">Send test to (optional)</span>
+          <input
+            className={fieldClass}
+            type="email"
+            value={testTo}
+            onChange={(e) => setTestTo(e.target.value)}
+            placeholder="Defaults to your admin email"
+            autoComplete="email"
+          />
+        </label>
+        <button
+          type="button"
+          disabled={smtpTest.isPending || !smtp.data?.smtp_ready}
+          className="rounded-sharp border border-border px-3 py-1.5 font-mono text-xs hover:bg-bg-recessed disabled:opacity-40"
+          onClick={() => smtpTest.mutate(testTo.trim() || null)}
+        >
+          {smtpTest.isPending ? "Sending…" : "Send test email"}
+        </button>
+        {!smtp.data?.smtp_ready ? (
+          <p className="text-xs text-text-muted">Save a complete configuration before testing.</p>
+        ) : null}
+        {smtpTest.isError ? (
+          <p className="text-sm text-accent-warning" role="alert">
+            {(smtpTest.error as Error).message}
+          </p>
+        ) : null}
+        {smtpTest.isSuccess ? (
+          <p className="text-sm text-primary" role="status">
+            Sent to {smtpTest.data.to}.
+          </p>
+        ) : null}
+      </div>
+    </div>
   );
 }
