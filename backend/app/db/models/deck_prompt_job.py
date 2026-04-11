@@ -54,3 +54,7 @@ class DeckPromptJob(Base):
     )
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    llm_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    prompt_tokens: Mapped[int | None] = mapped_column(Integer(), nullable=True)
+    completion_tokens: Mapped[int | None] = mapped_column(Integer(), nullable=True)
+    total_tokens: Mapped[int | None] = mapped_column(Integer(), nullable=True)

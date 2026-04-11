@@ -8,6 +8,7 @@ from app.config import get_settings
 from app.db.models.user import User, UserRole
 from app.db.session import session_factory
 from app.security.passwords import hash_password
+from app.services.deck_llm_completion import DeckLlmCompletionResult
 from httpx import ASGITransport, AsyncClient
 
 SAMPLE_HTML = b"""<!DOCTYPE html>
@@ -69,8 +70,13 @@ async def editor_client(tmp_path, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_deck_prompt_job_happy_path(editor_client: AsyncClient, monkeypatch) -> None:
-    async def _fake_complete(**_kwargs: object) -> str:
-        return _EDITED_HTML
+    async def _fake_complete(**_kwargs: object) -> DeckLlmCompletionResult:
+        return DeckLlmCompletionResult(
+            text=_EDITED_HTML,
+            prompt_tokens=10,
+            completion_tokens=20,
+            total_tokens=30,
+        )
 
     monkeypatch.setattr(
         "app.jobs.deck_prompt_runner.complete_deck_html_edit",
@@ -111,6 +117,9 @@ async def test_deck_prompt_job_happy_path(editor_client: AsyncClient, monkeypatc
     assert status == "succeeded", err
     assert body.get("result_version_id")
     assert body.get("progress") == 100
+    assert body.get("total_tokens") == 30
+    assert body.get("prompt_tokens") == 10
+    assert body.get("completion_tokens") == 20
 
     pres = await c.get(f"/api/v1/presentations/{pid}")
     assert pres.status_code == 200
@@ -139,8 +148,8 @@ async def test_deck_prompt_job_fails_if_llm_unconfigured(
     monkeypatch.delenv("LITELLM_API_BASE", raising=False)
     get_settings.cache_clear()
 
-    async def _fake_complete(**_kwargs: object) -> str:
-        return _EDITED_HTML
+    async def _fake_complete(**_kwargs: object) -> DeckLlmCompletionResult:
+        return DeckLlmCompletionResult(text=_EDITED_HTML)
 
     monkeypatch.setattr(
         "app.jobs.deck_prompt_runner.complete_deck_html_edit",

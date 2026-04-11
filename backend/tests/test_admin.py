@@ -109,6 +109,13 @@ async def test_admin_stats_and_audit_ok(client: AsyncClient) -> None:
     body = s.json()
     assert body["users"] >= 1
     assert "presentations" in body
+    assert "deck_prompt_jobs" in body
+    assert "deck_prompt_jobs_24h" in body
+    assert "llm_total_tokens_24h" in body
+
+    dpj = await client.get("/api/v1/admin/deck-prompt-jobs", headers=h)
+    assert dpj.status_code == 200
+    assert "items" in dpj.json()
 
     a = await client.get("/api/v1/admin/audit", headers=h)
     assert a.status_code == 200
@@ -436,3 +443,31 @@ async def test_admin_llm_settings_get_and_patch(client: AsyncClient) -> None:
     )
     assert c.status_code == 200
     assert c.json()["litellm_api_key_configured"] is False
+
+
+@pytest.mark.asyncio
+async def test_admin_llm_settings_rejects_invalid_api_base(client: AsyncClient) -> None:
+    async with session_factory()() as session:
+        session.add(
+            User(
+                id=uuid.uuid4(),
+                email="llm-invalid@example.com",
+                password_hash=hash_password("llm-invalid"),
+                role=UserRole.admin,
+            )
+        )
+        await session.commit()
+
+    login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "llm-invalid@example.com", "password": "llm-invalid"},
+    )
+    token = login.json()["access_token"]
+    h = {"Authorization": f"Bearer {token}"}
+
+    bad = await client.patch(
+        "/api/v1/admin/settings/llm",
+        headers=h,
+        json={"litellm_api_base": "ftp://bad.example.com/v1"},
+    )
+    assert bad.status_code == 400

@@ -10,6 +10,7 @@ import {
   apiAdminAudit,
   apiAdminEntraGet,
   apiAdminEntraPatch,
+  apiAdminDeckPromptJobs,
   apiAdminJobs,
   apiAdminLogs,
   apiAdminLlmGet,
@@ -84,6 +85,12 @@ export default function AdminPage() {
     queryKey: ["admin", "jobs", accessToken],
     enabled: Boolean(accessToken) && tab === "jobs",
     queryFn: () => apiAdminJobs(accessToken!),
+  });
+
+  const deckPromptJobs = useQuery({
+    queryKey: ["admin", "deck-prompt-jobs", accessToken],
+    enabled: Boolean(accessToken) && tab === "jobs",
+    queryFn: () => apiAdminDeckPromptJobs(accessToken!),
   });
 
   const presentations = useQuery({
@@ -294,6 +301,11 @@ export default function AdminPage() {
                 ["Presentations", stats.data!.presentations],
                 ["Versions", stats.data!.versions],
                 ["Export jobs", stats.data!.export_jobs],
+                ["Deck prompt jobs", stats.data!.deck_prompt_jobs],
+                ["Deck prompt jobs (24h)", stats.data!.deck_prompt_jobs_24h],
+                ["LLM prompt tokens (24h)", stats.data!.llm_prompt_tokens_24h],
+                ["LLM completion tokens (24h)", stats.data!.llm_completion_tokens_24h],
+                ["LLM total tokens (24h)", stats.data!.llm_total_tokens_24h],
                 ["Audit (24h)", stats.data!.audit_events_24h],
                 ["App logs (24h)", stats.data!.app_log_rows_24h],
               ] as const
@@ -442,44 +454,109 @@ export default function AdminPage() {
           )}
         </div>
       ) : tab === "jobs" ? (
-        jobs.isLoading ? (
+        jobs.isLoading || deckPromptJobs.isLoading ? (
           <p className="mt-10 font-mono text-sm text-text-muted">Loading…</p>
         ) : jobs.isError ? (
           <p className="mt-10 text-accent-warning" role="alert">
             {(jobs.error as Error).message}
           </p>
+        ) : deckPromptJobs.isError ? (
+          <p className="mt-10 text-accent-warning" role="alert">
+            {(deckPromptJobs.error as Error).message}
+          </p>
         ) : (
-          <div className="mt-8 overflow-x-auto rounded-sharp border border-border bg-bg-elevated">
-            <table className="w-full min-w-[800px] border-collapse text-left text-sm">
-              <thead className="border-b border-border bg-bg-recessed font-mono text-xs uppercase text-text-muted">
-                <tr>
-                  <th className="px-3 py-2">Created</th>
-                  <th className="px-3 py-2">Deck</th>
-                  <th className="px-3 py-2">Format</th>
-                  <th className="px-3 py-2">Status</th>
-                  <th className="px-3 py-2">Progress</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border font-mono text-xs">
-                {jobs.data?.items.length ? (
-                  jobs.data.items.map((j) => (
-                    <tr key={j.id}>
-                      <td className="px-3 py-2 text-text-muted">{j.created_at}</td>
-                      <td className="px-3 py-2">{j.presentation_title}</td>
-                      <td className="px-3 py-2">{j.format}</td>
-                      <td className="px-3 py-2">{j.status}</td>
-                      <td className="px-3 py-2">{j.progress}%</td>
+          <div className="mt-8 space-y-10">
+            <div>
+              <h3 className="font-heading text-sm font-semibold text-text-main">Export jobs</h3>
+              <div className="mt-3 overflow-x-auto rounded-sharp border border-border bg-bg-elevated">
+                <table className="w-full min-w-[800px] border-collapse text-left text-sm">
+                  <thead className="border-b border-border bg-bg-recessed font-mono text-xs uppercase text-text-muted">
+                    <tr>
+                      <th className="px-3 py-2">Created</th>
+                      <th className="px-3 py-2">Deck</th>
+                      <th className="px-3 py-2">Format</th>
+                      <th className="px-3 py-2">Status</th>
+                      <th className="px-3 py-2">Progress</th>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td className="px-3 py-6 text-text-muted" colSpan={5}>
-                      No export jobs yet.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody className="divide-y divide-border font-mono text-xs">
+                    {jobs.data?.items.length ? (
+                      jobs.data.items.map((j) => (
+                        <tr key={j.id}>
+                          <td className="px-3 py-2 text-text-muted">{j.created_at}</td>
+                          <td className="px-3 py-2">{j.presentation_title}</td>
+                          <td className="px-3 py-2">{j.format}</td>
+                          <td className="px-3 py-2">{j.status}</td>
+                          <td className="px-3 py-2">{j.progress}%</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td className="px-3 py-6 text-text-muted" colSpan={5}>
+                          No export jobs yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div>
+              <h3 className="font-heading text-sm font-semibold text-text-main">
+                Deck prompt (LLM) jobs
+              </h3>
+              <p className="mt-1 text-xs text-text-muted">
+                Token counts are recorded when the provider returns usage in the chat completion
+                response. Summaries for the last 24 hours appear on the Stats tab.
+              </p>
+              <div className="mt-3 overflow-x-auto rounded-sharp border border-border bg-bg-elevated">
+                <table className="w-full min-w-[960px] border-collapse text-left text-sm">
+                  <thead className="border-b border-border bg-bg-recessed font-mono text-xs uppercase text-text-muted">
+                    <tr>
+                      <th className="px-3 py-2">Created</th>
+                      <th className="px-3 py-2">Deck</th>
+                      <th className="px-3 py-2">Prompt preview</th>
+                      <th className="px-3 py-2">Model</th>
+                      <th className="px-3 py-2">Tokens (p/c/t)</th>
+                      <th className="px-3 py-2">Status</th>
+                      <th className="px-3 py-2">By</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border font-mono text-xs">
+                    {deckPromptJobs.data?.items.length ? (
+                      deckPromptJobs.data.items.map((j) => (
+                        <tr key={j.id}>
+                          <td className="px-3 py-2 text-text-muted">{j.created_at}</td>
+                          <td className="px-3 py-2">{j.presentation_title}</td>
+                          <td
+                            className="max-w-[14rem] truncate px-3 py-2 text-text-muted"
+                            title={j.prompt_preview || undefined}
+                          >
+                            {j.prompt_preview || "—"}
+                          </td>
+                          <td className="px-3 py-2">{j.llm_model ?? "—"}</td>
+                          <td className="px-3 py-2 tabular-nums">
+                            {j.prompt_tokens != null ||
+                            j.completion_tokens != null ||
+                            j.total_tokens != null
+                              ? `${j.prompt_tokens ?? "—"} / ${j.completion_tokens ?? "—"} / ${j.total_tokens ?? "—"}`
+                              : "—"}
+                          </td>
+                          <td className="px-3 py-2">{j.status}</td>
+                          <td className="px-3 py-2">{j.creator_email}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td className="px-3 py-6 text-text-muted" colSpan={7}>
+                          No deck prompt jobs yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )
       ) : tab === "presentations" ? (

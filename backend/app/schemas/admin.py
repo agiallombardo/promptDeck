@@ -95,11 +95,41 @@ class AdminExportJobListResponse(BaseModel):
     items: list[AdminExportJobRead]
 
 
+class AdminDeckPromptJobRead(BaseModel):
+    id: uuid.UUID
+    presentation_id: uuid.UUID
+    presentation_title: str
+    source_version_id: uuid.UUID
+    status: str
+    progress: int
+    error: str | None
+    result_version_id: uuid.UUID | None
+    prompt_preview: str
+    llm_model: str | None
+    prompt_tokens: int | None
+    completion_tokens: int | None
+    total_tokens: int | None
+    created_by: uuid.UUID
+    creator_email: str
+    created_at: datetime
+    started_at: datetime | None
+    finished_at: datetime | None
+
+
+class AdminDeckPromptJobListResponse(BaseModel):
+    items: list[AdminDeckPromptJobRead]
+
+
 class AdminStatsRead(BaseModel):
     users: int
     presentations: int
     versions: int
     export_jobs: int
+    deck_prompt_jobs: int
+    deck_prompt_jobs_24h: int
+    llm_prompt_tokens_24h: int
+    llm_completion_tokens_24h: int
+    llm_total_tokens_24h: int
     audit_events_24h: int
     app_log_rows_24h: int
 

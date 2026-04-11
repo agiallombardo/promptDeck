@@ -3,11 +3,43 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
 
 _MAX_COMPLETION_CHARS = 512_000
+
+
+@dataclass(frozen=True, slots=True)
+class DeckLlmCompletionResult:
+    text: str
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    total_tokens: int | None = None
+
+
+def _usage_int(raw: object) -> int | None:
+    if raw is None:
+        return None
+    if isinstance(raw, bool):
+        return None
+    if isinstance(raw, int):
+        return raw
+    if isinstance(raw, float):
+        return int(raw)
+    return None
+
+
+def _parse_usage(data: dict[str, Any]) -> tuple[int | None, int | None, int | None]:
+    usage = data.get("usage")
+    if not isinstance(usage, dict):
+        return None, None, None
+    return (
+        _usage_int(usage.get("prompt_tokens")),
+        _usage_int(usage.get("completion_tokens")),
+        _usage_int(usage.get("total_tokens")),
+    )
 
 
 def strip_markdown_fenced_html(text: str) -> str:
@@ -28,8 +60,8 @@ async def complete_deck_html_edit(
     system_prompt: str,
     user_message: str,
     timeout_seconds: float = 300.0,
-) -> str:
-    """Call POST {api_base}/chat/completions; return assistant text (stripped fences)."""
+) -> DeckLlmCompletionResult:
+    """Call POST {api_base}/chat/completions; return stripped assistant text and token usage."""
     url = f"{api_base.rstrip('/')}/chat/completions"
     headers: dict[str, str] = {"Content-Type": "application/json"}
     if api_key:
@@ -58,4 +90,7 @@ async def complete_deck_html_edit(
     out = strip_markdown_fenced_html(content)
     if len(out) > _MAX_COMPLETION_CHARS:
         raise ValueError("LLM output too large")
-    return out
+    pt, ct, tt = _parse_usage(data)
+    return DeckLlmCompletionResult(
+        text=out, prompt_tokens=pt, completion_tokens=ct, total_tokens=tt
+    )

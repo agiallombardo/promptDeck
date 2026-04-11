@@ -1,6 +1,184 @@
 {
   "components": {
     "schemas": {
+      "AdminDeckPromptJobListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdminDeckPromptJobRead"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "AdminDeckPromptJobListResponse",
+        "type": "object"
+      },
+      "AdminDeckPromptJobRead": {
+        "properties": {
+          "completion_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completion Tokens"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "format": "uuid",
+            "title": "Created By",
+            "type": "string"
+          },
+          "creator_email": {
+            "title": "Creator Email",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "llm_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Llm Model"
+          },
+          "presentation_id": {
+            "format": "uuid",
+            "title": "Presentation Id",
+            "type": "string"
+          },
+          "presentation_title": {
+            "title": "Presentation Title",
+            "type": "string"
+          },
+          "progress": {
+            "title": "Progress",
+            "type": "integer"
+          },
+          "prompt_preview": {
+            "title": "Prompt Preview",
+            "type": "string"
+          },
+          "prompt_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt Tokens"
+          },
+          "result_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Version Id"
+          },
+          "source_version_id": {
+            "format": "uuid",
+            "title": "Source Version Id",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "total_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Tokens"
+          }
+        },
+        "required": [
+          "id",
+          "presentation_id",
+          "presentation_title",
+          "source_version_id",
+          "status",
+          "progress",
+          "error",
+          "result_version_id",
+          "prompt_preview",
+          "llm_model",
+          "prompt_tokens",
+          "completion_tokens",
+          "total_tokens",
+          "created_by",
+          "creator_email",
+          "created_at",
+          "started_at",
+          "finished_at"
+        ],
+        "title": "AdminDeckPromptJobRead",
+        "type": "object"
+      },
       "AdminEntraSettingsPatch": {
         "properties": {
           "clear_entra_client_secret": {
@@ -717,8 +895,28 @@
             "title": "Audit Events 24H",
             "type": "integer"
           },
+          "deck_prompt_jobs": {
+            "title": "Deck Prompt Jobs",
+            "type": "integer"
+          },
+          "deck_prompt_jobs_24h": {
+            "title": "Deck Prompt Jobs 24H",
+            "type": "integer"
+          },
           "export_jobs": {
             "title": "Export Jobs",
+            "type": "integer"
+          },
+          "llm_completion_tokens_24h": {
+            "title": "Llm Completion Tokens 24H",
+            "type": "integer"
+          },
+          "llm_prompt_tokens_24h": {
+            "title": "Llm Prompt Tokens 24H",
+            "type": "integer"
+          },
+          "llm_total_tokens_24h": {
+            "title": "Llm Total Tokens 24H",
             "type": "integer"
           },
           "presentations": {
@@ -739,6 +937,11 @@
           "presentations",
           "versions",
           "export_jobs",
+          "deck_prompt_jobs",
+          "deck_prompt_jobs_24h",
+          "llm_prompt_tokens_24h",
+          "llm_completion_tokens_24h",
+          "llm_total_tokens_24h",
           "audit_events_24h",
           "app_log_rows_24h"
         ],
@@ -1210,6 +1413,17 @@
       },
       "DeckPromptJobRead": {
         "properties": {
+          "completion_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completion Tokens"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -1243,6 +1457,17 @@
             "title": "Id",
             "type": "string"
           },
+          "llm_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Llm Model"
+          },
           "presentation_id": {
             "format": "uuid",
             "title": "Presentation Id",
@@ -1251,6 +1476,17 @@
           "progress": {
             "title": "Progress",
             "type": "integer"
+          },
+          "prompt_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt Tokens"
           },
           "result_version_id": {
             "anyOf": [
@@ -1294,6 +1530,17 @@
               }
             ],
             "title": "Status Message"
+          },
+          "total_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Tokens"
           }
         },
         "required": [
@@ -1968,6 +2215,260 @@
         "title": "PresentationUpdate",
         "type": "object"
       },
+      "ShareLinkCreate": {
+        "properties": {
+          "expires_in_hours": {
+            "anyOf": [
+              {
+                "maximum": 168.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires In Hours"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "role": {
+            "$ref": "#/components/schemas/ShareRole",
+            "default": "viewer"
+          }
+        },
+        "title": "ShareLinkCreate",
+        "type": "object"
+      },
+      "ShareLinkCreateResponse": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "presentation_id": {
+            "format": "uuid",
+            "title": "Presentation Id",
+            "type": "string"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
+          "role": {
+            "$ref": "#/components/schemas/ShareRole"
+          },
+          "share_token": {
+            "title": "Share Token",
+            "type": "string"
+          },
+          "share_url": {
+            "title": "Share Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "presentation_id",
+          "role",
+          "expires_at",
+          "revoked_at",
+          "note",
+          "created_at",
+          "share_token",
+          "share_url"
+        ],
+        "title": "ShareLinkCreateResponse",
+        "type": "object"
+      },
+      "ShareLinkExchangeRequest": {
+        "properties": {
+          "token": {
+            "maxLength": 512,
+            "minLength": 12,
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "ShareLinkExchangeRequest",
+        "type": "object"
+      },
+      "ShareLinkExchangeResponse": {
+        "properties": {
+          "access_token": {
+            "title": "Access Token",
+            "type": "string"
+          },
+          "expires_in": {
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "presentation_id": {
+            "format": "uuid",
+            "title": "Presentation Id",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/ShareRole"
+          },
+          "token_type": {
+            "default": "bearer",
+            "title": "Token Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "access_token",
+          "expires_in",
+          "presentation_id",
+          "role"
+        ],
+        "title": "ShareLinkExchangeResponse",
+        "type": "object"
+      },
+      "ShareLinkListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ShareLinkRead"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ShareLinkListResponse",
+        "type": "object"
+      },
+      "ShareLinkRead": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "presentation_id": {
+            "format": "uuid",
+            "title": "Presentation Id",
+            "type": "string"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
+          "role": {
+            "$ref": "#/components/schemas/ShareRole"
+          }
+        },
+        "required": [
+          "id",
+          "presentation_id",
+          "role",
+          "expires_at",
+          "revoked_at",
+          "note",
+          "created_at"
+        ],
+        "title": "ShareLinkRead",
+        "type": "object"
+      },
+      "ShareRole": {
+        "enum": [
+          "viewer",
+          "commenter",
+          "editor"
+        ],
+        "title": "ShareRole",
+        "type": "string"
+      },
       "SlideRead": {
         "properties": {
           "id": {
@@ -2526,6 +3027,56 @@
           }
         ],
         "summary": "List Audit",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/deck-prompt-jobs": {
+      "get": {
+        "operationId": "list_deck_prompt_jobs_admin_api_v1_admin_deck_prompt_jobs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminDeckPromptJobListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Deck Prompt Jobs Admin",
         "tags": [
           "admin"
         ]
@@ -4341,6 +4892,161 @@
         ]
       }
     },
+    "/api/v1/presentations/{presentation_id}/share-links": {
+      "get": {
+        "operationId": "list_share_links_api_v1_presentations__presentation_id__share_links_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "presentation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Presentation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareLinkListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Share Links",
+        "tags": [
+          "shares"
+        ]
+      },
+      "post": {
+        "operationId": "create_share_link_api_v1_presentations__presentation_id__share_links_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "presentation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Presentation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShareLinkCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareLinkCreateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Share Link",
+        "tags": [
+          "shares"
+        ]
+      }
+    },
+    "/api/v1/presentations/{presentation_id}/share-links/{share_link_id}": {
+      "delete": {
+        "operationId": "revoke_share_link_api_v1_presentations__presentation_id__share_links__share_link_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "share_link_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Share Link Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "presentation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Presentation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Revoke Share Link",
+        "tags": [
+          "shares"
+        ]
+      }
+    },
     "/api/v1/presentations/{presentation_id}/threads": {
       "get": {
         "operationId": "list_threads_api_v1_presentations__presentation_id__threads_get",
@@ -4627,6 +5333,47 @@
         "summary": "Activate Version",
         "tags": [
           "versions"
+        ]
+      }
+    },
+    "/api/v1/share-links/exchange": {
+      "post": {
+        "operationId": "exchange_share_link_api_v1_share_links_exchange_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShareLinkExchangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareLinkExchangeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Exchange Share Link",
+        "tags": [
+          "shares"
         ]
       }
     },

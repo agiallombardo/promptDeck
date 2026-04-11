@@ -6,6 +6,7 @@ Regenerate with `just api-contract` after changing `backend/openapi.json`.
 |--------|------|---------|
 | GET | `/a/{version_id}/{file_path}` | Serve Asset |
 | GET | `/api/v1/admin/audit` | List Audit |
+| GET | `/api/v1/admin/deck-prompt-jobs` | List Deck Prompt Jobs Admin |
 | GET | `/api/v1/admin/jobs` | List Export Jobs Admin |
 | GET | `/api/v1/admin/logs` | List Logs |
 | GET | `/api/v1/admin/presentations` | List Presentations Admin |
@@ -45,11 +46,15 @@ Regenerate with `just api-contract` after changing `backend/openapi.json`.
 | POST | `/api/v1/presentations/{presentation_id}/members` | Create Presentation Member |
 | DELETE | `/api/v1/presentations/{presentation_id}/members/{member_id}` | Delete Presentation Member |
 | PATCH | `/api/v1/presentations/{presentation_id}/members/{member_id}` | Update Presentation Member |
+| GET | `/api/v1/presentations/{presentation_id}/share-links` | List Share Links |
+| POST | `/api/v1/presentations/{presentation_id}/share-links` | Create Share Link |
+| DELETE | `/api/v1/presentations/{presentation_id}/share-links/{share_link_id}` | Revoke Share Link |
 | GET | `/api/v1/presentations/{presentation_id}/threads` | List Threads |
 | POST | `/api/v1/presentations/{presentation_id}/threads` | Create Thread |
 | GET | `/api/v1/presentations/{presentation_id}/versions` | List Versions |
 | POST | `/api/v1/presentations/{presentation_id}/versions` | Upload Html Version |
 | POST | `/api/v1/presentations/{presentation_id}/versions/{version_id}/activate` | Activate Version |
+| POST | `/api/v1/share-links/exchange` | Exchange Share Link |
 | PATCH | `/api/v1/threads/{thread_id}` | Patch Thread |
 | POST | `/api/v1/threads/{thread_id}/comments` | Add Comment |
 | GET | `/health` | Health |

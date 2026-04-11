@@ -10,7 +10,7 @@ from app.db.session import session_factory
 from app.logging_channels import LogChannel, channel_logger
 from app.services.app_logging import write_app_log
 from app.services.audit import record_audit
-from app.services.deck_llm_completion import complete_deck_html_edit
+from app.services.deck_llm_completion import DeckLlmCompletionResult, complete_deck_html_edit
 from app.services.llm_runtime import LlmNotConfiguredError, resolve_litellm_http_credentials
 from app.services.single_html_version import persist_new_single_html_version
 from app.storage.local import read_bytes_if_exists
@@ -60,6 +60,8 @@ async def run_deck_prompt_job(job_id: uuid.UUID) -> None:
     err_msg: str | None = None
     result_version_id: uuid.UUID | None = None
     slide_count = 0
+    llm_model_used: str | None = None
+    completion_usage: DeckLlmCompletionResult | None = None
 
     try:
         async with fac() as session:
@@ -85,7 +87,7 @@ async def run_deck_prompt_job(job_id: uuid.UUID) -> None:
         async with fac() as session:
             j = await session.get(DeckPromptJob, job_id)
             if j is None:
-                return
+                raise ValueError("Deck prompt job not found")
             j.progress = 15
             j.status_message = "Calling model"
             await session.commit()
@@ -101,19 +103,21 @@ async def run_deck_prompt_job(job_id: uuid.UUID) -> None:
             f"---DECK_HTML_START---\n{html_text}\n---DECK_HTML_END---"
         )
         model = settings.deck_llm_model.strip() or "gpt-4o-mini"
-        edited = await complete_deck_html_edit(
+        llm_model_used = model
+        completion_usage = await complete_deck_html_edit(
             api_base=api_base,
             api_key=api_key,
             model=model,
             system_prompt=_DECK_EDIT_SYSTEM,
             user_message=user_msg,
         )
+        edited = completion_usage.text
         out_bytes = _validate_model_html(edited)
 
         async with fac() as session:
             j = await session.get(DeckPromptJob, job_id)
             if j is None:
-                return
+                raise ValueError("Deck prompt job not found")
             j.progress = 80
             j.status_message = "Saving new version"
             await session.commit()
@@ -148,6 +152,12 @@ async def run_deck_prompt_job(job_id: uuid.UUID) -> None:
                     "job_id": str(job_id),
                     "result_version_id": str(result_version_id),
                     "slide_count": slide_count,
+                    "llm_model": llm_model_used,
+                    "prompt_tokens": completion_usage.prompt_tokens if completion_usage else None,
+                    "completion_tokens": completion_usage.completion_tokens
+                    if completion_usage
+                    else None,
+                    "total_tokens": completion_usage.total_tokens if completion_usage else None,
                 },
                 auto_commit=False,
             )
@@ -161,6 +171,12 @@ async def run_deck_prompt_job(job_id: uuid.UUID) -> None:
                     "presentation_id": str(pres_id),
                     "job_id": str(job_id),
                     "slide_count": slide_count,
+                    "llm_model": llm_model_used,
+                    "prompt_tokens": completion_usage.prompt_tokens if completion_usage else None,
+                    "completion_tokens": completion_usage.completion_tokens
+                    if completion_usage
+                    else None,
+                    "total_tokens": completion_usage.total_tokens if completion_usage else None,
                 },
                 client_ip=None,
                 auto_commit=False,
@@ -186,6 +202,12 @@ async def run_deck_prompt_job(job_id: uuid.UUID) -> None:
                     "presentation_id": str(pres_id),
                     "job_id": str(job_id),
                     "error": err_msg,
+                    "llm_model": llm_model_used,
+                    "prompt_tokens": completion_usage.prompt_tokens if completion_usage else None,
+                    "completion_tokens": completion_usage.completion_tokens
+                    if completion_usage
+                    else None,
+                    "total_tokens": completion_usage.total_tokens if completion_usage else None,
                 },
                 auto_commit=False,
             )
@@ -206,6 +228,11 @@ async def run_deck_prompt_job(job_id: uuid.UUID) -> None:
         if job_final is None:
             return
         job_final.finished_at = datetime.now(UTC)
+        job_final.llm_model = llm_model_used
+        if completion_usage is not None:
+            job_final.prompt_tokens = completion_usage.prompt_tokens
+            job_final.completion_tokens = completion_usage.completion_tokens
+            job_final.total_tokens = completion_usage.total_tokens
         if err_msg is not None:
             job_final.status = DeckPromptJobStatus.failed
             job_final.error = err_msg

@@ -38,6 +38,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/admin/deck-prompt-jobs": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Deck Prompt Jobs Admin */
+    get: operations["list_deck_prompt_jobs_admin_api_v1_admin_deck_prompt_jobs_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/admin/jobs": {
     parameters: {
       query?: never;
@@ -557,6 +574,41 @@ export interface paths {
     patch: operations["update_presentation_member_api_v1_presentations__presentation_id__members__member_id__patch"];
     trace?: never;
   };
+  "/api/v1/presentations/{presentation_id}/share-links": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Share Links */
+    get: operations["list_share_links_api_v1_presentations__presentation_id__share_links_get"];
+    put?: never;
+    /** Create Share Link */
+    post: operations["create_share_link_api_v1_presentations__presentation_id__share_links_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/presentations/{presentation_id}/share-links/{share_link_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Revoke Share Link */
+    delete: operations["revoke_share_link_api_v1_presentations__presentation_id__share_links__share_link_id__delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/presentations/{presentation_id}/threads": {
     parameters: {
       query?: never;
@@ -604,6 +656,23 @@ export interface paths {
     put?: never;
     /** Activate Version */
     post: operations["activate_version_api_v1_presentations__presentation_id__versions__version_id__activate_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/share-links/exchange": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Exchange Share Link */
+    post: operations["exchange_share_link_api_v1_share_links_exchange_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -665,6 +734,65 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** AdminDeckPromptJobListResponse */
+    AdminDeckPromptJobListResponse: {
+      /** Items */
+      items: components["schemas"]["AdminDeckPromptJobRead"][];
+    };
+    /** AdminDeckPromptJobRead */
+    AdminDeckPromptJobRead: {
+      /** Completion Tokens */
+      completion_tokens: number | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Created By
+       * Format: uuid
+       */
+      created_by: string;
+      /** Creator Email */
+      creator_email: string;
+      /** Error */
+      error: string | null;
+      /** Finished At */
+      finished_at: string | null;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Llm Model */
+      llm_model: string | null;
+      /**
+       * Presentation Id
+       * Format: uuid
+       */
+      presentation_id: string;
+      /** Presentation Title */
+      presentation_title: string;
+      /** Progress */
+      progress: number;
+      /** Prompt Preview */
+      prompt_preview: string;
+      /** Prompt Tokens */
+      prompt_tokens: number | null;
+      /** Result Version Id */
+      result_version_id: string | null;
+      /**
+       * Source Version Id
+       * Format: uuid
+       */
+      source_version_id: string;
+      /** Started At */
+      started_at: string | null;
+      /** Status */
+      status: string;
+      /** Total Tokens */
+      total_tokens: number | null;
+    };
     /** AdminEntraSettingsPatch */
     AdminEntraSettingsPatch: {
       /**
@@ -945,8 +1073,18 @@ export interface components {
       app_log_rows_24h: number;
       /** Audit Events 24H */
       audit_events_24h: number;
+      /** Deck Prompt Jobs */
+      deck_prompt_jobs: number;
+      /** Deck Prompt Jobs 24H */
+      deck_prompt_jobs_24h: number;
       /** Export Jobs */
       export_jobs: number;
+      /** Llm Completion Tokens 24H */
+      llm_completion_tokens_24h: number;
+      /** Llm Prompt Tokens 24H */
+      llm_prompt_tokens_24h: number;
+      /** Llm Total Tokens 24H */
+      llm_total_tokens_24h: number;
       /** Presentations */
       presentations: number;
       /** Users */
@@ -1108,6 +1246,8 @@ export interface components {
     };
     /** DeckPromptJobRead */
     DeckPromptJobRead: {
+      /** Completion Tokens */
+      completion_tokens?: number | null;
       /**
        * Created At
        * Format: date-time
@@ -1122,6 +1262,8 @@ export interface components {
        * Format: uuid
        */
       id: string;
+      /** Llm Model */
+      llm_model?: string | null;
       /**
        * Presentation Id
        * Format: uuid
@@ -1129,6 +1271,8 @@ export interface components {
       presentation_id: string;
       /** Progress */
       progress: number;
+      /** Prompt Tokens */
+      prompt_tokens?: number | null;
       /** Result Version Id */
       result_version_id: string | null;
       /**
@@ -1141,6 +1285,8 @@ export interface components {
       status: components["schemas"]["DeckPromptJobStatus"];
       /** Status Message */
       status_message: string | null;
+      /** Total Tokens */
+      total_tokens?: number | null;
     };
     /**
      * DeckPromptJobStatus
@@ -1396,6 +1542,102 @@ export interface components {
       /** Title */
       title?: string | null;
     };
+    /** ShareLinkCreate */
+    ShareLinkCreate: {
+      /** Expires In Hours */
+      expires_in_hours?: number | null;
+      /** Note */
+      note?: string | null;
+      /** @default viewer */
+      role: components["schemas"]["ShareRole"];
+    };
+    /** ShareLinkCreateResponse */
+    ShareLinkCreateResponse: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Expires At */
+      expires_at: string | null;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Note */
+      note: string | null;
+      /**
+       * Presentation Id
+       * Format: uuid
+       */
+      presentation_id: string;
+      /** Revoked At */
+      revoked_at: string | null;
+      role: components["schemas"]["ShareRole"];
+      /** Share Token */
+      share_token: string;
+      /** Share Url */
+      share_url: string;
+    };
+    /** ShareLinkExchangeRequest */
+    ShareLinkExchangeRequest: {
+      /** Token */
+      token: string;
+    };
+    /** ShareLinkExchangeResponse */
+    ShareLinkExchangeResponse: {
+      /** Access Token */
+      access_token: string;
+      /** Expires In */
+      expires_in: number;
+      /**
+       * Presentation Id
+       * Format: uuid
+       */
+      presentation_id: string;
+      role: components["schemas"]["ShareRole"];
+      /**
+       * Token Type
+       * @default bearer
+       */
+      token_type: string;
+    };
+    /** ShareLinkListResponse */
+    ShareLinkListResponse: {
+      /** Items */
+      items: components["schemas"]["ShareLinkRead"][];
+    };
+    /** ShareLinkRead */
+    ShareLinkRead: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Expires At */
+      expires_at: string | null;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Note */
+      note: string | null;
+      /**
+       * Presentation Id
+       * Format: uuid
+       */
+      presentation_id: string;
+      /** Revoked At */
+      revoked_at: string | null;
+      role: components["schemas"]["ShareRole"];
+    };
+    /**
+     * ShareRole
+     * @enum {string}
+     */
+    ShareRole: "viewer" | "commenter" | "editor";
     /** SlideRead */
     SlideRead: {
       /**
@@ -1634,6 +1876,37 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["AuditLogListResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_deck_prompt_jobs_admin_api_v1_admin_deck_prompt_jobs_get: {
+    parameters: {
+      query?: {
+        limit?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminDeckPromptJobListResponse"];
         };
       };
       /** @description Validation Error */
@@ -2779,6 +3052,102 @@ export interface operations {
       };
     };
   };
+  list_share_links_api_v1_presentations__presentation_id__share_links_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        presentation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ShareLinkListResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  create_share_link_api_v1_presentations__presentation_id__share_links_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        presentation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ShareLinkCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ShareLinkCreateResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  revoke_share_link_api_v1_presentations__presentation_id__share_links__share_link_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        share_link_id: string;
+        presentation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   list_threads_api_v1_presentations__presentation_id__threads_get: {
     parameters: {
       query?: {
@@ -2933,6 +3302,39 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["VersionRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  exchange_share_link_api_v1_share_links_exchange_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ShareLinkExchangeRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ShareLinkExchangeResponse"];
         };
       };
       /** @description Validation Error */

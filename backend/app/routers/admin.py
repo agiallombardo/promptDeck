@@ -11,13 +11,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import Settings, get_settings
 from app.db.models.app_log import AppLog
 from app.db.models.audit_log import AuditLog
+from app.db.models.deck_prompt_job import DeckPromptJob, DeckPromptJobStatus
 from app.db.models.export_job import ExportJob
 from app.db.models.presentation import Presentation, PresentationVersion
 from app.db.models.user import User
 from app.db.session import get_db
 from app.deps import require_admin
 from app.logging_channels import LogChannel, channel_logger
+from app.rate_limit import limiter
 from app.schemas.admin import (
+    AdminDeckPromptJobListResponse,
+    AdminDeckPromptJobRead,
     AdminEntraSettingsPatch,
     AdminEntraSettingsRead,
     AdminExportJobListResponse,
@@ -252,14 +256,17 @@ async def admin_llm_settings_patch(
         or dump.get("litellm_api_key") is not None
     )
     if has_change:
-        await persist_litellm_system_settings(
-            db,
-            settings,
-            api_base=None if body.clear_litellm_api_base else body.litellm_api_base,
-            api_key=body.litellm_api_key,
-            clear_api_key=body.clear_litellm_api_key,
-            clear_api_base=body.clear_litellm_api_base,
-        )
+        try:
+            await persist_litellm_system_settings(
+                db,
+                settings,
+                api_base=None if body.clear_litellm_api_base else body.litellm_api_base,
+                api_key=body.litellm_api_key,
+                clear_api_key=body.clear_litellm_api_key,
+                clear_api_base=body.clear_litellm_api_base,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
         llm_meta_keys = [k for k, v in dump.items() if v is not None and k != "litellm_api_key"]
         await record_audit(
             db,
@@ -312,6 +319,7 @@ async def admin_smtp_test(
         status_code=200,
         latency_ms=None,
         payload={"to": to_addr},
+        auto_commit=False,
     )
     await record_audit(
         db,
@@ -319,11 +327,14 @@ async def admin_smtp_test(
         action="admin.smtp.test.sent",
         metadata={"to": to_addr},
         client_ip=client_ip_from_request(request),
+        auto_commit=False,
     )
+    await db.commit()
     return AdminSmtpTestResponse(to=to_addr)
 
 
 @router.get("/logs", response_model=AppLogListResponse)
+@limiter.limit("30/minute")
 async def list_logs(
     request: Request,
     admin_user: Annotated[User, Depends(require_admin)],
@@ -579,6 +590,68 @@ async def list_export_jobs_admin(
     return AdminExportJobListResponse(items=items)
 
 
+def _deck_prompt_prompt_preview(prompt: str, max_len: int = 120) -> str:
+    s = prompt.replace("\n", " ").strip()
+    if len(s) <= max_len:
+        return s
+    return s[: max_len - 1] + "…"
+
+
+@router.get("/deck-prompt-jobs", response_model=AdminDeckPromptJobListResponse)
+async def list_deck_prompt_jobs_admin(
+    request: Request,
+    admin_user: Annotated[User, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    limit: int = Query(default=100, ge=1, le=500),
+) -> AdminDeckPromptJobListResponse:
+    stmt = (
+        select(DeckPromptJob, Presentation.title, User.email)
+        .join(Presentation, DeckPromptJob.presentation_id == Presentation.id)
+        .join(User, DeckPromptJob.created_by == User.id)
+        .order_by(DeckPromptJob.created_at.desc())
+        .limit(limit)
+    )
+    result = await db.execute(stmt)
+    rows = result.all()
+    await write_app_log(
+        db,
+        channel=LogChannel.audit,
+        level="info",
+        event="audit.admin.deck_prompt_jobs.viewed",
+        request_id=getattr(request.state, "request_id", None),
+        user_id=admin_user.id,
+        path=str(request.url.path),
+        method=request.method,
+        status_code=200,
+        latency_ms=None,
+        payload={"result_count": len(rows)},
+    )
+    items = [
+        AdminDeckPromptJobRead(
+            id=job.id,
+            presentation_id=job.presentation_id,
+            presentation_title=title,
+            source_version_id=job.source_version_id,
+            status=str(job.status),
+            progress=job.progress,
+            error=job.error,
+            result_version_id=job.result_version_id,
+            prompt_preview=_deck_prompt_prompt_preview(job.prompt),
+            llm_model=job.llm_model,
+            prompt_tokens=job.prompt_tokens,
+            completion_tokens=job.completion_tokens,
+            total_tokens=job.total_tokens,
+            created_by=job.created_by,
+            creator_email=email,
+            created_at=job.created_at,
+            started_at=job.started_at,
+            finished_at=job.finished_at,
+        )
+        for job, title, email in rows
+    ]
+    return AdminDeckPromptJobListResponse(items=items)
+
+
 @router.get("/stats", response_model=AdminStatsRead)
 async def admin_stats(
     request: Request,
@@ -598,6 +671,23 @@ async def admin_stats(
     presentations = await _count(Presentation, Presentation.deleted_at.is_(None))
     versions = await _count(PresentationVersion)
     export_jobs = await _count(ExportJob)
+    deck_prompt_jobs = await _count(DeckPromptJob)
+    deck_prompt_jobs_24h = await _count(DeckPromptJob, DeckPromptJob.created_at >= since)
+
+    sum_stmt = select(
+        func.coalesce(func.sum(DeckPromptJob.prompt_tokens), 0),
+        func.coalesce(func.sum(DeckPromptJob.completion_tokens), 0),
+        func.coalesce(func.sum(DeckPromptJob.total_tokens), 0),
+    ).where(
+        DeckPromptJob.finished_at.is_not(None),
+        DeckPromptJob.finished_at >= since,
+        DeckPromptJob.status == DeckPromptJobStatus.succeeded,
+    )
+    sum_row = (await db.execute(sum_stmt)).one()
+    llm_prompt_tokens_24h = int(sum_row[0] or 0)
+    llm_completion_tokens_24h = int(sum_row[1] or 0)
+    llm_total_tokens_24h = int(sum_row[2] or 0)
+
     audit_events_24h = await _count(AuditLog, AuditLog.ts >= since)
     app_log_rows_24h = await _count(AppLog, AppLog.ts >= since)
 
@@ -620,6 +710,11 @@ async def admin_stats(
         presentations=presentations,
         versions=versions,
         export_jobs=export_jobs,
+        deck_prompt_jobs=deck_prompt_jobs,
+        deck_prompt_jobs_24h=deck_prompt_jobs_24h,
+        llm_prompt_tokens_24h=llm_prompt_tokens_24h,
+        llm_completion_tokens_24h=llm_completion_tokens_24h,
+        llm_total_tokens_24h=llm_total_tokens_24h,
         audit_events_24h=audit_events_24h,
         app_log_rows_24h=app_log_rows_24h,
     )

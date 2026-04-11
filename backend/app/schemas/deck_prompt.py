@@ -20,6 +20,10 @@ class DeckPromptJobRead(BaseModel):
     progress: int
     error: str | None
     result_version_id: uuid.UUID | None
+    llm_model: str | None = None
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    total_tokens: int | None = None
     created_at: datetime
     started_at: datetime | None
     finished_at: datetime | None

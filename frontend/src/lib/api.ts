@@ -519,6 +519,11 @@ export async function apiAdminStats(accessToken: string) {
     presentations: number;
     versions: number;
     export_jobs: number;
+    deck_prompt_jobs: number;
+    deck_prompt_jobs_24h: number;
+    llm_prompt_tokens_24h: number;
+    llm_completion_tokens_24h: number;
+    llm_total_tokens_24h: number;
     audit_events_24h: number;
     app_log_rows_24h: number;
   }>(`${API}/admin/stats`, { headers: { ...authHeaders(accessToken) } });
@@ -679,4 +684,31 @@ export async function apiAdminJobs(accessToken: string) {
       finished_at: string | null;
     }>;
   }>(`${API}/admin/jobs`, { headers: { ...authHeaders(accessToken) } });
+}
+
+export async function apiAdminDeckPromptJobs(accessToken: string, limit = 100) {
+  return jsonFetch<{
+    items: Array<{
+      id: string;
+      presentation_id: string;
+      presentation_title: string;
+      source_version_id: string;
+      status: string;
+      progress: number;
+      error: string | null;
+      result_version_id: string | null;
+      prompt_preview: string;
+      llm_model: string | null;
+      prompt_tokens: number | null;
+      completion_tokens: number | null;
+      total_tokens: number | null;
+      created_by: string;
+      creator_email: string;
+      created_at: string;
+      started_at: string | null;
+      finished_at: string | null;
+    }>;
+  }>(`${API}/admin/deck-prompt-jobs?limit=${limit}`, {
+    headers: { ...authHeaders(accessToken) },
+  });
 }
