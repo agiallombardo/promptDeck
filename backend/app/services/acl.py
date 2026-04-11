@@ -5,7 +5,7 @@ from __future__ import annotations
 import enum
 
 from app.db.models.presentation import Presentation
-from app.db.models.presentation_member import PresentationMember
+from app.db.models.presentation_member import PresentationMember, PresentationMemberRole
 from app.db.models.user import User, UserRole
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -39,10 +39,14 @@ async def resolve_access(
         ),
     )
     result = await db.execute(stmt)
-    member = result.scalar_one_or_none()
-    if member is None:
+    members = list(result.scalars().all())
+    if not members:
         return None
-    return PresentationAccess.editor if member.role.value == "editor" else PresentationAccess.user
+    # More than one row can match (e.g. same user_id on rows with different principals).
+    # Grant the strongest deck role present.
+    if any(m.role == PresentationMemberRole.editor for m in members):
+        return PresentationAccess.editor
+    return PresentationAccess.user
 
 
 def can_read(access: PresentationAccess | None) -> bool:
