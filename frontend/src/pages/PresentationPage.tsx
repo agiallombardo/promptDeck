@@ -48,7 +48,7 @@ export default function PresentationPage() {
   } = useComments(id ?? "", accessToken ?? "", versionId);
 
   const onManifest = useCallback(
-    (count: number, _titles?: string[]) => {
+    (count: number, _titles: string[]) => {
       void _titles;
       setSlideCount(Math.max(1, count));
       setSlideIndex(0);
@@ -165,16 +165,19 @@ export default function PresentationPage() {
         body: draftNewThread.trim(),
       });
     },
-    creatingThread: createThread.isPending,
+    onClearPending: () => {
+      setPendingPin(null);
+      setDraftNewThread("");
+    },
+    onRefresh: () => {
+      void threads.refetch();
+    },
     replyDrafts,
     onReplyDraft: (threadId: string, body: string) =>
       setReplyDrafts((prev) => ({ ...prev, [threadId]: body })),
-    onSubmitReply: handleReply,
-    resolvingThreadId: resolveThread.isPending ? (resolveThread.variables ?? null) : null,
-    onResolveThread: (threadId: string) => resolveThread.mutate(threadId),
-    deletingCommentId: deleteComment.isPending ? (deleteComment.variables ?? null) : null,
+    onReply: handleReply,
+    onResolve: (threadId: string) => resolveThread.mutate(threadId),
     onDeleteComment: (commentId: string) => deleteComment.mutate(commentId),
-    onJumpToSlide: go,
   };
 
   if (!id) {
@@ -208,10 +211,13 @@ export default function PresentationPage() {
               iframeRef={iframeRef}
               iframeSrc={iframeSrc}
               slideIndex={slideIndex}
-              slideCount={slideCount}
+              commentMode={commentMode}
+              canComment={canComment}
+              threads={threads.data?.items ?? []}
               onManifest={onManifest}
-              onThreadSelect={onThreadSelectFromCanvas}
+              onSelectThread={onThreadSelectFromCanvas}
               onSlideClick={onSlideClick}
+              onLongPressCommentMode={() => setCommentMode(true)}
             />
             {uploadError ? (
               <p className="text-sm text-accent-warning" role="alert">
@@ -246,7 +252,7 @@ export default function PresentationPage() {
             <Drawer.Content className="fixed inset-x-0 bottom-0 z-50 max-h-[88vh] rounded-t-[20px] border border-border bg-bg-elevated md:hidden">
               <div className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-border" />
               <div className="max-h-[calc(88vh-24px)] overflow-y-auto p-4">
-                <FeedbackSidebar {...feedbackSidebarProps} compact />
+                <FeedbackSidebar {...feedbackSidebarProps} embedded />
               </div>
             </Drawer.Content>
           </Drawer.Portal>

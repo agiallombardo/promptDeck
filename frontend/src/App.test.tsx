@@ -28,6 +28,7 @@ describe("HomeRedirect", () => {
       email: "e@example.com",
       display_name: null,
       role: "user",
+      auth_provider: "local",
     });
     render(
       <MemoryRouter initialEntries={["/"]}>
