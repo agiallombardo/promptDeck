@@ -1,10 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { DeckPromptTemplateChips } from "../components/DeckPromptTemplateChips";
 import { ShareModal } from "../components/ShareModal";
 import {
   apiPresentationCreate,
   apiPresentationDelete,
+  apiPresentationGenerateFromPrompt,
   apiPresentationsList,
   apiVersionUpload,
 } from "../lib/api";
@@ -42,6 +44,7 @@ export default function FileManagerPage() {
   const navigate = useNavigate();
   const uploadInputId = useId();
   const [title, setTitle] = useState("");
+  const [generatePrompt, setGeneratePrompt] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [sharePresentationId, setSharePresentationId] = useState<string | null>(null);
 
@@ -59,9 +62,10 @@ export default function FileManagerPage() {
       }
       return apiPresentationCreate(token, normalizeDeckTitle(title));
     },
-    onSuccess: async () => {
+    onSuccess: async (data) => {
       setTitle("");
       await qc.invalidateQueries({ queryKey: ["presentations", token] });
+      navigate(`/p/${data.id}`);
     },
     onError: (err: Error) => setError(err.message),
   });
@@ -78,6 +82,30 @@ export default function FileManagerPage() {
       setTitle("");
       await qc.invalidateQueries({ queryKey: ["presentations", token] });
       navigate(`/p/${presentationId}`);
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+
+  const generateFromPrompt = useMutation({
+    mutationFn: async () => {
+      setError(null);
+      const trimmedTitle = title.trim();
+      if (!trimmedTitle) {
+        throw new Error("Enter a title for the new deck.");
+      }
+      const p = generatePrompt.trim();
+      if (!p) {
+        throw new Error("Enter a prompt describing the deck you want.");
+      }
+      return apiPresentationGenerateFromPrompt(token, {
+        title: normalizeDeckTitle(title),
+        prompt: p,
+      });
+    },
+    onSuccess: async (data) => {
+      setGeneratePrompt("");
+      await qc.invalidateQueries({ queryKey: ["presentations", token] });
+      navigate(`/p/${data.presentation.id}?deckJob=${data.job.id}`);
     },
     onError: (err: Error) => setError(err.message),
   });
@@ -138,11 +166,47 @@ export default function FileManagerPage() {
           </label>
           <button
             type="button"
-            disabled={create.isPending || createAndUpload.isPending}
+            disabled={create.isPending || createAndUpload.isPending || generateFromPrompt.isPending}
             onClick={() => create.mutate()}
             className="rounded-sharp bg-primary/15 px-4 py-2 font-mono text-sm font-medium text-primary ring-1 ring-primary/40 hover:bg-primary/25 disabled:opacity-50"
           >
             {create.isPending ? "Creating…" : "Create empty deck"}
+          </button>
+        </div>
+        <div className="mt-6 border-t border-border pt-6">
+          <h3 className="font-mono text-xs uppercase tracking-wide text-text-muted">
+            Generate new deck with AI
+          </h3>
+          <p className="mt-2 text-sm text-text-muted">
+            Uses the same AI pipeline as{" "}
+            <span className="font-mono text-text-main">Edit with prompt</span> on an open deck. You
+            need a title and a brief; a starter file is created, then replaced when generation
+            finishes.
+          </p>
+          <label className="mt-3 flex flex-col gap-1 font-mono text-xs text-text-muted">
+            Prompt
+            <textarea
+              className="min-h-[100px] w-full resize-y rounded-sharp border border-border bg-bg-recessed px-3 py-2 font-body text-sm text-text-main outline-none ring-primary focus:ring-1"
+              value={generatePrompt}
+              onChange={(ev) => setGeneratePrompt(ev.target.value)}
+              placeholder="Describe the deck you want — audience, sections, tone, slide count…"
+              disabled={generateFromPrompt.isPending}
+              maxLength={16000}
+            />
+          </label>
+          <p className="mt-2 font-mono text-[11px] text-text-muted">Quick-start templates</p>
+          <DeckPromptTemplateChips
+            className="mt-2 flex flex-wrap gap-2"
+            disabled={generateFromPrompt.isPending}
+            onPick={(body) => setGeneratePrompt(body)}
+          />
+          <button
+            type="button"
+            disabled={create.isPending || createAndUpload.isPending || generateFromPrompt.isPending}
+            onClick={() => generateFromPrompt.mutate()}
+            className="mt-4 rounded-sharp border border-primary bg-primary/15 px-4 py-2 font-mono text-sm font-medium text-primary ring-1 ring-primary/40 hover:bg-primary/25 disabled:opacity-50"
+          >
+            {generateFromPrompt.isPending ? "Starting generation…" : "Generate with AI"}
           </button>
         </div>
         <div className="mt-4 border-t border-border pt-4">
@@ -156,7 +220,7 @@ export default function FileManagerPage() {
             id={uploadInputId}
             type="file"
             accept=".html,.htm,.zip,text/html,application/zip"
-            disabled={createAndUpload.isPending || create.isPending}
+            disabled={createAndUpload.isPending || create.isPending || generateFromPrompt.isPending}
             className="mt-2 block w-full max-w-md font-body text-sm text-text-main file:mr-3 file:rounded-sharp file:border file:border-border file:bg-bg-recessed file:px-3 file:py-2"
             onChange={(ev) => {
               const f = ev.target.files?.[0];

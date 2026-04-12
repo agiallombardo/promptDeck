@@ -53,6 +53,7 @@ async def create_deck_prompt_job(
         presentation_id=presentation.id,
         source_version_id=ver.id,
         prompt=body.prompt.strip(),
+        is_generation=False,
         status=DeckPromptJobStatus.queued,
         progress=0,
         status_message="Queued",

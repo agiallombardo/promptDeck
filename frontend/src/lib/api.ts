@@ -206,6 +206,20 @@ export async function apiPresentationCreate(
   });
 }
 
+export async function apiPresentationGenerateFromPrompt(
+  accessToken: string,
+  body: components["schemas"]["PresentationGenerateFromPromptCreate"],
+) {
+  return jsonFetch<components["schemas"]["PresentationGenerateFromPromptResponse"]>(
+    `${API}/presentations/generate-from-prompt`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
+      body: JSON.stringify(body),
+    },
+  );
+}
+
 export async function apiPresentationGet(accessToken: string, presentationId: string) {
   return jsonFetch<PresentationSummary>(`${API}/presentations/${presentationId}`, {
     headers: { ...authHeaders(accessToken) },

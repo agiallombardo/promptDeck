@@ -15,6 +15,7 @@ class DeckPromptJobRead(BaseModel):
     id: uuid.UUID
     presentation_id: uuid.UUID
     source_version_id: uuid.UUID
+    is_generation: bool = False
     status: DeckPromptJobStatus
     status_message: str | None
     progress: int

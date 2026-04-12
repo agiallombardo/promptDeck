@@ -661,6 +661,7 @@ async def list_deck_prompt_jobs_admin(
             presentation_id=job.presentation_id,
             presentation_title=title,
             source_version_id=job.source_version_id,
+            is_generation=job.is_generation,
             status=str(job.status),
             progress=job.progress,
             error=job.error,

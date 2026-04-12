@@ -101,6 +101,7 @@ async def test_deck_prompt_job_happy_path(editor_client: AsyncClient, monkeypatc
     assert job.status_code == 202, job.text
     jid = job.json()["id"]
     assert job.json()["status"] in ("queued", "running", "succeeded")
+    assert job.json().get("is_generation") is False
 
     status = "queued"
     err = None
@@ -221,3 +222,68 @@ async def test_deck_prompt_job_fails_if_llm_unconfigured(
 
     assert status == "failed"
     assert err and "not configured" in err.lower()
+
+
+@pytest.mark.asyncio
+async def test_generate_from_prompt_happy_path(editor_client: AsyncClient, monkeypatch) -> None:
+    async def _fake_complete(**_kwargs: object) -> DeckLlmCompletionResult:
+        return DeckLlmCompletionResult(
+            text=_EDITED_HTML,
+            prompt_tokens=11,
+            completion_tokens=21,
+            total_tokens=32,
+        )
+
+    monkeypatch.setattr(
+        "app.jobs.deck_prompt_runner.complete_deck_html_edit",
+        _fake_complete,
+    )
+
+    c = editor_client
+    r = await c.post(
+        "/api/v1/presentations/generate-from-prompt",
+        json={"title": "AI generated deck", "prompt": "Build a short deck about coffee"},
+    )
+    assert r.status_code == 202, r.text
+    body = r.json()
+    assert body["presentation"]["title"] == "AI generated deck"
+    assert body["presentation"]["current_version_id"]
+    pid = body["presentation"]["id"]
+    jid = body["job"]["id"]
+    assert body["job"]["is_generation"] is True
+
+    status = "queued"
+    err = None
+    poll_body: dict = {}
+    for _ in range(80):
+        g = await c.get(f"/api/v1/deck-prompt-jobs/{jid}")
+        assert g.status_code == 200
+        poll_body = g.json()
+        status = poll_body["status"]
+        err = poll_body.get("error")
+        if status in ("succeeded", "failed"):
+            break
+        await asyncio.sleep(0.05)
+
+    assert status == "succeeded", err
+    assert poll_body.get("result_version_id")
+    pres = await c.get(f"/api/v1/presentations/{pid}")
+    assert pres.status_code == 200
+    assert pres.json()["current_version_id"] == poll_body["result_version_id"]
+
+
+@pytest.mark.asyncio
+async def test_generate_from_prompt_503_when_llm_unconfigured(
+    editor_client: AsyncClient,
+    monkeypatch,
+) -> None:
+    monkeypatch.delenv("LITELLM_API_BASE", raising=False)
+    get_settings.cache_clear()
+
+    c = editor_client
+    r = await c.post(
+        "/api/v1/presentations/generate-from-prompt",
+        json={"title": "x", "prompt": "y"},
+    )
+    assert r.status_code == 503
+    assert "not configured" in (r.json().get("detail") or "").lower()

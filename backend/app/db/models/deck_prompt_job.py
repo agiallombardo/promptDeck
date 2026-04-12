@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 
 from app.db.base import Base
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, Uuid, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 
@@ -33,6 +33,7 @@ class DeckPromptJob(Base):
         index=True,
     )
     prompt: Mapped[str] = mapped_column(Text(), nullable=False)
+    is_generation: Mapped[bool] = mapped_column(Boolean(), nullable=False, default=False)
     status: Mapped[DeckPromptJobStatus] = mapped_column(String(32), nullable=False)
     status_message: Mapped[str | None] = mapped_column(Text(), nullable=True)
     progress: Mapped[int] = mapped_column(Integer(), nullable=False, default=0)

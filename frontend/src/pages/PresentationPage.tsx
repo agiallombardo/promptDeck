@@ -1,6 +1,7 @@
 import { Drawer } from "vaul";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { DeckPromptTemplateChips } from "../components/DeckPromptTemplateChips";
 import {
   PresentationCanvas,
   type PresentationCanvasPlaceholder,
@@ -14,12 +15,12 @@ import { usePresentation } from "../hooks/usePresentation";
 import {
   ApiError,
   apiDeckPromptJobCreate,
-  apiDeckPromptJobGet,
   apiExportCreate,
   apiExportDownloadFile,
   apiExportGet,
   apiShareExchange,
 } from "../lib/api";
+import { pollDeckPromptJobUntilTerminal } from "../lib/deckPromptPoll";
 import { shouldIgnoreDeckHotkeys } from "../lib/hotkeys";
 import { postSetCommentMode, postSlideGoto } from "../lib/slidePostMessage";
 import { useAuthStore } from "../stores/auth";
@@ -28,7 +29,7 @@ import { useToastStore } from "../stores/toasts";
 export default function PresentationPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const accessToken = useAuthStore((s) => s.accessToken);
   const setAccessToken = useAuthStore((s) => s.setAccessToken);
   const user = useAuthStore((s) => s.user);
@@ -41,6 +42,10 @@ export default function PresentationPage() {
   const [deckPromptText, setDeckPromptText] = useState("");
   const [deckPromptBusy, setDeckPromptBusy] = useState(false);
   const [deckPromptProgress, setDeckPromptProgress] = useState<{
+    pct: number;
+    msg: string;
+  } | null>(null);
+  const [deckJobFollowProgress, setDeckJobFollowProgress] = useState<{
     pct: number;
     msg: string;
   } | null>(null);
@@ -238,21 +243,9 @@ export default function PresentationPage() {
     });
     try {
       const job = await apiDeckPromptJobCreate(accessToken, id, { prompt });
-      let status = job.status;
-      let err: string | null = job.error ?? null;
-      // Backend LLM call can run up to ~300s; allow headroom for persist + network.
-      const pollMs = 500;
-      const maxPolls = 900;
-      for (let i = 0; i < maxPolls && status !== "succeeded" && status !== "failed"; i++) {
-        await new Promise((r) => setTimeout(r, pollMs));
-        const j = await apiDeckPromptJobGet(accessToken, job.id);
-        status = j.status;
-        err = j.error ?? null;
-        setDeckPromptProgress({
-          pct: j.progress ?? 0,
-          msg: (j.status_message ?? status).trim() || status,
-        });
-      }
+      const { status, error: err } = await pollDeckPromptJobUntilTerminal(accessToken, job.id, {
+        onProgress: setDeckPromptProgress,
+      });
       if (status !== "succeeded") {
         const stillRunning = status === "running" || status === "queued";
         useToastStore.getState().pushToast({
@@ -286,6 +279,88 @@ export default function PresentationPage() {
       setDeckPromptProgress(null);
     }
   }, [accessToken, deckPromptText, id, pres.data?.current_version_id, qc]);
+
+  const deckJobFromUrl = searchParams.get("deckJob");
+
+  useEffect(() => {
+    if (!deckJobFromUrl || !accessToken || !id || !canPromptEdit) {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      useToastStore.getState().pushToast({
+        level: "info",
+        message: "Finishing AI deck generation…",
+      });
+      setDeckJobFollowProgress({ pct: 0, msg: "Starting…" });
+      try {
+        const { status, error: err } = await pollDeckPromptJobUntilTerminal(
+          accessToken,
+          deckJobFromUrl,
+          {
+            firstPollImmediate: true,
+            onProgress: (p) => {
+              if (!cancelled) setDeckJobFollowProgress(p);
+            },
+          },
+        );
+        if (cancelled) return;
+
+        setSearchParams(
+          (prev) => {
+            const next = new URLSearchParams(prev);
+            next.delete("deckJob");
+            return next;
+          },
+          { replace: true },
+        );
+        setDeckJobFollowProgress(null);
+
+        if (status === "succeeded") {
+          await qc.invalidateQueries({ queryKey: ["presentation", id, accessToken] });
+          await qc.invalidateQueries({ queryKey: ["presentation-embed", id, accessToken] });
+          useToastStore.getState().pushToast({
+            level: "info",
+            message: "Deck updated — preview refreshed",
+          });
+        } else {
+          const stillRunning = status === "running" || status === "queued";
+          useToastStore.getState().pushToast({
+            level: stillRunning ? "info" : "error",
+            message: stillRunning
+              ? "AI generation is still running — refresh this page in a bit to see the new version."
+              : err?.trim()
+                ? err
+                : "AI generation failed",
+          });
+        }
+      } catch (e) {
+        if (cancelled) return;
+        setDeckJobFollowProgress(null);
+        setSearchParams(
+          (prev) => {
+            const next = new URLSearchParams(prev);
+            next.delete("deckJob");
+            return next;
+          },
+          { replace: true },
+        );
+        const msg =
+          e instanceof ApiError
+            ? `${e.message}${e.requestId ? ` · Request ID: ${e.requestId}` : ""}`
+            : e instanceof Error
+              ? e.message
+              : "AI generation failed";
+        useToastStore.getState().pushToast({ level: "error", message: msg });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken, canPromptEdit, deckJobFromUrl, id, qc, setSearchParams]);
 
   useEffect(() => {
     function onKey(ev: KeyboardEvent) {
@@ -489,6 +564,25 @@ export default function PresentationPage() {
           onToggleCommentsHidden={handleToggleCommentsHidden}
         />
 
+        {deckJobFollowProgress ? (
+          <div className="mx-auto max-w-[min(100%,88rem)] px-4 pt-2">
+            <div className="rounded-sharp border border-border bg-bg-elevated px-3 py-2 shadow-elevated">
+              <p className="font-mono text-xs text-text-muted">AI generation in progress</p>
+              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-bg-recessed">
+                <div
+                  className="h-full bg-primary transition-[width] duration-300"
+                  style={{
+                    width: `${Math.min(100, Math.max(0, deckJobFollowProgress.pct))}%`,
+                  }}
+                />
+              </div>
+              <p className="mt-1 font-mono text-[11px] text-text-muted">
+                {deckJobFollowProgress.msg}
+              </p>
+            </div>
+          </div>
+        ) : null}
+
         <div className="mx-auto grid max-w-[min(100%,88rem)] gap-6 px-4 py-4 md:grid-cols-[minmax(0,1fr)_320px]">
           <section className="space-y-4">
             <PresentationCanvas
@@ -595,6 +689,12 @@ export default function PresentationPage() {
               <p className="mt-1 font-mono text-[11px] text-text-muted">
                 Describe the change you want. A new version is created when the model finishes.
               </p>
+              <p className="mt-2 font-mono text-[11px] text-text-muted">Quick-start templates</p>
+              <DeckPromptTemplateChips
+                className="mt-1 flex flex-wrap gap-2"
+                disabled={deckPromptBusy}
+                onPick={(body) => setDeckPromptText(body)}
+              />
               <textarea
                 className="mt-3 h-32 w-full resize-y rounded-sharp border border-border bg-bg-recessed px-3 py-2 font-mono text-sm text-text-main"
                 placeholder="e.g. Change the title slide to say Q2 Review"

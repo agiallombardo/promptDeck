@@ -3,6 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
+from app.schemas.deck_prompt import DeckPromptJobRead
 from app.services.acl import PresentationAccess
 from pydantic import BaseModel, Field
 
@@ -57,6 +58,17 @@ class PresentationRead(BaseModel):
 
 class PresentationListResponse(BaseModel):
     items: list[PresentationRead]
+
+
+class PresentationGenerateFromPromptCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=500)
+    prompt: str = Field(min_length=1, max_length=16_000)
+    description: str | None = Field(default=None, max_length=10_000)
+
+
+class PresentationGenerateFromPromptResponse(BaseModel):
+    presentation: PresentationRead
+    job: DeckPromptJobRead
 
 
 class EmbedResponse(BaseModel):

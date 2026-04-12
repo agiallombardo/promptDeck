@@ -36,6 +36,7 @@ Regenerate with `just api-contract` after changing `backend/openapi.json`.
 | GET | `/api/v1/exports/{job_id}/file` | Download Export File |
 | GET | `/api/v1/presentations` | List Presentations |
 | POST | `/api/v1/presentations` | Create Presentation |
+| POST | `/api/v1/presentations/generate-from-prompt` | Generate Presentation From Prompt |
 | DELETE | `/api/v1/presentations/{presentation_id}` | Delete Presentation |
 | GET | `/api/v1/presentations/{presentation_id}` | Get Presentation Detail |
 | PATCH | `/api/v1/presentations/{presentation_id}` | Update Presentation |

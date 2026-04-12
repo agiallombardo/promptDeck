@@ -100,6 +100,7 @@ class AdminDeckPromptJobRead(BaseModel):
     presentation_id: uuid.UUID
     presentation_title: str
     source_version_id: uuid.UUID
+    is_generation: bool = False
     status: str
     progress: int
     error: str | None

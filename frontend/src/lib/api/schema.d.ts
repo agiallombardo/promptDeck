@@ -468,6 +468,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/presentations/generate-from-prompt": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Generate Presentation From Prompt */
+    post: operations["generate_presentation_from_prompt_api_v1_presentations_generate_from_prompt_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/presentations/{presentation_id}": {
     parameters: {
       query?: never;
@@ -764,6 +781,11 @@ export interface components {
        * Format: uuid
        */
       id: string;
+      /**
+       * Is Generation
+       * @default false
+       */
+      is_generation: boolean;
       /** Llm Model */
       llm_model: string | null;
       /**
@@ -1337,6 +1359,11 @@ export interface components {
        * Format: uuid
        */
       id: string;
+      /**
+       * Is Generation
+       * @default false
+       */
+      is_generation: boolean;
       /** Llm Model */
       llm_model?: string | null;
       /**
@@ -1503,6 +1530,20 @@ export interface components {
       description?: string | null;
       /** Title */
       title: string;
+    };
+    /** PresentationGenerateFromPromptCreate */
+    PresentationGenerateFromPromptCreate: {
+      /** Description */
+      description?: string | null;
+      /** Prompt */
+      prompt: string;
+      /** Title */
+      title: string;
+    };
+    /** PresentationGenerateFromPromptResponse */
+    PresentationGenerateFromPromptResponse: {
+      job: components["schemas"]["DeckPromptJobRead"];
+      presentation: components["schemas"]["PresentationRead"];
     };
     /** PresentationListResponse */
     PresentationListResponse: {
@@ -2862,6 +2903,39 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["PresentationRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  generate_presentation_from_prompt_api_v1_presentations_generate_from_prompt_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PresentationGenerateFromPromptCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PresentationGenerateFromPromptResponse"];
         };
       };
       /** @description Validation Error */

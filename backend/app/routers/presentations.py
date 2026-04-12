@@ -5,12 +5,13 @@ import uuid
 from typing import Annotated
 from urllib.parse import quote, urlencode
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.config import Settings, get_settings
+from app.db.models.deck_prompt_job import DeckPromptJob, DeckPromptJobStatus
 from app.db.models.presentation import Presentation, PresentationVersion, Slide
 from app.db.models.presentation_member import PresentationMember, PresentationMemberRole
 from app.db.models.user import User, UserRole
@@ -22,9 +23,14 @@ from app.deps import (
     get_presentation_owner,
     get_presentation_reader,
 )
+from app.jobs.deck_prompt_runner import run_deck_prompt_job
+from app.rate_limit import limiter
+from app.schemas.deck_prompt import DeckPromptJobRead
 from app.schemas.presentation import (
     EmbedResponse,
     PresentationCreate,
+    PresentationGenerateFromPromptCreate,
+    PresentationGenerateFromPromptResponse,
     PresentationListResponse,
     PresentationRead,
     PresentationUpdate,
@@ -34,6 +40,9 @@ from app.schemas.presentation import (
 from app.security.asset_signing import sign_asset
 from app.services.acl import PresentationAccess
 from app.services.audit import client_ip_from_request, record_audit
+from app.services.llm_runtime import LlmNotConfiguredError, resolve_deck_llm_credentials
+from app.services.single_html_version import persist_new_single_html_version
+from app.services.starter_deck_html import STARTER_DECK_HTML_BYTES
 
 router = APIRouter(prefix="/presentations", tags=["presentations"])
 
@@ -86,6 +95,89 @@ async def create_presentation(
     await db.refresh(p)
     access = PresentationAccess.admin if user.role == UserRole.admin else PresentationAccess.owner
     return _presentation_read(p, access=access)
+
+
+@router.post(
+    "/generate-from-prompt",
+    response_model=PresentationGenerateFromPromptResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+@limiter.limit("10/minute")
+async def generate_presentation_from_prompt(
+    request: Request,
+    body: PresentationGenerateFromPromptCreate,
+    background_tasks: BackgroundTasks,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> PresentationGenerateFromPromptResponse:
+    try:
+        await resolve_deck_llm_credentials(db, settings, user.id)
+    except LlmNotConfiguredError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+
+    p = Presentation(
+        owner_id=user.id,
+        title=body.title.strip(),
+        description=body.description,
+    )
+    db.add(p)
+    await db.commit()
+    await db.refresh(p)
+
+    ver = await persist_new_single_html_version(
+        settings=settings,
+        db=db,
+        presentation_id=p.id,
+        html_bytes=STARTER_DECK_HTML_BYTES,
+        entry_filename="index.html",
+        origin="ai_starter",
+        created_by=user.id,
+    )
+    await db.refresh(p)
+
+    result_cv = await db.execute(
+        select(PresentationVersion)
+        .where(PresentationVersion.id == ver.id)
+        .options(selectinload(PresentationVersion.slides))
+    )
+    cv_row = result_cv.scalar_one()
+    access = PresentationAccess.admin if user.role == UserRole.admin else PresentationAccess.owner
+    pres_read = _presentation_read(p, access=access, current_version=cv_row)
+
+    job = DeckPromptJob(
+        presentation_id=p.id,
+        source_version_id=ver.id,
+        prompt=body.prompt.strip(),
+        is_generation=True,
+        status=DeckPromptJobStatus.queued,
+        progress=0,
+        status_message="Queued",
+        created_by=user.id,
+    )
+    db.add(job)
+    await db.commit()
+    await db.refresh(job)
+
+    await record_audit(
+        db,
+        actor_id=user.id,
+        action="presentation.generate_from_prompt.created",
+        target_kind="deck_prompt_job",
+        target_id=job.id,
+        metadata={
+            "presentation_id": str(p.id),
+            "job_id": str(job.id),
+            "source_version_id": str(ver.id),
+        },
+        client_ip=client_ip_from_request(request),
+    )
+
+    background_tasks.add_task(run_deck_prompt_job, job.id)
+    return PresentationGenerateFromPromptResponse(
+        presentation=pres_read,
+        job=DeckPromptJobRead.model_validate(job),
+    )
 
 
 @router.get("", response_model=PresentationListResponse)
