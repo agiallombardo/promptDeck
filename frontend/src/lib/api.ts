@@ -193,9 +193,22 @@ export async function apiAdminEntraPatch(
 }
 
 export async function apiPresentationsList(accessToken: string) {
-  return jsonFetch<{ items: PresentationSummary[] }>(`${API}/presentations`, {
-    headers: { ...authHeaders(accessToken) },
-  });
+  const items: PresentationSummary[] = [];
+  let next: string | null | undefined;
+  do {
+    const params = new URLSearchParams();
+    if (next) params.set("cursor", next);
+    const qs = params.toString();
+    const page = await jsonFetch<{ items: PresentationSummary[]; next_cursor?: string | null }>(
+      `${API}/presentations${qs ? `?${qs}` : ""}`,
+      {
+        headers: { ...authHeaders(accessToken) },
+      },
+    );
+    items.push(...page.items);
+    next = page.next_cursor ?? null;
+  } while (next);
+  return { items };
 }
 
 export async function apiPresentationCreate(
@@ -251,15 +264,23 @@ export async function apiThreadsList(
   presentationId: string,
   versionId?: string | null,
 ) {
-  const params = new URLSearchParams();
-  if (versionId) params.set("version_id", versionId);
-  const qs = params.toString();
-  return jsonFetch<{ items: ThreadDto[] }>(
-    `${API}/presentations/${presentationId}/threads${qs ? `?${qs}` : ""}`,
-    {
-      headers: { ...authHeaders(accessToken) },
-    },
-  );
+  const items: ThreadDto[] = [];
+  let next: string | null | undefined;
+  do {
+    const params = new URLSearchParams();
+    if (versionId) params.set("version_id", versionId);
+    if (next) params.set("cursor", next);
+    const qs = params.toString();
+    const page = await jsonFetch<{ items: ThreadDto[]; next_cursor?: string | null }>(
+      `${API}/presentations/${presentationId}/threads${qs ? `?${qs}` : ""}`,
+      {
+        headers: { ...authHeaders(accessToken) },
+      },
+    );
+    items.push(...page.items);
+    next = page.next_cursor ?? null;
+  } while (next);
+  return { items };
 }
 
 export async function apiThreadCreate(

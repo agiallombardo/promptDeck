@@ -53,3 +53,4 @@ class ThreadRead(BaseModel):
 
 class ThreadListResponse(BaseModel):
     items: list[ThreadRead]
+    next_cursor: str | None = None

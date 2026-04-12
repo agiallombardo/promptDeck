@@ -21,7 +21,7 @@ def sign_asset(
     exp: int,
 ) -> str:
     digest = hmac.new(
-        settings.jwt_secret_key.encode(),
+        settings.asset_signing_secret_bytes(),
         _msg(version_id, exp, user_id, role),
         hashlib.sha256,
     ).hexdigest()

@@ -2,17 +2,18 @@ from __future__ import annotations
 
 import secrets
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 from urllib.parse import quote, urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import RedirectResponse
 
 from app.config import Settings, get_settings
 from app.db.models.presentation_member import PresentationMember
+from app.db.models.refresh_session import RefreshSession
 from app.db.models.user import AuthProvider, User, UserRole
 from app.db.session import get_db
 from app.deps import get_current_user
@@ -43,6 +44,15 @@ from app.services.token_crypto import encrypt_text
 
 router = APIRouter()
 log = channel_logger(LogChannel.auth)
+
+
+def _as_utc(dt: datetime) -> datetime:
+    """SQLite may return naive datetimes; normalize for comparisons."""
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC)
+
+
 REFRESH_COOKIE = "refresh_token"
 STATE_COOKIE = "entra_auth_state"
 NONCE_COOKIE = "entra_auth_nonce"
@@ -96,15 +106,30 @@ def _clear_entra_cookies(response: Response) -> None:
         response.delete_cookie(key, path="/api/v1/auth/entra")
 
 
-def _login_response(settings: Settings, user: User, response: Response) -> LoginResponse:
+async def _persist_refresh_session(
+    db: AsyncSession,
+    settings: Settings,
+    user: User,
+    response: Response,
+) -> None:
+    jti = uuid.uuid4()
+    expires_at = datetime.now(UTC) + timedelta(days=settings.refresh_token_expire_days)
+    db.add(RefreshSession(id=jti, user_id=user.id, expires_at=expires_at))
+    await db.flush()
+    token = create_refresh_token(settings, user_id=user.id, jti=jti)
+    _set_refresh_cookie(response, settings, token)
+
+
+async def _login_response(
+    db: AsyncSession, settings: Settings, user: User, response: Response
+) -> LoginResponse:
+    await _persist_refresh_session(db, settings, user, response)
     access = create_access_token(
         settings,
         user_id=user.id,
         email=user.email,
         role=str(user.role),
     )
-    refresh = create_refresh_token(settings, user_id=user.id)
-    _set_refresh_cookie(response, settings, refresh)
     return LoginResponse(
         access_token=access,
         expires_in=settings.access_token_expire_minutes * 60,
@@ -344,8 +369,7 @@ async def entra_callback(
         f"{settings.public_app_url.rstrip('/')}{next_path}",
         status_code=status.HTTP_302_FOUND,
     )
-    refresh = create_refresh_token(settings, user_id=user.id)
-    _set_refresh_cookie(session_response, settings, refresh)
+    await _persist_refresh_session(db, settings, user, session_response)
     _clear_entra_cookies(session_response)
     log.info("auth.entra.login.success", user_id=str(user.id), email=user.email)
     await _persist_auth_log(
@@ -379,6 +403,8 @@ async def login(
 ) -> LoginResponse:
     if not settings.local_password_auth_enabled:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Local login disabled")
+
+    _assert_same_origin_for_cookie_auth(request, settings)
 
     email = body.email.lower().strip()
     result = await db.execute(select(User).where(User.email == email, User.deleted_at.is_(None)))
@@ -415,7 +441,7 @@ async def login(
     await db.commit()
     await db.refresh(user)
 
-    out = _login_response(settings, user, response)
+    out = await _login_response(db, settings, user, response)
     log.info("auth.login.success", user_id=str(user.id), email=user.email)
     await _persist_auth_log(
         db,
@@ -586,6 +612,70 @@ async def refresh(
         ) from e
 
     uid = uuid.UUID(str(data["sub"]))
+    jti_raw = data.get("jti")
+    if not jti_raw:
+        _clear_refresh_cookie(response)
+        log.warning("auth.refresh.missing_jti")
+        await _persist_auth_log(
+            db,
+            request=request,
+            level="warning",
+            event="auth.refresh.missing_jti",
+            user_id=None,
+            status_code=401,
+            payload=None,
+        )
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token",
+        )
+    try:
+        old_jti = uuid.UUID(str(jti_raw))
+    except ValueError:
+        _clear_refresh_cookie(response)
+        log.warning("auth.refresh.bad_jti")
+        await _persist_auth_log(
+            db,
+            request=request,
+            level="warning",
+            event="auth.refresh.bad_jti",
+            user_id=None,
+            status_code=401,
+            payload=None,
+        )
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token",
+        ) from None
+
+    now = datetime.now(UTC)
+    sess_row = await db.execute(
+        select(RefreshSession).where(
+            RefreshSession.id == old_jti,
+            RefreshSession.user_id == uid,
+        )
+    )
+    sess = sess_row.scalar_one_or_none()
+    if sess is None or sess.revoked_at is not None or _as_utc(sess.expires_at) <= now:
+        _clear_refresh_cookie(response)
+        log.warning("auth.refresh.session_invalid", sub=str(uid))
+        await _persist_auth_log(
+            db,
+            request=request,
+            level="warning",
+            event="auth.refresh.session_invalid",
+            user_id=None,
+            status_code=401,
+            payload={"sub": str(uid)},
+        )
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token",
+        )
+
     result = await db.execute(select(User).where(User.id == uid, User.deleted_at.is_(None)))
     user = result.scalar_one_or_none()
     if user is None:
@@ -606,7 +696,26 @@ async def refresh(
             detail="User not found",
         )
 
-    out = _login_response(settings, user, response)
+    new_jti = uuid.uuid4()
+    new_exp = datetime.now(UTC) + timedelta(days=settings.refresh_token_expire_days)
+    sess.revoked_at = now
+    sess.replaced_by_id = new_jti
+    db.add(RefreshSession(id=new_jti, user_id=uid, expires_at=new_exp))
+    await db.flush()
+    new_refresh = create_refresh_token(settings, user_id=uid, jti=new_jti)
+    _set_refresh_cookie(response, settings, new_refresh)
+
+    access = create_access_token(
+        settings,
+        user_id=user.id,
+        email=user.email,
+        role=str(user.role),
+    )
+    out = LoginResponse(
+        access_token=access,
+        expires_in=settings.access_token_expire_minutes * 60,
+        user=UserPublic.model_validate(user),
+    )
     log.info("auth.refresh.success", user_id=str(user.id))
     await _persist_auth_log(
         db,
@@ -630,6 +739,25 @@ async def logout(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> MessageResponse:
     _assert_same_origin_for_cookie_auth(request, settings)
+    token = request.cookies.get(REFRESH_COOKIE)
+    if token:
+        try:
+            payload = decode_token_typed(settings, token, "refresh")
+            jti_raw = payload.get("jti")
+            if jti_raw:
+                jti = uuid.UUID(str(jti_raw))
+                sub = uuid.UUID(str(payload["sub"]))
+                await db.execute(
+                    update(RefreshSession)
+                    .where(
+                        RefreshSession.id == jti,
+                        RefreshSession.user_id == sub,
+                        RefreshSession.revoked_at.is_(None),
+                    )
+                    .values(revoked_at=datetime.now(UTC))
+                )
+        except ValueError:
+            pass
     _clear_refresh_cookie(response)
     _clear_entra_cookies(response)
     log.info("auth.logout")

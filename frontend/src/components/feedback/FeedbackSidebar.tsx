@@ -134,6 +134,7 @@ export function FeedbackSidebar({
             key={t.id}
             domId={`thread-card-${t.id}`}
             thread={t}
+            canComment={canComment}
             currentUserId={currentUserId}
             replyDraft={replyDrafts[t.id] ?? ""}
             onReplyDraft={(v) => onReplyDraft(t.id, v)}
@@ -150,6 +151,7 @@ export function FeedbackSidebar({
 function ThreadCard({
   domId,
   thread,
+  canComment,
   currentUserId,
   replyDraft,
   onReplyDraft,
@@ -159,6 +161,7 @@ function ThreadCard({
 }: {
   domId: string;
   thread: ThreadDto;
+  canComment: boolean;
   currentUserId: string | null;
   replyDraft: string;
   onReplyDraft: (v: string) => void;
@@ -177,7 +180,7 @@ function ThreadCard({
             ({thread.anchor_x.toFixed(2)}, {thread.anchor_y.toFixed(2)})
           </p>
         </div>
-        {thread.status === "open" ? (
+        {canComment && thread.status === "open" ? (
           <button
             type="button"
             className="rounded-sharp border border-border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-text-muted hover:text-primary"
@@ -192,37 +195,42 @@ function ThreadCard({
           <CommentLine
             key={c.id}
             comment={c}
+            canComment={canComment}
             currentUserId={currentUserId}
             onDelete={() => onDeleteComment(c.id)}
           />
         ))}
       </ul>
-      <div className="mt-3 space-y-2">
-        <textarea
-          className="w-full rounded-sharp border border-border bg-bg-void px-2 py-2 font-body text-sm text-text-main outline-none ring-primary focus:ring-1"
-          rows={2}
-          placeholder="Reply…"
-          value={replyDraft}
-          onChange={(ev) => onReplyDraft(ev.target.value)}
-        />
-        <button
-          type="button"
-          className="rounded-sharp bg-primary/10 px-3 py-1 font-mono text-xs text-primary ring-1 ring-primary/30"
-          onClick={onReply}
-        >
-          Send reply
-        </button>
-      </div>
+      {canComment ? (
+        <div className="mt-3 space-y-2">
+          <textarea
+            className="w-full rounded-sharp border border-border bg-bg-void px-2 py-2 font-body text-sm text-text-main outline-none ring-primary focus:ring-1"
+            rows={2}
+            placeholder="Reply…"
+            value={replyDraft}
+            onChange={(ev) => onReplyDraft(ev.target.value)}
+          />
+          <button
+            type="button"
+            className="rounded-sharp bg-primary/10 px-3 py-1 font-mono text-xs text-primary ring-1 ring-primary/30"
+            onClick={onReply}
+          >
+            Send reply
+          </button>
+        </div>
+      ) : null}
     </article>
   );
 }
 
 function CommentLine({
   comment,
+  canComment,
   currentUserId,
   onDelete,
 }: {
   comment: CommentDto;
+  canComment: boolean;
   currentUserId: string | null;
   onDelete: () => void;
 }) {
@@ -236,7 +244,7 @@ function CommentLine({
     <li className="rounded-sharp border border-border/60 bg-bg-void/40 px-2 py-2">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <p className="font-mono text-[10px] text-text-muted">{label}</p>
-        {mine ? (
+        {canComment && mine ? (
           <button
             type="button"
             className="font-mono text-[10px] text-accent-warning hover:underline"

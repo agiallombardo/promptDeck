@@ -129,6 +129,7 @@ async def test_refresh_rejects_cross_site_origin(
 
     login = await client.post(
         "/api/v1/auth/login",
+        headers={"Origin": "http://app.local"},
         json={"email": "csrf-refresh@example.com", "password": "secret-pass-9"},
     )
     assert login.status_code == 200
@@ -164,12 +165,82 @@ async def test_refresh_allows_localhost_when_public_app_is_loopback(
 
     login = await client.post(
         "/api/v1/auth/login",
+        headers={"Origin": "http://127.0.0.1:5174"},
         json={"email": "loopback@example.com", "password": "loop-pass"},
     )
     assert login.status_code == 200
 
     refresh = await client.post("/api/v1/auth/refresh", headers={"Origin": "http://localhost:5174"})
     assert refresh.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_login_rejects_cross_site_origin(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ENVIRONMENT", "development")
+    monkeypatch.setenv("PUBLIC_APP_URL", "http://app.local")
+    get_settings.cache_clear()
+
+    uid = uuid.uuid4()
+    async with session_factory()() as session:
+        session.add(
+            User(
+                id=uid,
+                email="csrf-login@example.com",
+                display_name="Login",
+                password_hash=hash_password("secret-pass-login"),
+                role=UserRole.user,
+            )
+        )
+        await session.commit()
+
+    bad = await client.post(
+        "/api/v1/auth/login",
+        headers={"Origin": "http://evil.local"},
+        json={"email": "csrf-login@example.com", "password": "secret-pass-login"},
+    )
+    assert bad.status_code == 403
+
+    ok = await client.post(
+        "/api/v1/auth/login",
+        headers={"Origin": "http://app.local"},
+        json={"email": "csrf-login@example.com", "password": "secret-pass-login"},
+    )
+    assert ok.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_refresh_rejects_reused_token_after_rotation(client: AsyncClient) -> None:
+    uid = uuid.uuid4()
+    async with session_factory()() as session:
+        session.add(
+            User(
+                id=uid,
+                email="rotate2@example.com",
+                display_name="Rotate",
+                password_hash=hash_password("rotate-pass-2"),
+                role=UserRole.user,
+            )
+        )
+        await session.commit()
+
+    login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "rotate2@example.com", "password": "rotate-pass-2"},
+    )
+    assert login.status_code == 200
+    old_refresh = client.cookies.get("refresh_token")
+    assert old_refresh
+
+    first = await client.post("/api/v1/auth/refresh")
+    assert first.status_code == 200
+    new_refresh = client.cookies.get("refresh_token")
+    assert new_refresh and new_refresh != old_refresh
+
+    client.cookies.set("refresh_token", old_refresh, path="/api/v1")
+    replay = await client.post("/api/v1/auth/refresh")
+    assert replay.status_code == 401
 
 
 @pytest.mark.asyncio

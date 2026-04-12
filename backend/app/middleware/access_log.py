@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import time
 import uuid
 from collections.abc import Awaitable, Callable
@@ -61,23 +62,42 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
             ua = request.headers.get("user-agent")
             if ua:
                 payload["user_agent"] = ua[:240]
-            try:
-                async with session_factory()() as session:
-                    await write_app_log(
-                        session,
-                        channel=LogChannel.http,
-                        level=log_level,
-                        event="http.request",
-                        request_id=request_id,
-                        user_id=user,
-                        path=path,
-                        method=method,
-                        status_code=status_code,
-                        latency_ms=latency_ms,
-                        payload=payload or None,
-                    )
-            except Exception:
-                log.exception("app_log.write_failed", path=path)
+            skip_db_log = method == "GET" and path == "/health" and 200 <= status_code < 300
+            if not skip_db_log:
+                rid = request_id
+                uid = user
+                path_log = path
+                method_log = method
+                status_log = status_code
+                latency_log = latency_ms
+                level_log = log_level
+                payload_log = dict(payload) if payload else None
+
+                async def _persist_http_app_log() -> None:
+                    try:
+                        async with session_factory()() as session:
+                            await write_app_log(
+                                session,
+                                channel=LogChannel.http,
+                                level=level_log,
+                                event="http.request",
+                                request_id=rid,
+                                user_id=uid,
+                                path=path_log,
+                                method=method_log,
+                                status_code=status_log,
+                                latency_ms=latency_log,
+                                payload=payload_log,
+                                auto_commit=False,
+                            )
+                            await session.commit()
+                    except Exception:
+                        log.exception("app_log.write_failed", path=path_log)
+
+                try:
+                    asyncio.get_running_loop().create_task(_persist_http_app_log())
+                except RuntimeError:
+                    await _persist_http_app_log()
             if response is not None:
                 response.headers["X-Request-ID"] = request_id
 

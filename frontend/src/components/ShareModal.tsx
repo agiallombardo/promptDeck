@@ -24,6 +24,7 @@ const MEMBER_ROLE_OPTIONS = [
 const SHARE_LINK_ROLE_OPTIONS = [
   { value: "viewer" as const, label: "Viewer" },
   { value: "commenter" as const, label: "Commenter" },
+  { value: "editor" as const, label: "Editor (can upload & share)" },
 ] as const;
 
 function roleLabel(role: "editor" | "user"): string {

@@ -5,7 +5,7 @@ import uuid
 from typing import Annotated
 from urllib.parse import quote, urlencode
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -40,6 +40,7 @@ from app.schemas.presentation import (
 from app.security.asset_signing import sign_asset
 from app.services.acl import PresentationAccess
 from app.services.audit import client_ip_from_request, record_audit
+from app.services.keyset_cursor import decode_keyset_cursor, encode_keyset_cursor
 from app.services.llm_runtime import LlmNotConfiguredError, resolve_deck_llm_credentials
 from app.services.single_html_version import persist_new_single_html_version
 from app.services.starter_deck_html import STARTER_DECK_HTML_BYTES
@@ -184,16 +185,34 @@ async def generate_presentation_from_prompt(
 async def list_presentations(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    cursor: Annotated[str | None, Query(description="Keyset pagination cursor")] = None,
 ) -> PresentationListResponse:
+    pair = decode_keyset_cursor(cursor)
+    if cursor is not None and cursor.strip() and pair is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid cursor")
+    fetch = limit + 1
+
     if user.role == UserRole.admin:
-        stmt = (
-            select(Presentation)
-            .where(Presentation.deleted_at.is_(None))
-            .order_by(Presentation.updated_at.desc())
-        )
+        stmt = select(Presentation).where(Presentation.deleted_at.is_(None))
+        if pair:
+            cts, cid = pair
+            stmt = stmt.where(
+                or_(
+                    Presentation.updated_at < cts,
+                    and_(Presentation.updated_at == cts, Presentation.id < cid),
+                )
+            )
+        stmt = stmt.order_by(Presentation.updated_at.desc(), Presentation.id.desc()).limit(fetch)
         rows = (await db.execute(stmt)).scalars().all()
+        page = rows[:limit]
+        next_c = None
+        if len(rows) > limit:
+            tail = page[-1]
+            next_c = encode_keyset_cursor(tail.updated_at, tail.id)
         return PresentationListResponse(
-            items=[_presentation_read(row, access=PresentationAccess.admin) for row in rows]
+            items=[_presentation_read(row, access=PresentationAccess.admin) for row in page],
+            next_cursor=next_c,
         )
 
     join_cond = and_(
@@ -217,19 +236,35 @@ async def list_presentations(
         .outerjoin(PresentationMember, join_cond)
         .where(Presentation.deleted_at.is_(None))
         .where(or_(Presentation.owner_id == user.id, PresentationMember.id.is_not(None)))
-        .group_by(Presentation.id)
-        .order_by(Presentation.updated_at.desc())
+    )
+    if pair:
+        cts, cid = pair
+        stmt = stmt.where(
+            or_(
+                Presentation.updated_at < cts,
+                and_(Presentation.updated_at == cts, Presentation.id < cid),
+            )
+        )
+    stmt = (
+        stmt.group_by(Presentation.id)
+        .order_by(Presentation.updated_at.desc(), Presentation.id.desc())
+        .limit(fetch)
     )
     rows = (await db.execute(stmt)).all()
+    page_rows = rows[:limit]
     items: list[PresentationRead] = []
-    for row, rank in rows:
+    for row, rank in page_rows:
         access = PresentationAccess.user
         if int(rank or 1) >= 3:
             access = PresentationAccess.owner
         elif int(rank or 1) == 2:
             access = PresentationAccess.editor
         items.append(_presentation_read(row, access=access))
-    return PresentationListResponse(items=items)
+    next_c = None
+    if len(rows) > limit and page_rows:
+        tail = page_rows[-1][0]
+        next_c = encode_keyset_cursor(tail.updated_at, tail.id)
+    return PresentationListResponse(items=items, next_cursor=next_c)
 
 
 @router.get("/{presentation_id}", response_model=PresentationRead)

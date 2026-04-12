@@ -75,7 +75,7 @@ Targets a **local or LAN** machine (no public domain): users open something like
 ## Deploy artifacts (samples)
 
 - **API process:** `deploy/systemd/promptdeck-api.service` — expects repo at `/opt/promptDeck`; adjust `User`, `WorkingDirectory`, and `EnvironmentFile` (e.g. `/etc/promptdeck/.env` with `DATABASE_URL`, `JWT_SECRET_KEY`, `STORAGE_ROOT`, `PUBLIC_APP_URL`, `CORS_ORIGINS`).
-- **Reverse proxy:** `deploy/nginx/promptdeck.conf.sample` — port **80** redirects to **HTTPS** on **443** (self-signed or real certs); static files and `/api/` + `/a/` proxies on 443 only. Plain HTTP-only nginx: see **`docs/UBUNTU_SERVER_SETUP.md` §3.2**. LAN **IP** + self-signed: **§3.3** (cert SAN + `PUBLIC_APP_URL` / `CORS_ORIGINS` / `COOKIE_SECURE`).
+- **Reverse proxy:** `deploy/nginx/promptdeck.conf.sample` — port **80** redirects to **HTTPS** on **443** (self-signed or real certs); static files and `/api/` + `/a/` proxies on 443 only; sample includes baseline security headers (see comments in file for HSTS/CSP notes). Plain HTTP-only nginx: see **`docs/UBUNTU_SERVER_SETUP.md` §3.2**. LAN **IP** + self-signed: **§3.3** (cert SAN + `PUBLIC_APP_URL` / `CORS_ORIGINS` / `COOKIE_SECURE`).
 - **Backups:** `scripts/backup_pg.sh` — gzip `pg_dump` using `DATABASE_URL` (async URL is rewritten to `postgresql://` for libpq).
 
 After deploy: `alembic upgrade head` (same as `just db-migrate` from `backend/`; on a **fresh** DB this one pass creates the full schema). Run `scripts/bootstrap_users.py` once if you need initial login accounts (not the editor unless `ENVIRONMENT=development` or `BOOTSTRAP_DEMO_USERS=1`). Use `scripts/seed.py` only for application data seeding (currently a no-op). Reload nginx, `systemctl restart promptdeck-api`.

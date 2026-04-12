@@ -4,10 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from app.main import _install_static_site
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-
-from app.main import _install_static_site
 
 
 def test_static_spa_returns_404_for_api_prefix_paths(tmp_path: Path) -> None:

@@ -58,6 +58,7 @@ class PresentationRead(BaseModel):
 
 class PresentationListResponse(BaseModel):
     items: list[PresentationRead]
+    next_cursor: str | None = None
 
 
 class PresentationGenerateFromPromptCreate(BaseModel):

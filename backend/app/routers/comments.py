@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -31,6 +31,7 @@ from app.schemas.comment import (
     ThreadRead,
 )
 from app.services.acl import PresentationAccess, can_write_comments, resolve_access
+from app.services.keyset_cursor import decode_keyset_cursor, encode_keyset_cursor
 
 router = APIRouter(tags=["comments"])
 
@@ -121,22 +122,42 @@ async def list_threads(
     grant: Annotated[PresentationGrant, Depends(get_presentation_reader)],
     db: Annotated[AsyncSession, Depends(get_db)],
     version_id: Annotated[uuid.UUID | None, Query(description="Filter by version")] = None,
+    limit: Annotated[int, Query(ge=1, le=200)] = 100,
+    cursor: Annotated[str | None, Query(description="Keyset pagination cursor")] = None,
 ) -> ThreadListResponse:
     vid = version_id or grant.presentation.current_version_id
     if vid is None:
-        return ThreadListResponse(items=[])
+        return ThreadListResponse(items=[], next_cursor=None)
 
-    result = await db.execute(
-        select(CommentThread)
-        .where(
-            CommentThread.presentation_id == grant.presentation.id,
-            CommentThread.version_id == vid,
-        )
-        .options(selectinload(CommentThread.comments).selectinload(Comment.author))
-        .order_by(CommentThread.created_at.desc())
+    pair = decode_keyset_cursor(cursor)
+    if cursor is not None and cursor.strip() and pair is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid cursor")
+    fetch = limit + 1
+
+    stmt = select(CommentThread).where(
+        CommentThread.presentation_id == grant.presentation.id,
+        CommentThread.version_id == vid,
     )
-    rows = result.scalars().all()
-    return ThreadListResponse(items=[_thread_read(t) for t in rows])
+    if pair:
+        cts, cid = pair
+        stmt = stmt.where(
+            or_(
+                CommentThread.created_at < cts,
+                and_(CommentThread.created_at == cts, CommentThread.id < cid),
+            )
+        )
+    stmt = (
+        stmt.options(selectinload(CommentThread.comments).selectinload(Comment.author))
+        .order_by(CommentThread.created_at.desc(), CommentThread.id.desc())
+        .limit(fetch)
+    )
+    rows = (await db.execute(stmt)).scalars().all()
+    page = rows[:limit]
+    next_c = None
+    if len(rows) > limit and page:
+        tail = page[-1]
+        next_c = encode_keyset_cursor(tail.created_at, tail.id)
+    return ThreadListResponse(items=[_thread_read(t) for t in page], next_cursor=next_c)
 
 
 @router.post(

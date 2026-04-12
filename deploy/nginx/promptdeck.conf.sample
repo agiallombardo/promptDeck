@@ -25,6 +25,13 @@ server {
     ssl_certificate     /etc/ssl/promptdeck/fullchain.pem;
     ssl_certificate_key /etc/ssl/promptdeck/privkey.pem;
 
+    # Baseline hardening (tune per deployment). HSTS below is commented: enable only with a stable
+    # HTTPS hostname (not typical raw-IP lab setups). Add CSP at the edge if you need stricter policy.
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
+    # add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
     client_max_body_size 12m;
 
     root /opt/promptDeck/frontend/dist;

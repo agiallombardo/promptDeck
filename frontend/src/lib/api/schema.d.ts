@@ -1553,6 +1553,8 @@ export interface components {
     PresentationListResponse: {
       /** Items */
       items: components["schemas"]["PresentationRead"][];
+      /** Next Cursor */
+      next_cursor?: string | null;
     };
     /** PresentationMemberCreate */
     PresentationMemberCreate: {
@@ -1792,6 +1794,8 @@ export interface components {
     ThreadListResponse: {
       /** Items */
       items: components["schemas"]["ThreadRead"][];
+      /** Next Cursor */
+      next_cursor?: string | null;
     };
     /** ThreadPatch */
     ThreadPatch: {
@@ -2869,7 +2873,11 @@ export interface operations {
   };
   list_presentations_api_v1_presentations_get: {
     parameters: {
-      query?: never;
+      query?: {
+        limit?: number;
+        /** @description Keyset pagination cursor */
+        cursor?: string | null;
+      };
       header?: never;
       path?: never;
       cookie?: never;
@@ -2883,6 +2891,15 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["PresentationListResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };
@@ -3382,6 +3399,9 @@ export interface operations {
       query?: {
         /** @description Filter by version */
         version_id?: string | null;
+        limit?: number;
+        /** @description Keyset pagination cursor */
+        cursor?: string | null;
       };
       header?: never;
       path: {

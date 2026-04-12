@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { apiAuthConfig, apiLogin } from "../lib/api";
 import { useAuthStore } from "../stores/auth";
@@ -14,6 +14,20 @@ export default function LoginPage() {
   const [pending, setPending] = useState(false);
   const [config, setConfig] = useState<Awaited<ReturnType<typeof apiAuthConfig>> | null>(null);
   const [configError, setConfigError] = useState<string | null>(null);
+  const [configLoading, setConfigLoading] = useState(true);
+
+  const loadAuthConfig = useCallback(async () => {
+    setConfigError(null);
+    setConfigLoading(true);
+    try {
+      const data = await apiAuthConfig();
+      setConfig(data);
+    } catch (err) {
+      setConfigError(err instanceof Error ? err.message : "Failed to load auth");
+    } finally {
+      setConfigLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (token) {
@@ -22,18 +36,8 @@ export default function LoginPage() {
   }, [navigate, token]);
 
   useEffect(() => {
-    let cancelled = false;
-    void apiAuthConfig()
-      .then((data) => {
-        if (!cancelled) setConfig(data);
-      })
-      .catch((err) => {
-        if (!cancelled) setConfigError(err instanceof Error ? err.message : "Failed to load auth");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    void loadAuthConfig();
+  }, [loadAuthConfig]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -63,9 +67,19 @@ export default function LoginPage() {
         </p>
 
         {configError ? (
-          <p className="mt-4 text-sm text-accent-warning" role="alert">
-            {configError}
-          </p>
+          <div className="mt-4 space-y-2">
+            <p className="text-sm text-accent-warning" role="alert">
+              {configError}
+            </p>
+            <button
+              type="button"
+              className="rounded-sharp border border-border px-3 py-1 font-mono text-xs hover:bg-bg-recessed disabled:opacity-50"
+              disabled={configLoading}
+              onClick={() => void loadAuthConfig()}
+            >
+              {configLoading ? "Retrying…" : "Retry loading sign-in options"}
+            </button>
+          </div>
         ) : null}
         {error ? (
           <p className="mt-4 text-sm text-accent-warning" role="alert">
@@ -80,11 +94,11 @@ export default function LoginPage() {
           >
             Sign in with Microsoft
           </a>
-        ) : (
+        ) : config && !config.entra_enabled ? null : configLoading ? (
           <p className="mt-6 font-mono text-sm text-text-muted">Loading sign-in options…</p>
-        )}
+        ) : null}
 
-        {config?.local_password_auth_enabled ? (
+        {(config?.local_password_auth_enabled ?? true) || configError ? (
           <form
             className="mt-8 flex flex-col gap-4 border-t border-border pt-6"
             onSubmit={onSubmit}
@@ -122,6 +136,13 @@ export default function LoginPage() {
               {pending ? "Signing in…" : "Sign in with local account"}
             </button>
           </form>
+        ) : null}
+
+        {configError && !(config?.local_password_auth_enabled ?? true) ? (
+          <p className="mt-4 text-xs text-text-muted">
+            If local sign-in is enabled on the server, you can still try the form above; otherwise
+            fix the network issue and refresh the page.
+          </p>
         ) : null}
       </div>
     </div>

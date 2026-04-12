@@ -21,6 +21,11 @@ class Settings(BaseSettings):
         description="SQLAlchemy async URL (postgresql+asyncpg://… or sqlite+aiosqlite://…)",
     )
     jwt_secret_key: str = Field(default="dev-change-me-in-production", min_length=16)
+    asset_signing_key: str | None = Field(
+        default=None,
+        validation_alias="ASSET_SIGNING_KEY",
+        description="HMAC key for /a/ signed URLs; defaults to jwt_secret_key if unset",
+    )
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 14
@@ -160,6 +165,10 @@ class Settings(BaseSettings):
         if s in ("none", "relay", "anonymous"):
             return "none"
         return "login"
+
+    def asset_signing_secret_bytes(self) -> bytes:
+        raw = (self.asset_signing_key or self.jwt_secret_key).encode()
+        return raw
 
     @property
     def entra_redirect_uri(self) -> str:
