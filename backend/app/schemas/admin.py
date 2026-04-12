@@ -224,8 +224,12 @@ class AdminSmtpTestResponse(BaseModel):
 
 
 class AdminLlmSettingsRead(BaseModel):
-    """LiteLLM or any OpenAI-compatible proxy (system default for future LLM features)."""
+    """System-wide deck LLM: LiteLLM (HTTP), OpenAI SDK, or Anthropic SDK."""
 
+    deck_llm_provider: str = Field(
+        default="litellm",
+        description="Active backend: litellm | openai | claude.",
+    )
     litellm_api_base: str | None = Field(
         default=None,
         description="Effective base URL (database override, else LITELLM_API_BASE env).",
@@ -239,9 +243,20 @@ class AdminLlmSettingsRead(BaseModel):
         default=True,
         description="API key is never returned; stored encrypted (Fernet, same as other secrets).",
     )
+    openai_api_base: str | None = None
+    openai_api_base_configured: bool = False
+    openai_api_key_configured: bool = False
+    anthropic_api_base: str | None = None
+    anthropic_api_base_configured: bool = False
+    anthropic_api_key_configured: bool = False
 
 
 class AdminLlmSettingsPatch(BaseModel):
+    deck_llm_provider: str | None = Field(
+        default=None,
+        max_length=16,
+        description="litellm | openai | claude",
+    )
     litellm_api_base: str | None = Field(
         default=None,
         max_length=512,
@@ -260,3 +275,27 @@ class AdminLlmSettingsPatch(BaseModel):
         default=False,
         description="Remove DB base URL; use LITELLM_API_BASE env only.",
     )
+    openai_api_base: str | None = Field(
+        default=None,
+        max_length=512,
+        description="Optional OpenAI API base; empty clears DB override.",
+    )
+    openai_api_key: str | None = Field(
+        default=None,
+        max_length=4096,
+        description="Written only on save; stored encrypted.",
+    )
+    clear_openai_api_key: bool = False
+    clear_openai_api_base: bool = False
+    anthropic_api_base: str | None = Field(
+        default=None,
+        max_length=512,
+        description="Optional Anthropic API base; empty clears DB override.",
+    )
+    anthropic_api_key: str | None = Field(
+        default=None,
+        max_length=4096,
+        description="Written only on save; stored encrypted.",
+    )
+    clear_anthropic_api_key: bool = False
+    clear_anthropic_api_base: bool = False

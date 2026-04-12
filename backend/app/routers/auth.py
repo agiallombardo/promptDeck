@@ -420,9 +420,35 @@ async def me(user: Annotated[User, Depends(get_current_user)]) -> UserPublic:
 
 @router.get("/me/settings", response_model=UserSettingsRead)
 async def me_settings(user: Annotated[User, Depends(get_current_user)]) -> UserSettingsRead:
+    from app.services.llm_runtime import normalize_deck_llm_provider
+
+    any_key = bool(
+        user.llm_api_key_encrypted
+        or user.llm_openai_key_encrypted
+        or user.llm_anthropic_key_encrypted
+        or user.llm_litellm_key_encrypted
+    )
     return UserSettingsRead(
         llm_provider=user.llm_provider,
-        llm_api_key_configured=bool(user.llm_api_key_encrypted),
+        openai_api_base=user.llm_openai_base_url,
+        anthropic_api_base=user.llm_anthropic_base_url,
+        litellm_api_base=user.llm_litellm_base_url,
+        openai_api_key_configured=bool(user.llm_openai_key_encrypted)
+        or (
+            bool(user.llm_api_key_encrypted)
+            and normalize_deck_llm_provider(user.llm_provider) == "openai"
+        ),
+        anthropic_api_key_configured=bool(user.llm_anthropic_key_encrypted)
+        or (
+            bool(user.llm_api_key_encrypted)
+            and normalize_deck_llm_provider(user.llm_provider) == "claude"
+        ),
+        litellm_api_key_configured=bool(user.llm_litellm_key_encrypted)
+        or (
+            bool(user.llm_api_key_encrypted)
+            and normalize_deck_llm_provider(user.llm_provider) == "litellm"
+        ),
+        llm_api_key_configured=any_key,
     )
 
 
@@ -433,21 +459,60 @@ async def me_settings_patch(
     db: Annotated[AsyncSession, Depends(get_db)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> UserSettingsRead:
-    if body.llm_provider is not None:
-        p = body.llm_provider.strip()
-        user.llm_provider = p or None
+    from app.services.llm_runtime import validate_http_api_base
+
+    if body.clear_llm_provider:
+        user.llm_provider = None
+    elif body.llm_provider is not None:
+        user.llm_provider = body.llm_provider
+
+    def _apply_base(raw: str | None, *, clear: bool, attr: str) -> None:
+        if clear:
+            setattr(user, attr, None)
+            return
+        if raw is None:
+            return
+        try:
+            b = validate_http_api_base(raw)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+        setattr(user, attr, b or None)
+
+    _apply_base(body.openai_api_base, clear=body.clear_openai_api_base, attr="llm_openai_base_url")
+    _apply_base(
+        body.anthropic_api_base,
+        clear=body.clear_anthropic_api_base,
+        attr="llm_anthropic_base_url",
+    )
+    _apply_base(
+        body.litellm_api_base,
+        clear=body.clear_litellm_api_base,
+        attr="llm_litellm_base_url",
+    )
+
+    if body.clear_openai_api_key:
+        user.llm_openai_key_encrypted = None
+    elif body.openai_api_key is not None and body.openai_api_key.strip():
+        user.llm_openai_key_encrypted = encrypt_text(settings, body.openai_api_key.strip())
+
+    if body.clear_anthropic_api_key:
+        user.llm_anthropic_key_encrypted = None
+    elif body.anthropic_api_key is not None and body.anthropic_api_key.strip():
+        user.llm_anthropic_key_encrypted = encrypt_text(settings, body.anthropic_api_key.strip())
+
+    if body.clear_litellm_api_key:
+        user.llm_litellm_key_encrypted = None
+    elif body.litellm_api_key is not None and body.litellm_api_key.strip():
+        user.llm_litellm_key_encrypted = encrypt_text(settings, body.litellm_api_key.strip())
+
     if body.clear_llm_api_key:
         user.llm_api_key_encrypted = None
-    elif body.llm_api_key is not None:
-        raw = body.llm_api_key.strip()
-        if raw:
-            user.llm_api_key_encrypted = encrypt_text(settings, raw)
+    elif body.llm_api_key is not None and body.llm_api_key.strip():
+        user.llm_api_key_encrypted = encrypt_text(settings, body.llm_api_key.strip())
+
     await db.commit()
     await db.refresh(user)
-    return UserSettingsRead(
-        llm_provider=user.llm_provider,
-        llm_api_key_configured=bool(user.llm_api_key_encrypted),
-    )
+    return await me_settings(user)
 
 
 @router.post("/refresh", response_model=LoginResponse)

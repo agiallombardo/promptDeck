@@ -876,6 +876,26 @@ export interface components {
     /** AdminLlmSettingsPatch */
     AdminLlmSettingsPatch: {
       /**
+       * Anthropic Api Base
+       * @description Optional Anthropic API base; empty clears DB override.
+       */
+      anthropic_api_base?: string | null;
+      /**
+       * Anthropic Api Key
+       * @description Written only on save; stored encrypted.
+       */
+      anthropic_api_key?: string | null;
+      /**
+       * Clear Anthropic Api Base
+       * @default false
+       */
+      clear_anthropic_api_base: boolean;
+      /**
+       * Clear Anthropic Api Key
+       * @default false
+       */
+      clear_anthropic_api_key: boolean;
+      /**
        * Clear Litellm Api Base
        * @description Remove DB base URL; use LITELLM_API_BASE env only.
        * @default false
@@ -887,6 +907,21 @@ export interface components {
        */
       clear_litellm_api_key: boolean;
       /**
+       * Clear Openai Api Base
+       * @default false
+       */
+      clear_openai_api_base: boolean;
+      /**
+       * Clear Openai Api Key
+       * @default false
+       */
+      clear_openai_api_key: boolean;
+      /**
+       * Deck Llm Provider
+       * @description litellm | openai | claude
+       */
+      deck_llm_provider?: string | null;
+      /**
        * Litellm Api Base
        * @description OpenAI-compatible API root (e.g. https://litellm.internal/v1). Empty string clears DB override.
        */
@@ -896,12 +931,40 @@ export interface components {
        * @description Written only on save; stored encrypted server-side and never echoed back.
        */
       litellm_api_key?: string | null;
+      /**
+       * Openai Api Base
+       * @description Optional OpenAI API base; empty clears DB override.
+       */
+      openai_api_base?: string | null;
+      /**
+       * Openai Api Key
+       * @description Written only on save; stored encrypted.
+       */
+      openai_api_key?: string | null;
     };
     /**
      * AdminLlmSettingsRead
-     * @description LiteLLM or any OpenAI-compatible proxy (system default for future LLM features).
+     * @description System-wide deck LLM: LiteLLM (HTTP), OpenAI SDK, or Anthropic SDK.
      */
     AdminLlmSettingsRead: {
+      /** Anthropic Api Base */
+      anthropic_api_base?: string | null;
+      /**
+       * Anthropic Api Base Configured
+       * @default false
+       */
+      anthropic_api_base_configured: boolean;
+      /**
+       * Anthropic Api Key Configured
+       * @default false
+       */
+      anthropic_api_key_configured: boolean;
+      /**
+       * Deck Llm Provider
+       * @description Active backend: litellm | openai | claude.
+       * @default litellm
+       */
+      deck_llm_provider: string;
       /**
        * Litellm Api Base
        * @description Effective base URL (database override, else LITELLM_API_BASE env).
@@ -924,6 +987,18 @@ export interface components {
        * @default true
        */
       litellm_api_key_stored_encrypted: boolean;
+      /** Openai Api Base */
+      openai_api_base?: string | null;
+      /**
+       * Openai Api Base Configured
+       * @default false
+       */
+      openai_api_base_configured: boolean;
+      /**
+       * Openai Api Key Configured
+       * @default false
+       */
+      openai_api_key_configured: boolean;
     };
     /** AdminPresentationListResponse */
     AdminPresentationListResponse: {
@@ -1742,25 +1817,101 @@ export interface components {
     UserRole: "admin" | "user";
     /** UserSettingsRead */
     UserSettingsRead: {
+      /** Anthropic Api Base */
+      anthropic_api_base?: string | null;
+      /**
+       * Anthropic Api Key Configured
+       * @default false
+       */
+      anthropic_api_key_configured: boolean;
+      /** Litellm Api Base */
+      litellm_api_base?: string | null;
+      /**
+       * Litellm Api Key Configured
+       * @default false
+       */
+      litellm_api_key_configured: boolean;
       /**
        * Llm Api Key Configured
+       * @description True if any per-provider or legacy API key is stored.
        * @default false
        */
       llm_api_key_configured: boolean;
       /** Llm Provider */
       llm_provider?: string | null;
+      /** Openai Api Base */
+      openai_api_base?: string | null;
+      /**
+       * Openai Api Key Configured
+       * @default false
+       */
+      openai_api_key_configured: boolean;
     };
     /** UserSettingsUpdate */
     UserSettingsUpdate: {
+      /** Anthropic Api Base */
+      anthropic_api_base?: string | null;
+      /** Anthropic Api Key */
+      anthropic_api_key?: string | null;
+      /**
+       * Clear Anthropic Api Base
+       * @default false
+       */
+      clear_anthropic_api_base: boolean;
+      /**
+       * Clear Anthropic Api Key
+       * @default false
+       */
+      clear_anthropic_api_key: boolean;
+      /**
+       * Clear Litellm Api Base
+       * @default false
+       */
+      clear_litellm_api_base: boolean;
+      /**
+       * Clear Litellm Api Key
+       * @default false
+       */
+      clear_litellm_api_key: boolean;
       /**
        * Clear Llm Api Key
        * @default false
        */
       clear_llm_api_key: boolean;
-      /** Llm Api Key */
+      /**
+       * Clear Llm Provider
+       * @description When true, clear personal provider override (use organization defaults only).
+       * @default false
+       */
+      clear_llm_provider: boolean;
+      /**
+       * Clear Openai Api Base
+       * @default false
+       */
+      clear_openai_api_base: boolean;
+      /**
+       * Clear Openai Api Key
+       * @default false
+       */
+      clear_openai_api_key: boolean;
+      /** Litellm Api Base */
+      litellm_api_base?: string | null;
+      /** Litellm Api Key */
+      litellm_api_key?: string | null;
+      /**
+       * Llm Api Key
+       * @description Deprecated: use openai_api_key / anthropic_api_key / litellm_api_key.
+       */
       llm_api_key?: string | null;
-      /** Llm Provider */
+      /**
+       * Llm Provider
+       * @description openai | claude | litellm (omit to leave unchanged).
+       */
       llm_provider?: string | null;
+      /** Openai Api Base */
+      openai_api_base?: string | null;
+      /** Openai Api Key */
+      openai_api_key?: string | null;
     };
     /** ValidationError */
     ValidationError: {

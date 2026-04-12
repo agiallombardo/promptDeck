@@ -1,4 +1,4 @@
-"""OpenAI-compatible chat completion for deck HTML editing."""
+"""Deck HTML edits via LiteLLM (OpenAI-compatible HTTP), OpenAI SDK, or Anthropic SDK."""
 
 from __future__ import annotations
 
@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from typing import Any
 
 import httpx
+from anthropic import AsyncAnthropic
+from openai import AsyncOpenAI
 
 _MAX_COMPLETION_CHARS = 512_000
 
@@ -100,6 +102,100 @@ async def complete_deck_html_edit(
     if len(out) > _MAX_COMPLETION_CHARS:
         raise ValueError("LLM output too large")
     pt, ct, tt = _parse_usage(data)
+    return DeckLlmCompletionResult(
+        text=out, prompt_tokens=pt, completion_tokens=ct, total_tokens=tt
+    )
+
+
+def _openai_message_text(content: object) -> str:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "text":
+                t = block.get("text")
+                if isinstance(t, str):
+                    parts.append(t)
+        return "".join(parts)
+    return ""
+
+
+async def complete_deck_html_edit_openai(
+    *,
+    api_key: str,
+    base_url: str | None,
+    model: str,
+    system_prompt: str,
+    user_message: str,
+    timeout_seconds: float = 300.0,
+) -> DeckLlmCompletionResult:
+    kwargs: dict[str, Any] = {"api_key": api_key, "timeout": timeout_seconds}
+    bu = (base_url or "").strip().rstrip("/")
+    if bu:
+        kwargs["base_url"] = bu
+    async with AsyncOpenAI(**kwargs) as client:
+        resp = await client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message},
+            ],
+            temperature=0.2,
+        )
+    raw = resp.choices[0].message.content
+    text = _openai_message_text(raw)
+    if not text.strip():
+        raise ValueError("LLM returned empty content")
+    out = strip_markdown_fenced_html(text)
+    if len(out) > _MAX_COMPLETION_CHARS:
+        raise ValueError("LLM output too large")
+    u = resp.usage
+    pt = _usage_int(u.prompt_tokens) if u is not None else None
+    ct = _usage_int(u.completion_tokens) if u is not None else None
+    tt = _usage_int(u.total_tokens) if u is not None else None
+    if tt is None and pt is not None and ct is not None:
+        tt = pt + ct
+    return DeckLlmCompletionResult(
+        text=out, prompt_tokens=pt, completion_tokens=ct, total_tokens=tt
+    )
+
+
+async def complete_deck_html_edit_anthropic(
+    *,
+    api_key: str,
+    base_url: str | None,
+    model: str,
+    system_prompt: str,
+    user_message: str,
+    timeout_seconds: float = 300.0,
+) -> DeckLlmCompletionResult:
+    kwargs: dict[str, Any] = {"api_key": api_key, "timeout": timeout_seconds}
+    bu = (base_url or "").strip().rstrip("/")
+    if bu:
+        kwargs["base_url"] = bu
+    async with AsyncAnthropic(**kwargs) as client:
+        msg = await client.messages.create(
+            model=model,
+            max_tokens=8192,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_message}],
+            temperature=0.2,
+        )
+    parts: list[str] = []
+    for block in msg.content:
+        if block.type == "text":
+            parts.append(block.text)
+    text = "".join(parts)
+    if not text.strip():
+        raise ValueError("LLM returned empty content")
+    out = strip_markdown_fenced_html(text)
+    if len(out) > _MAX_COMPLETION_CHARS:
+        raise ValueError("LLM output too large")
+    u = msg.usage
+    pt = _usage_int(u.input_tokens)
+    ct = _usage_int(u.output_tokens)
+    tt = (pt + ct) if pt is not None and ct is not None else None
     return DeckLlmCompletionResult(
         text=out, prompt_tokens=pt, completion_tokens=ct, total_tokens=tt
     )

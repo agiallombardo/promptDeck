@@ -446,6 +446,7 @@ async def test_admin_llm_settings_get_and_patch(client: AsyncClient) -> None:
     g = await client.get("/api/v1/admin/settings/llm", headers=h)
     assert g.status_code == 200
     data = g.json()
+    assert data["deck_llm_provider"] == "litellm"
     assert data["litellm_api_key_configured"] is False
     assert "litellm_api_base" in data
 

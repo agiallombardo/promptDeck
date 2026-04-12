@@ -10,8 +10,13 @@ from app.db.session import session_factory
 from app.logging_channels import LogChannel, channel_logger
 from app.services.app_logging import write_app_log
 from app.services.audit import record_audit
-from app.services.deck_llm_completion import DeckLlmCompletionResult, complete_deck_html_edit
-from app.services.llm_runtime import LlmNotConfiguredError, resolve_litellm_http_credentials
+from app.services.deck_llm_completion import (
+    DeckLlmCompletionResult,
+    complete_deck_html_edit,
+    complete_deck_html_edit_anthropic,
+    complete_deck_html_edit_openai,
+)
+from app.services.llm_runtime import LlmNotConfiguredError, resolve_deck_llm_credentials
 from app.services.single_html_version import persist_new_single_html_version
 from app.storage.local import read_bytes_if_exists
 
@@ -94,7 +99,7 @@ async def run_deck_prompt_job(job_id: uuid.UUID) -> None:
 
         async with fac() as session:
             try:
-                api_base, api_key = await resolve_litellm_http_credentials(session, settings)
+                resolved = await resolve_deck_llm_credentials(session, settings, created_by)
             except LlmNotConfiguredError as e:
                 raise ValueError(str(e)) from e
 
@@ -102,15 +107,34 @@ async def run_deck_prompt_job(job_id: uuid.UUID) -> None:
             f"User request (apply to the deck below):\n{prompt.strip()}\n\n"
             f"---DECK_HTML_START---\n{html_text}\n---DECK_HTML_END---"
         )
-        model = settings.deck_llm_model.strip() or "gpt-4o-mini"
-        llm_model_used = model
-        completion_usage = await complete_deck_html_edit(
-            api_base=api_base,
-            api_key=api_key,
-            model=model,
-            system_prompt=_DECK_EDIT_SYSTEM,
-            user_message=user_msg,
-        )
+        llm_model_used = resolved.model
+        if resolved.kind == "litellm":
+            assert resolved.api_base is not None
+            completion_usage = await complete_deck_html_edit(
+                api_base=resolved.api_base,
+                api_key=resolved.api_key,
+                model=resolved.model,
+                system_prompt=_DECK_EDIT_SYSTEM,
+                user_message=user_msg,
+            )
+        elif resolved.kind == "openai":
+            assert resolved.openai_api_key is not None
+            completion_usage = await complete_deck_html_edit_openai(
+                api_key=resolved.openai_api_key,
+                base_url=resolved.openai_base_url,
+                model=resolved.model,
+                system_prompt=_DECK_EDIT_SYSTEM,
+                user_message=user_msg,
+            )
+        else:
+            assert resolved.anthropic_api_key is not None
+            completion_usage = await complete_deck_html_edit_anthropic(
+                api_key=resolved.anthropic_api_key,
+                base_url=resolved.anthropic_base_url,
+                model=resolved.model,
+                system_prompt=_DECK_EDIT_SYSTEM,
+                user_message=user_msg,
+            )
         edited = completion_usage.text
         out_bytes = _validate_model_html(edited)
 

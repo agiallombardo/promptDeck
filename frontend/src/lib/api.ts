@@ -597,12 +597,7 @@ export async function apiAdminSmtpTest(accessToken: string, to?: string | null) 
   });
 }
 
-export type AdminLlmSettings = {
-  litellm_api_base: string | null;
-  litellm_api_base_configured: boolean;
-  litellm_api_key_configured: boolean;
-  litellm_api_key_stored_encrypted: boolean;
-};
+export type AdminLlmSettings = components["schemas"]["AdminLlmSettingsRead"];
 
 export async function apiAdminLlmGet(accessToken: string) {
   return jsonFetch<AdminLlmSettings>(`${API}/admin/settings/llm`, {
@@ -612,12 +607,7 @@ export async function apiAdminLlmGet(accessToken: string) {
 
 export async function apiAdminLlmPatch(
   accessToken: string,
-  body: {
-    litellm_api_base?: string | null;
-    litellm_api_key?: string | null;
-    clear_litellm_api_key?: boolean;
-    clear_litellm_api_base?: boolean;
-  },
+  body: components["schemas"]["AdminLlmSettingsPatch"],
 ) {
   return jsonFetch<AdminLlmSettings>(`${API}/admin/settings/llm`, {
     method: "PATCH",

@@ -414,6 +414,42 @@
       },
       "AdminLlmSettingsPatch": {
         "properties": {
+          "anthropic_api_base": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional Anthropic API base; empty clears DB override.",
+            "title": "Anthropic Api Base"
+          },
+          "anthropic_api_key": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Written only on save; stored encrypted.",
+            "title": "Anthropic Api Key"
+          },
+          "clear_anthropic_api_base": {
+            "default": false,
+            "title": "Clear Anthropic Api Base",
+            "type": "boolean"
+          },
+          "clear_anthropic_api_key": {
+            "default": false,
+            "title": "Clear Anthropic Api Key",
+            "type": "boolean"
+          },
           "clear_litellm_api_base": {
             "default": false,
             "description": "Remove DB base URL; use LITELLM_API_BASE env only.",
@@ -424,6 +460,29 @@
             "default": false,
             "title": "Clear Litellm Api Key",
             "type": "boolean"
+          },
+          "clear_openai_api_base": {
+            "default": false,
+            "title": "Clear Openai Api Base",
+            "type": "boolean"
+          },
+          "clear_openai_api_key": {
+            "default": false,
+            "title": "Clear Openai Api Key",
+            "type": "boolean"
+          },
+          "deck_llm_provider": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "litellm | openai | claude",
+            "title": "Deck Llm Provider"
           },
           "litellm_api_base": {
             "anyOf": [
@@ -450,14 +509,67 @@
             ],
             "description": "Written only on save; stored encrypted server-side and never echoed back.",
             "title": "Litellm Api Key"
+          },
+          "openai_api_base": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional OpenAI API base; empty clears DB override.",
+            "title": "Openai Api Base"
+          },
+          "openai_api_key": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Written only on save; stored encrypted.",
+            "title": "Openai Api Key"
           }
         },
         "title": "AdminLlmSettingsPatch",
         "type": "object"
       },
       "AdminLlmSettingsRead": {
-        "description": "LiteLLM or any OpenAI-compatible proxy (system default for future LLM features).",
+        "description": "System-wide deck LLM: LiteLLM (HTTP), OpenAI SDK, or Anthropic SDK.",
         "properties": {
+          "anthropic_api_base": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anthropic Api Base"
+          },
+          "anthropic_api_base_configured": {
+            "default": false,
+            "title": "Anthropic Api Base Configured",
+            "type": "boolean"
+          },
+          "anthropic_api_key_configured": {
+            "default": false,
+            "title": "Anthropic Api Key Configured",
+            "type": "boolean"
+          },
+          "deck_llm_provider": {
+            "default": "litellm",
+            "description": "Active backend: litellm | openai | claude.",
+            "title": "Deck Llm Provider",
+            "type": "string"
+          },
           "litellm_api_base": {
             "anyOf": [
               {
@@ -485,6 +597,27 @@
             "default": true,
             "description": "API key is never returned; stored encrypted (Fernet, same as other secrets).",
             "title": "Litellm Api Key Stored Encrypted",
+            "type": "boolean"
+          },
+          "openai_api_base": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Openai Api Base"
+          },
+          "openai_api_base_configured": {
+            "default": false,
+            "title": "Openai Api Base Configured",
+            "type": "boolean"
+          },
+          "openai_api_key_configured": {
+            "default": false,
+            "title": "Openai Api Key Configured",
             "type": "boolean"
           }
         },
@@ -2715,8 +2848,41 @@
       },
       "UserSettingsRead": {
         "properties": {
+          "anthropic_api_base": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anthropic Api Base"
+          },
+          "anthropic_api_key_configured": {
+            "default": false,
+            "title": "Anthropic Api Key Configured",
+            "type": "boolean"
+          },
+          "litellm_api_base": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Litellm Api Base"
+          },
+          "litellm_api_key_configured": {
+            "default": false,
+            "title": "Litellm Api Key Configured",
+            "type": "boolean"
+          },
           "llm_api_key_configured": {
             "default": false,
+            "description": "True if any per-provider or legacy API key is stored.",
             "title": "Llm Api Key Configured",
             "type": "boolean"
           },
@@ -2730,6 +2896,22 @@
               }
             ],
             "title": "Llm Provider"
+          },
+          "openai_api_base": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Openai Api Base"
+          },
+          "openai_api_key_configured": {
+            "default": false,
+            "title": "Openai Api Key Configured",
+            "type": "boolean"
           }
         },
         "title": "UserSettingsRead",
@@ -2737,10 +2919,94 @@
       },
       "UserSettingsUpdate": {
         "properties": {
+          "anthropic_api_base": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anthropic Api Base"
+          },
+          "anthropic_api_key": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anthropic Api Key"
+          },
+          "clear_anthropic_api_base": {
+            "default": false,
+            "title": "Clear Anthropic Api Base",
+            "type": "boolean"
+          },
+          "clear_anthropic_api_key": {
+            "default": false,
+            "title": "Clear Anthropic Api Key",
+            "type": "boolean"
+          },
+          "clear_litellm_api_base": {
+            "default": false,
+            "title": "Clear Litellm Api Base",
+            "type": "boolean"
+          },
+          "clear_litellm_api_key": {
+            "default": false,
+            "title": "Clear Litellm Api Key",
+            "type": "boolean"
+          },
           "clear_llm_api_key": {
             "default": false,
             "title": "Clear Llm Api Key",
             "type": "boolean"
+          },
+          "clear_llm_provider": {
+            "default": false,
+            "description": "When true, clear personal provider override (use organization defaults only).",
+            "title": "Clear Llm Provider",
+            "type": "boolean"
+          },
+          "clear_openai_api_base": {
+            "default": false,
+            "title": "Clear Openai Api Base",
+            "type": "boolean"
+          },
+          "clear_openai_api_key": {
+            "default": false,
+            "title": "Clear Openai Api Key",
+            "type": "boolean"
+          },
+          "litellm_api_base": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Litellm Api Base"
+          },
+          "litellm_api_key": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Litellm Api Key"
           },
           "llm_api_key": {
             "anyOf": [
@@ -2752,19 +3018,45 @@
                 "type": "null"
               }
             ],
+            "description": "Deprecated: use openai_api_key / anthropic_api_key / litellm_api_key.",
             "title": "Llm Api Key"
           },
           "llm_provider": {
             "anyOf": [
               {
-                "maxLength": 64,
+                "maxLength": 16,
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
+            "description": "openai | claude | litellm (omit to leave unchanged).",
             "title": "Llm Provider"
+          },
+          "openai_api_base": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Openai Api Base"
+          },
+          "openai_api_key": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Openai Api Key"
           }
         },
         "title": "UserSettingsUpdate",

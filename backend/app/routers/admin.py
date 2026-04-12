@@ -51,7 +51,7 @@ from app.services.entra_runtime import (
     persist_entra_system_settings,
     resolve_entra_oidc_config,
 )
-from app.services.llm_runtime import persist_litellm_system_settings, read_litellm_admin_settings
+from app.services.llm_runtime import persist_admin_llm_settings, read_litellm_admin_settings
 from app.services.smtp_runtime import (
     assert_smtp_config_valid,
     merge_smtp_settings_patch,
@@ -249,25 +249,56 @@ async def admin_llm_settings_patch(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> AdminLlmSettingsRead:
     dump = body.model_dump()
+    secret_fields = frozenset(
+        {
+            "litellm_api_key",
+            "openai_api_key",
+            "anthropic_api_key",
+        }
+    )
     has_change = (
         body.clear_litellm_api_key
         or body.clear_litellm_api_base
-        or dump.get("litellm_api_base") is not None
-        or dump.get("litellm_api_key") is not None
+        or body.clear_openai_api_key
+        or body.clear_openai_api_base
+        or body.clear_anthropic_api_key
+        or body.clear_anthropic_api_base
+        or body.deck_llm_provider is not None
+        or body.litellm_api_base is not None
+        or body.litellm_api_key is not None
+        or body.openai_api_base is not None
+        or body.openai_api_key is not None
+        or body.anthropic_api_base is not None
+        or body.anthropic_api_key is not None
     )
     if has_change:
         try:
-            await persist_litellm_system_settings(
+            await persist_admin_llm_settings(
                 db,
                 settings,
-                api_base=None if body.clear_litellm_api_base else body.litellm_api_base,
-                api_key=body.litellm_api_key,
-                clear_api_key=body.clear_litellm_api_key,
-                clear_api_base=body.clear_litellm_api_base,
+                deck_llm_provider=(
+                    body.deck_llm_provider.strip()
+                    if body.deck_llm_provider and body.deck_llm_provider.strip()
+                    else None
+                ),
+                litellm_api_base=None if body.clear_litellm_api_base else body.litellm_api_base,
+                litellm_api_key=body.litellm_api_key,
+                clear_litellm_api_key=body.clear_litellm_api_key,
+                clear_litellm_api_base=body.clear_litellm_api_base,
+                openai_api_base=None if body.clear_openai_api_base else body.openai_api_base,
+                openai_api_key=body.openai_api_key,
+                clear_openai_api_key=body.clear_openai_api_key,
+                clear_openai_api_base=body.clear_openai_api_base,
+                anthropic_api_base=(
+                    None if body.clear_anthropic_api_base else body.anthropic_api_base
+                ),
+                anthropic_api_key=body.anthropic_api_key,
+                clear_anthropic_api_key=body.clear_anthropic_api_key,
+                clear_anthropic_api_base=body.clear_anthropic_api_base,
             )
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
-        llm_meta_keys = [k for k, v in dump.items() if v is not None and k != "litellm_api_key"]
+        llm_meta_keys = [k for k, v in dump.items() if v is not None and k not in secret_fields]
         await record_audit(
             db,
             actor_id=admin_user.id,

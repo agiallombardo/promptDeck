@@ -75,16 +75,46 @@ class Settings(BaseSettings):
     smtp_validate_certs: bool = True
     smtp_auth_mode: Literal["login", "none"] = "login"
 
-    # Optional LiteLLM / OpenAI-compatible proxy (env fallback; admin UI persists overrides)
+    # Deck LLM (system defaults; admin UI persists overrides in system_settings)
+    deck_llm_provider: str | None = Field(
+        default=None,
+        validation_alias="DECK_LLM_PROVIDER",
+        description="litellm | openai | claude (default: litellm)",
+    )
     litellm_api_base: str | None = Field(
         default=None,
         validation_alias="LITELLM_API_BASE",
         description="OpenAI-compatible base URL, e.g. https://litellm.example.com/v1",
     )
+    litellm_api_key: str | None = Field(
+        default=None,
+        validation_alias="LITELLM_API_KEY",
+        description="Optional bearer token for LiteLLM / OpenAI-compatible proxy",
+    )
+    openai_api_key: str | None = Field(
+        default=None,
+        validation_alias="OPENAI_API_KEY",
+        description="OpenAI API key when deck_llm_provider=openai",
+    )
+    openai_api_base: str | None = Field(
+        default=None,
+        validation_alias="OPENAI_API_BASE",
+        description="Optional OpenAI API base URL override",
+    )
+    anthropic_api_key: str | None = Field(
+        default=None,
+        validation_alias="ANTHROPIC_API_KEY",
+        description="Anthropic API key when deck_llm_provider=claude",
+    )
+    anthropic_api_base: str | None = Field(
+        default=None,
+        validation_alias="ANTHROPIC_API_BASE",
+        description="Optional Anthropic API base URL override",
+    )
     deck_llm_model: str = Field(
         default="gpt-4o-mini",
         validation_alias="DECK_LLM_MODEL",
-        description="OpenAI-compatible model id for deck prompt edits",
+        description="Model id for deck prompt edits (OpenAI, Claude, or LiteLLM routing id)",
     )
 
     @field_validator("smtp_auth_mode", mode="before")

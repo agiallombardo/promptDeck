@@ -26,6 +26,7 @@ import {
   type AdminLlmSettings,
   type AdminSmtpSettings,
 } from "../lib/api";
+import type { components } from "../lib/api/schema";
 import { useAuthStore } from "../stores/auth";
 
 const CHANNELS = ["", "http", "auth", "audit", "script"] as const;
@@ -152,7 +153,7 @@ export default function AdminPage() {
   });
 
   const llmPatch = useMutation({
-    mutationFn: (body: Parameters<typeof apiAdminLlmPatch>[1]) =>
+    mutationFn: (body: components["schemas"]["AdminLlmSettingsPatch"]) =>
       apiAdminLlmPatch(accessToken!, body),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["admin", "llm", accessToken] });
@@ -1116,27 +1117,65 @@ function AdminSmtpPanel({
   );
 }
 
+function emptyAdminLlmPatch(): components["schemas"]["AdminLlmSettingsPatch"] {
+  return {
+    clear_litellm_api_base: false,
+    clear_litellm_api_key: false,
+    clear_openai_api_base: false,
+    clear_openai_api_key: false,
+    clear_anthropic_api_base: false,
+    clear_anthropic_api_key: false,
+  };
+}
+
 function AdminLlmPanel({
   llm,
   llmPatch,
 }: {
   llm: UseQueryResult<AdminLlmSettings, Error>;
-  llmPatch: UseMutationResult<AdminLlmSettings, Error, Parameters<typeof apiAdminLlmPatch>[1]>;
+  llmPatch: UseMutationResult<
+    AdminLlmSettings,
+    Error,
+    components["schemas"]["AdminLlmSettingsPatch"]
+  >;
 }) {
-  const [apiBase, setApiBase] = useState("");
-  /** When false, omit `litellm_api_base` on save so we do not copy env URL into DB on key-only saves. */
-  const [apiBaseDirty, setApiBaseDirty] = useState(false);
-  const [apiKey, setApiKey] = useState("");
-  const [clearKey, setClearKey] = useState(false);
-  const [clearBase, setClearBase] = useState(false);
+  const [deckProvider, setDeckProvider] = useState<string>("litellm");
+  const [providerDirty, setProviderDirty] = useState(false);
+  const [litellmBase, setLitellmBase] = useState("");
+  const [litellmBaseDirty, setLitellmBaseDirty] = useState(false);
+  const [litellmKey, setLitellmKey] = useState("");
+  const [clearLitellmKey, setClearLitellmKey] = useState(false);
+  const [clearLitellmBase, setClearLitellmBase] = useState(false);
+  const [openaiBase, setOpenaiBase] = useState("");
+  const [openaiBaseDirty, setOpenaiBaseDirty] = useState(false);
+  const [openaiKey, setOpenaiKey] = useState("");
+  const [clearOpenaiKey, setClearOpenaiKey] = useState(false);
+  const [clearOpenaiBase, setClearOpenaiBase] = useState(false);
+  const [anthropicBase, setAnthropicBase] = useState("");
+  const [anthropicBaseDirty, setAnthropicBaseDirty] = useState(false);
+  const [anthropicKey, setAnthropicKey] = useState("");
+  const [clearAnthropicKey, setClearAnthropicKey] = useState(false);
+  const [clearAnthropicBase, setClearAnthropicBase] = useState(false);
 
   useEffect(() => {
     if (!llm.data) return;
-    setApiBase(llm.data.litellm_api_base ?? "");
-    setApiBaseDirty(false);
-    setApiKey("");
-    setClearKey(false);
-    setClearBase(false);
+    setDeckProvider(llm.data.deck_llm_provider ?? "litellm");
+    setProviderDirty(false);
+    setLitellmBase(llm.data.litellm_api_base ?? "");
+    setLitellmBaseDirty(false);
+    setLitellmKey("");
+    setClearLitellmKey(false);
+    setClearLitellmBase(false);
+    setOpenaiBase(llm.data.openai_api_base ?? "");
+    setOpenaiBaseDirty(false);
+    setOpenaiKey("");
+    setClearOpenaiKey(false);
+    setClearOpenaiBase(false);
+    setAnthropicBase(llm.data.anthropic_api_base ?? "");
+    setAnthropicBaseDirty(false);
+    setAnthropicKey("");
+    setClearAnthropicKey(false);
+    setClearAnthropicBase(false);
   }, [llm.data]);
 
   const fieldClass =
@@ -1153,98 +1192,240 @@ function AdminLlmPanel({
     );
   }
 
+  const active = deckProvider;
+
   return (
     <div className="mt-8 max-w-xl space-y-6">
       <p className="text-sm text-text-muted">
-        System-wide defaults for OpenAI-compatible clients (e.g.{" "}
-        <a
-          className="text-primary underline-offset-2 hover:underline"
-          href="https://docs.litellm.ai/docs/proxy/virtual_keys"
-          rel="noreferrer"
-          target="_blank"
-        >
-          LiteLLM proxy
-        </a>
-        ). Values merge with <span className="font-mono text-text-main">LITELLM_API_BASE</span> from
-        the environment: a base URL saved here overrides env. API keys are encrypted at rest and
-        never returned. Per-user keys on Settings still apply when you build features that prefer
-        user credentials.
+        Choose how deck AI edits call the model:{" "}
+        <span className="font-mono text-text-main">OpenAI</span> and{" "}
+        <span className="font-mono text-text-main">Claude</span> use the official Python SDKs.{" "}
+        <span className="font-mono text-text-main">LiteLLM</span> uses an OpenAI-compatible HTTP
+        endpoint (your proxy or gateway). Environment variables still apply as fallbacks; database
+        values override where noted. Keys are encrypted and never returned.
       </p>
 
       <div className="rounded-sharp border border-border bg-bg-elevated p-4 shadow-elevated space-y-4">
-        <p className="font-mono text-[10px] uppercase tracking-wide text-text-muted">
-          Effective base URL
-        </p>
-        <p className="break-all font-mono text-xs text-text-main">
-          {llm.data?.litellm_api_base?.trim() ? llm.data.litellm_api_base : "— (not configured)"}
+        <p className="font-mono text-[10px] uppercase tracking-wide text-text-muted">Summary</p>
+        <p className="font-mono text-xs text-text-main">
+          Active backend:{" "}
+          <span className="text-primary">{llm.data?.deck_llm_provider ?? "litellm"}</span>
         </p>
         <p className="font-mono text-[10px] text-text-muted">
-          API key: {llm.data?.litellm_api_key_configured ? "configured" : "not set"}
+          LiteLLM base: {llm.data?.litellm_api_base?.trim() ? llm.data.litellm_api_base : "—"} ·
+          key: {llm.data?.litellm_api_key_configured ? "set" : "not set"}
+        </p>
+        <p className="font-mono text-[10px] text-text-muted">
+          OpenAI base: {llm.data?.openai_api_base?.trim() ? llm.data.openai_api_base : "—"} · key:{" "}
+          {llm.data?.openai_api_key_configured ? "set" : "not set"}
+        </p>
+        <p className="font-mono text-[10px] text-text-muted">
+          Anthropic base: {llm.data?.anthropic_api_base?.trim() ? llm.data.anthropic_api_base : "—"}{" "}
+          · key: {llm.data?.anthropic_api_key_configured ? "set" : "not set"}
         </p>
 
         <label className="grid gap-1 font-mono text-xs">
-          <span className="text-text-muted">LiteLLM / OpenAI-compatible base URL</span>
-          <input
+          <span className="text-text-muted">Active provider for deck jobs</span>
+          <select
             className={fieldClass}
-            value={apiBase}
+            value={deckProvider}
             onChange={(e) => {
-              setApiBase(e.target.value);
-              setApiBaseDirty(true);
+              setDeckProvider(e.target.value);
+              setProviderDirty(true);
             }}
-            placeholder="https://litellm.example.com/v1"
-            autoComplete="off"
-          />
+          >
+            <option value="litellm">LiteLLM / OpenAI-compatible (HTTP)</option>
+            <option value="openai">OpenAI (SDK)</option>
+            <option value="claude">Claude (Anthropic SDK)</option>
+          </select>
         </label>
 
-        <label className="flex cursor-pointer items-center gap-2 font-mono text-xs text-text-main">
-          <input
-            type="checkbox"
-            checked={clearBase}
-            onChange={(e) => setClearBase(e.target.checked)}
-          />
-          Remove database base URL (fall back to LITELLM_API_BASE env only)
-        </label>
+        {active === "litellm" ? (
+          <div className="space-y-3 border-t border-border pt-3">
+            <p className="font-mono text-[10px] uppercase text-text-muted">LiteLLM</p>
+            <label className="grid gap-1 font-mono text-xs">
+              <span className="text-text-muted">OpenAI-compatible base URL</span>
+              <input
+                className={fieldClass}
+                value={litellmBase}
+                onChange={(e) => {
+                  setLitellmBase(e.target.value);
+                  setLitellmBaseDirty(true);
+                }}
+                placeholder="https://litellm.example.com/v1"
+                autoComplete="off"
+              />
+            </label>
+            <label className="flex cursor-pointer items-center gap-2 font-mono text-xs text-text-main">
+              <input
+                type="checkbox"
+                checked={clearLitellmBase}
+                onChange={(e) => setClearLitellmBase(e.target.checked)}
+              />
+              Remove database base URL (fall back to LITELLM_API_BASE env only)
+            </label>
+            <label className="grid gap-1 font-mono text-xs">
+              <span className="text-text-muted">API key (write-only)</span>
+              <input
+                className={fieldClass}
+                type="password"
+                autoComplete="off"
+                value={litellmKey}
+                onChange={(e) => setLitellmKey(e.target.value)}
+                placeholder={
+                  llm.data?.litellm_api_key_configured
+                    ? "Leave blank to keep existing key"
+                    : "sk-… or virtual key"
+                }
+              />
+            </label>
+            <label className="flex cursor-pointer items-center gap-2 font-mono text-xs text-text-main">
+              <input
+                type="checkbox"
+                checked={clearLitellmKey}
+                onChange={(e) => setClearLitellmKey(e.target.checked)}
+              />
+              Remove stored LiteLLM key
+            </label>
+          </div>
+        ) : null}
 
-        <label className="grid gap-1 font-mono text-xs">
-          <span className="text-text-muted">API key (write-only)</span>
-          <input
-            className={fieldClass}
-            type="password"
-            autoComplete="off"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder={
-              llm.data?.litellm_api_key_configured
-                ? "Leave blank to keep existing key"
-                : "sk-… or LiteLLM virtual key"
-            }
-          />
-        </label>
+        {active === "openai" ? (
+          <div className="space-y-3 border-t border-border pt-3">
+            <p className="font-mono text-[10px] uppercase text-text-muted">OpenAI</p>
+            <label className="grid gap-1 font-mono text-xs">
+              <span className="text-text-muted">API base URL (optional)</span>
+              <input
+                className={fieldClass}
+                value={openaiBase}
+                onChange={(e) => {
+                  setOpenaiBase(e.target.value);
+                  setOpenaiBaseDirty(true);
+                }}
+                placeholder="Default: https://api.openai.com/v1"
+                autoComplete="off"
+              />
+            </label>
+            <label className="flex cursor-pointer items-center gap-2 font-mono text-xs text-text-main">
+              <input
+                type="checkbox"
+                checked={clearOpenaiBase}
+                onChange={(e) => setClearOpenaiBase(e.target.checked)}
+              />
+              Remove database OpenAI base override
+            </label>
+            <label className="grid gap-1 font-mono text-xs">
+              <span className="text-text-muted">API key (write-only)</span>
+              <input
+                className={fieldClass}
+                type="password"
+                autoComplete="off"
+                value={openaiKey}
+                onChange={(e) => setOpenaiKey(e.target.value)}
+                placeholder={
+                  llm.data?.openai_api_key_configured ? "Leave blank to keep existing key" : "sk-…"
+                }
+              />
+            </label>
+            <label className="flex cursor-pointer items-center gap-2 font-mono text-xs text-text-main">
+              <input
+                type="checkbox"
+                checked={clearOpenaiKey}
+                onChange={(e) => setClearOpenaiKey(e.target.checked)}
+              />
+              Remove stored OpenAI key
+            </label>
+          </div>
+        ) : null}
 
-        <label className="flex cursor-pointer items-center gap-2 font-mono text-xs text-text-main">
-          <input
-            type="checkbox"
-            checked={clearKey}
-            onChange={(e) => setClearKey(e.target.checked)}
-          />
-          Remove stored API key
-        </label>
+        {active === "claude" ? (
+          <div className="space-y-3 border-t border-border pt-3">
+            <p className="font-mono text-[10px] uppercase text-text-muted">Anthropic</p>
+            <label className="grid gap-1 font-mono text-xs">
+              <span className="text-text-muted">API base URL (optional)</span>
+              <input
+                className={fieldClass}
+                value={anthropicBase}
+                onChange={(e) => {
+                  setAnthropicBase(e.target.value);
+                  setAnthropicBaseDirty(true);
+                }}
+                placeholder="Default: https://api.anthropic.com"
+                autoComplete="off"
+              />
+            </label>
+            <label className="flex cursor-pointer items-center gap-2 font-mono text-xs text-text-main">
+              <input
+                type="checkbox"
+                checked={clearAnthropicBase}
+                onChange={(e) => setClearAnthropicBase(e.target.checked)}
+              />
+              Remove database Anthropic base override
+            </label>
+            <label className="grid gap-1 font-mono text-xs">
+              <span className="text-text-muted">API key (write-only)</span>
+              <input
+                className={fieldClass}
+                type="password"
+                autoComplete="off"
+                value={anthropicKey}
+                onChange={(e) => setAnthropicKey(e.target.value)}
+                placeholder={
+                  llm.data?.anthropic_api_key_configured
+                    ? "Leave blank to keep existing key"
+                    : "sk-ant-…"
+                }
+              />
+            </label>
+            <label className="flex cursor-pointer items-center gap-2 font-mono text-xs text-text-main">
+              <input
+                type="checkbox"
+                checked={clearAnthropicKey}
+                onChange={(e) => setClearAnthropicKey(e.target.checked)}
+              />
+              Remove stored Anthropic key
+            </label>
+          </div>
+        ) : null}
 
         <button
           type="button"
           className="rounded-sharp bg-primary/15 px-4 py-2 font-mono text-xs text-primary ring-1 ring-primary/40 disabled:opacity-50"
           disabled={llmPatch.isPending}
           onClick={() => {
-            const body: Parameters<typeof apiAdminLlmPatch>[1] = {};
-            if (clearBase) {
-              body.clear_litellm_api_base = true;
-            } else if (apiBaseDirty) {
-              body.litellm_api_base = apiBase.trim();
+            const body = emptyAdminLlmPatch();
+            if (providerDirty) {
+              body.deck_llm_provider = deckProvider;
             }
-            if (clearKey) {
+            if (clearLitellmBase) {
+              body.clear_litellm_api_base = true;
+            } else if (litellmBaseDirty) {
+              body.litellm_api_base = litellmBase.trim();
+            }
+            if (clearLitellmKey) {
               body.clear_litellm_api_key = true;
-            } else if (apiKey.trim()) {
-              body.litellm_api_key = apiKey.trim();
+            } else if (litellmKey.trim()) {
+              body.litellm_api_key = litellmKey.trim();
+            }
+            if (clearOpenaiBase) {
+              body.clear_openai_api_base = true;
+            } else if (openaiBaseDirty) {
+              body.openai_api_base = openaiBase.trim();
+            }
+            if (clearOpenaiKey) {
+              body.clear_openai_api_key = true;
+            } else if (openaiKey.trim()) {
+              body.openai_api_key = openaiKey.trim();
+            }
+            if (clearAnthropicBase) {
+              body.clear_anthropic_api_base = true;
+            } else if (anthropicBaseDirty) {
+              body.anthropic_api_base = anthropicBase.trim();
+            }
+            if (clearAnthropicKey) {
+              body.clear_anthropic_api_key = true;
+            } else if (anthropicKey.trim()) {
+              body.anthropic_api_key = anthropicKey.trim();
             }
             llmPatch.mutate(body);
           }}
