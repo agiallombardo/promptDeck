@@ -640,6 +640,8 @@ export async function apiAdminAudit(accessToken: string, limit = 100) {
       id: number;
       ts: string;
       actor_id: string | null;
+      actor_email?: string | null;
+      actor_display_name?: string | null;
       action: string;
       target_kind: string | null;
       target_id: string | null;
