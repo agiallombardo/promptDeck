@@ -14,6 +14,7 @@ import { useAuthStore } from "../stores/auth";
 
 const DEFAULT_TITLE = "Untitled deck";
 const MAX_TITLE_LEN = 500;
+const MAX_GENERATE_DESCRIPTION_LEN = 10_000;
 
 function normalizeDeckTitle(raw: string): string {
   const t = raw.trim();
@@ -45,6 +46,7 @@ export default function FileManagerPage() {
   const uploadInputId = useId();
   const [title, setTitle] = useState("");
   const [generatePrompt, setGeneratePrompt] = useState("");
+  const [generateDescription, setGenerateDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [sharePresentationId, setSharePresentationId] = useState<string | null>(null);
 
@@ -97,13 +99,16 @@ export default function FileManagerPage() {
       if (!p) {
         throw new Error("Enter a prompt describing the deck you want.");
       }
+      const desc = generateDescription.trim();
       return apiPresentationGenerateFromPrompt(token, {
         title: normalizeDeckTitle(title),
         prompt: p,
+        description: desc.length ? desc : null,
       });
     },
     onSuccess: async (data) => {
       setGeneratePrompt("");
+      setGenerateDescription("");
       await qc.invalidateQueries({ queryKey: ["presentations", token] });
       navigate(`/p/${data.presentation.id}?deckJob=${data.job.id}`);
     },
@@ -183,6 +188,17 @@ export default function FileManagerPage() {
             need a title and a brief; a starter file is created, then replaced when generation
             finishes.
           </p>
+          <label className="mt-3 flex flex-col gap-1 font-mono text-xs text-text-muted">
+            Description <span className="font-body font-normal text-text-muted">(optional)</span>
+            <textarea
+              className="min-h-[72px] w-full resize-y rounded-sharp border border-border bg-bg-recessed px-3 py-2 font-body text-sm text-text-main outline-none ring-primary focus:ring-1"
+              value={generateDescription}
+              onChange={(ev) => setGenerateDescription(ev.target.value)}
+              placeholder="Internal notes, audience, or context for the deck record (not sent as the main generation brief)"
+              disabled={generateFromPrompt.isPending}
+              maxLength={MAX_GENERATE_DESCRIPTION_LEN}
+            />
+          </label>
           <label className="mt-3 flex flex-col gap-1 font-mono text-xs text-text-muted">
             Prompt
             <textarea

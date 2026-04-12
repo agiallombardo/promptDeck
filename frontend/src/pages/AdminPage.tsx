@@ -511,10 +511,11 @@ export default function AdminPage() {
                 response. Summaries for the last 24 hours appear on the Stats tab.
               </p>
               <div className="mt-3 overflow-x-auto rounded-sharp border border-border bg-bg-elevated">
-                <table className="w-full min-w-[960px] border-collapse text-left text-sm">
+                <table className="w-full min-w-[1040px] border-collapse text-left text-sm">
                   <thead className="border-b border-border bg-bg-recessed font-mono text-xs uppercase text-text-muted">
                     <tr>
                       <th className="px-3 py-2">Created</th>
+                      <th className="px-3 py-2">Type</th>
                       <th className="px-3 py-2">Deck</th>
                       <th className="px-3 py-2">Prompt preview</th>
                       <th className="px-3 py-2">Model</th>
@@ -528,6 +529,17 @@ export default function AdminPage() {
                       deckPromptJobs.data.items.map((j) => (
                         <tr key={j.id}>
                           <td className="px-3 py-2 text-text-muted">{j.created_at}</td>
+                          <td className="px-3 py-2">
+                            <span
+                              className={
+                                j.is_generation
+                                  ? "rounded-sharp border border-primary/40 bg-primary/10 px-2 py-0.5 text-primary"
+                                  : "rounded-sharp border border-border bg-bg-recessed px-2 py-0.5 text-text-muted"
+                              }
+                            >
+                              {j.is_generation ? "Generate" : "Edit"}
+                            </span>
+                          </td>
                           <td className="px-3 py-2">{j.presentation_title}</td>
                           <td
                             className="max-w-[14rem] truncate px-3 py-2 text-text-muted"
@@ -549,7 +561,7 @@ export default function AdminPage() {
                       ))
                     ) : (
                       <tr>
-                        <td className="px-3 py-6 text-text-muted" colSpan={7}>
+                        <td className="px-3 py-6 text-text-muted" colSpan={8}>
                           No deck prompt jobs yet.
                         </td>
                       </tr>
