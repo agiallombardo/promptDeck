@@ -41,9 +41,6 @@ export function RecentDeckPreviews({ accessToken, entries }: Props) {
   return (
     <div className="mt-8">
       <h2 className="font-mono text-sm uppercase tracking-wide text-text-muted">Recently opened</h2>
-      <p className="mt-1 text-xs text-text-muted">
-        Up to four decks you last opened or edited on this browser.
-      </p>
       <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
         {entries.map((entry, i) => {
           const pres = presQueries[i];

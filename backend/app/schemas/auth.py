@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 
 from app.db.models.user import AuthProvider, UserRole
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 
 class LoginRequest(BaseModel):
@@ -92,3 +92,9 @@ class UserSettingsUpdate(BaseModel):
         if s not in ("openai", "claude", "litellm"):
             raise ValueError("llm_provider must be openai, claude, or litellm")
         return s
+
+    @model_validator(mode="after")
+    def _clear_llm_provider_wins(self) -> UserSettingsUpdate:
+        if self.clear_llm_provider:
+            self.llm_provider = None
+        return self

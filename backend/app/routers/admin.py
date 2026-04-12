@@ -461,9 +461,14 @@ async def list_audit(
     db: Annotated[AsyncSession, Depends(get_db)],
     limit: int = Query(default=100, ge=1, le=500),
 ) -> AuditLogListResponse:
-    stmt = select(AuditLog).order_by(AuditLog.id.desc()).limit(limit)
+    stmt = (
+        select(AuditLog, User.email, User.display_name)
+        .outerjoin(User, AuditLog.actor_id == User.id)
+        .order_by(AuditLog.id.desc())
+        .limit(limit)
+    )
     result = await db.execute(stmt)
-    rows = list(result.scalars().all())
+    rows = list(result.all())
     await write_app_log(
         db,
         channel=LogChannel.audit,
@@ -477,7 +482,22 @@ async def list_audit(
         latency_ms=None,
         payload={"limit": limit, "result_count": len(rows)},
     )
-    return AuditLogListResponse(items=[AuditLogRead.model_validate(r) for r in rows])
+    items = [
+        AuditLogRead(
+            id=log.id,
+            ts=log.ts,
+            actor_id=log.actor_id,
+            actor_email=actor_email,
+            actor_display_name=actor_display_name,
+            action=log.action,
+            target_kind=log.target_kind,
+            target_id=log.target_id,
+            metadata=log.metadata_,
+            ip=log.ip,
+        )
+        for log, actor_email, actor_display_name in rows
+    ]
+    return AuditLogListResponse(items=items)
 
 
 @router.get("/users", response_model=AdminUserListResponse)

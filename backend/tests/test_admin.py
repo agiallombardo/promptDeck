@@ -144,7 +144,12 @@ async def test_admin_stats_and_audit_ok(client: AsyncClient) -> None:
 
     a = await client.get("/api/v1/admin/audit", headers=h)
     assert a.status_code == 200
-    assert "items" in a.json()
+    audit_body = a.json()
+    assert "items" in audit_body
+    for row in audit_body["items"]:
+        assert "actor_email" in row
+        assert "actor_display_name" in row
+    assert any(row.get("actor_email") for row in audit_body["items"])
 
 
 @pytest.mark.asyncio

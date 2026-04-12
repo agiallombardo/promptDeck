@@ -1269,6 +1269,10 @@ export interface components {
     AuditLogRead: {
       /** Action */
       action: string;
+      /** Actor Display Name */
+      actor_display_name?: string | null;
+      /** Actor Email */
+      actor_email?: string | null;
       /** Actor Id */
       actor_id: string | null;
       /** Id */

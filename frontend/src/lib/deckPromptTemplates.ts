@@ -4,7 +4,8 @@ export type DeckPromptTemplate = {
   body: string;
 };
 
-export const DECK_PROMPT_TEMPLATES: readonly DeckPromptTemplate[] = [
+/** Suggestions for generating a brand-new deck from the file manager. */
+export const DECK_PROMPT_TEMPLATES_NEW_DECK: readonly DeckPromptTemplate[] = [
   {
     id: "qbr",
     label: "QBR",
@@ -35,6 +36,10 @@ export const DECK_PROMPT_TEMPLATES: readonly DeckPromptTemplate[] = [
     label: "Weekly update",
     body: "Create an all-hands or team weekly update: headline, metrics snapshot, shipped items, blockers, and shout-outs. Casual internal tone, 5–6 slides.",
   },
+];
+
+/** Suggestions for editing an existing uploaded deck. */
+export const DECK_PROMPT_TEMPLATES_EDIT_DECK: readonly DeckPromptTemplate[] = [
   {
     id: "edit-tighten",
     label: "Tighten copy",
@@ -44,5 +49,25 @@ export const DECK_PROMPT_TEMPLATES: readonly DeckPromptTemplate[] = [
     id: "edit-visual",
     label: "Visual polish",
     body: "Improve contrast, spacing, and typography hierarchy. Keep content the same but make slides feel more polished and consistent.",
+  },
+  {
+    id: "edit-restructure",
+    label: "Restructure",
+    body: "Reorder and merge slides for a clearer narrative. Keep the same facts and branding; improve flow and section breaks.",
+  },
+  {
+    id: "edit-brand",
+    label: "Unify style",
+    body: "Unify fonts, colors, and spacing to one consistent style across all slides without changing the underlying message.",
+  },
+  {
+    id: "edit-agenda",
+    label: "Add agenda",
+    body: "Add a table-of-contents slide after the title and short section divider slides where helpful; keep existing content otherwise.",
+  },
+  {
+    id: "edit-accessible",
+    label: "Accessibility",
+    body: "Improve color contrast for text on backgrounds, increase minimum font sizes where too small, and add concise alt text for key images.",
   },
 ];

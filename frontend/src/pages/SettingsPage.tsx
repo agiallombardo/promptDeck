@@ -2,9 +2,19 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import type { components } from "../lib/api/schema";
 import { apiMeSettingsGet, apiMeSettingsPatch } from "../lib/api";
+import { getStoredUiTheme, setUiTheme, type UiTheme } from "../lib/uiTheme";
 import { useAuthStore } from "../stores/auth";
 
 type DeckLlmProvider = "litellm" | "openai" | "claude";
+
+/** Non-empty sentinel — empty-string option values break some controlled <select> setups. */
+const ORG_LLM_PROVIDER = "__org_default__";
+
+function normalizeLlmProviderChoiceFromApi(raw: string | null | undefined): string {
+  if (raw == null || raw === "") return ORG_LLM_PROVIDER;
+  if (raw === "openai" || raw === "claude" || raw === "litellm") return raw;
+  return ORG_LLM_PROVIDER;
+}
 
 function emptyUserSettingsPatch(): components["schemas"]["UserSettingsUpdate"] {
   return {
@@ -23,8 +33,7 @@ export default function SettingsPage() {
   const accessToken = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
   const qc = useQueryClient();
-  /** "" = use organization defaults only */
-  const [providerChoice, setProviderChoice] = useState<string>("");
+  const [providerChoice, setProviderChoice] = useState<string>(ORG_LLM_PROVIDER);
   const [openaiBase, setOpenaiBase] = useState("");
   const [anthropicBase, setAnthropicBase] = useState("");
   const [litellmBase, setLitellmBase] = useState("");
@@ -40,6 +49,7 @@ export default function SettingsPage() {
   const [clearOpenaiBase, setClearOpenaiBase] = useState(false);
   const [clearAnthropicBase, setClearAnthropicBase] = useState(false);
   const [clearLitellmBase, setClearLitellmBase] = useState(false);
+  const [uiTheme, setUiThemeState] = useState<UiTheme>(() => getStoredUiTheme());
 
   const settings = useQuery({
     queryKey: ["me", "settings", accessToken],
@@ -49,7 +59,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (!settings.data) return;
-    setProviderChoice(settings.data.llm_provider ?? "");
+    setProviderChoice(normalizeLlmProviderChoiceFromApi(settings.data.llm_provider));
     setOpenaiBase(settings.data.openai_api_base ?? "");
     setAnthropicBase(settings.data.anthropic_api_base ?? "");
     setLitellmBase(settings.data.litellm_api_base ?? "");
@@ -70,7 +80,7 @@ export default function SettingsPage() {
   const save = useMutation({
     mutationFn: () => {
       const body = emptyUserSettingsPatch();
-      if (providerChoice === "") {
+      if (providerChoice === ORG_LLM_PROVIDER) {
         body.clear_llm_provider = true;
       } else {
         body.llm_provider = providerChoice as DeckLlmProvider;
@@ -100,12 +110,14 @@ export default function SettingsPage() {
   const fieldClass =
     "w-full max-w-md rounded-sharp border border-border bg-bg-recessed px-2 py-2 font-mono text-sm text-text-main outline-none ring-primary focus:ring-1";
 
-  const selected = providerChoice as DeckLlmProvider | "";
+  const selected = providerChoice === ORG_LLM_PROVIDER ? "" : (providerChoice as DeckLlmProvider);
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-10 text-text-main">
+    <main className="mx-auto w-full max-w-[min(100%,42rem)] px-4 py-8 text-text-main sm:py-10">
       <p className="font-mono text-sm text-primary">Account</p>
-      <h1 className="font-heading text-3xl font-semibold">Settings</h1>
+      <h1 className="font-heading text-[clamp(1.5rem,1.2rem+1.4vw,1.875rem)] font-semibold">
+        Settings
+      </h1>
       <p className="mt-2 text-sm text-text-muted">
         Optional personal LLM credentials override the organization defaults for AI deck edits. Keys
         are encrypted on the server and never shown again after you save.
@@ -118,7 +130,52 @@ export default function SettingsPage() {
           {(settings.error as Error).message}
         </p>
       ) : (
-        <div className="mt-8 space-y-6 rounded-sharp border border-border bg-bg-elevated p-6 shadow-elevated">
+        <div className="mt-8 space-y-6 rounded-sharp border border-border bg-bg-elevated p-4 shadow-elevated sm:p-6">
+          <div className="rounded-sharp border border-border bg-bg-recessed p-3 font-mono text-xs">
+            <p className="font-mono text-[10px] uppercase tracking-wide text-text-muted">
+              Appearance
+            </p>
+            <p className="mt-2 text-text-muted">
+              Light view uses higher contrast for bright environments. Stored in this browser only.
+            </p>
+            <div
+              className="mt-3 flex flex-wrap gap-2"
+              role="group"
+              aria-label="Interface brightness"
+            >
+              <button
+                type="button"
+                className={`rounded-sharp px-3 py-2 font-mono text-xs ring-1 transition-colors ${
+                  uiTheme === "dark"
+                    ? "bg-primary/15 text-primary ring-primary/40"
+                    : "text-text-muted ring-border hover:bg-bg-elevated"
+                }`}
+                aria-pressed={uiTheme === "dark"}
+                onClick={() => {
+                  setUiThemeState("dark");
+                  setUiTheme("dark");
+                }}
+              >
+                Dark
+              </button>
+              <button
+                type="button"
+                className={`rounded-sharp px-3 py-2 font-mono text-xs ring-1 transition-colors ${
+                  uiTheme === "light"
+                    ? "bg-primary/15 text-primary ring-primary/40"
+                    : "text-text-muted ring-border hover:bg-bg-elevated"
+                }`}
+                aria-pressed={uiTheme === "light"}
+                onClick={() => {
+                  setUiThemeState("light");
+                  setUiTheme("light");
+                }}
+              >
+                Light
+              </button>
+            </div>
+          </div>
+
           <div className="rounded-sharp border border-border bg-bg-recessed p-3 font-mono text-xs">
             <p className="text-text-muted">Session</p>
             <p className="mt-1 text-text-main">
@@ -138,7 +195,7 @@ export default function SettingsPage() {
               value={providerChoice}
               onChange={(e) => setProviderChoice(e.target.value)}
             >
-              <option value="">Organization default</option>
+              <option value={ORG_LLM_PROVIDER}>Organization default</option>
               <option value="openai">OpenAI (API)</option>
               <option value="claude">Claude (Anthropic API)</option>
               <option value="litellm">LiteLLM / OpenAI-compatible (HTTP)</option>

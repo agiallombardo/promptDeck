@@ -1,12 +1,47 @@
+import type { DeckPromptJobDto } from "./api";
 import { apiDeckPromptJobGet } from "./api";
 
-export type DeckPromptProgress = { pct: number; msg: string };
+export type DeckPromptJobProgressSnapshot = {
+  status: string;
+  progress: number;
+  statusMessage: string;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  llmModel: string | null;
+  promptTokens: number | null;
+  completionTokens: number | null;
+  totalTokens: number | null;
+  /** Successful status polls since this wait began (each reflects a server read). */
+  pollSequence: number;
+};
+
+export function deckPromptJobSnapshotFromApi(
+  job: DeckPromptJobDto,
+  pollSequence: number,
+): DeckPromptJobProgressSnapshot {
+  const status = job.status;
+  const msg = (job.status_message ?? status).trim() || status;
+  return {
+    status,
+    progress: job.progress ?? 0,
+    statusMessage: msg,
+    createdAt: job.created_at,
+    startedAt: job.started_at ?? null,
+    finishedAt: job.finished_at ?? null,
+    llmModel: job.llm_model ?? null,
+    promptTokens: job.prompt_tokens ?? null,
+    completionTokens: job.completion_tokens ?? null,
+    totalTokens: job.total_tokens ?? null,
+    pollSequence,
+  };
+}
 
 const POLL_MS = 500;
 const MAX_POLLS = 900;
 
 export type PollDeckPromptJobOptions = {
-  onProgress?: (p: DeckPromptProgress) => void;
+  onProgress?: (p: DeckPromptJobProgressSnapshot) => void;
   /** When true, the first status fetch runs immediately (e.g. following a job from URL). */
   firstPollImmediate?: boolean;
 };
@@ -21,6 +56,7 @@ export async function pollDeckPromptJobUntilTerminal(
 ): Promise<{ status: string; error: string | null }> {
   let status = "queued";
   let err: string | null = null;
+  let pollSequence = 0;
 
   for (let i = 0; i < MAX_POLLS && status !== "succeeded" && status !== "failed"; i++) {
     if (!(options?.firstPollImmediate && i === 0)) {
@@ -29,10 +65,8 @@ export async function pollDeckPromptJobUntilTerminal(
     const j = await apiDeckPromptJobGet(accessToken, jobId);
     status = j.status;
     err = j.error ?? null;
-    options?.onProgress?.({
-      pct: j.progress ?? 0,
-      msg: (j.status_message ?? status).trim() || status,
-    });
+    pollSequence += 1;
+    options?.onProgress?.(deckPromptJobSnapshotFromApi(j, pollSequence));
   }
 
   return { status, error: err };

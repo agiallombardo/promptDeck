@@ -174,13 +174,15 @@ export default function AdminPage() {
   ];
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-10 text-text-main">
+    <main className="mx-auto w-full max-w-[min(100%,72rem)] px-3 py-8 text-text-main sm:px-4 sm:py-10">
       <header>
         <p className="font-mono text-sm text-primary">Admin</p>
-        <h1 className="font-heading text-3xl font-semibold">Operations</h1>
+        <h1 className="font-heading text-[clamp(1.5rem,1.2rem+1.4vw,1.875rem)] font-semibold">
+          Operations
+        </h1>
       </header>
 
-      <nav className="mt-8 flex flex-wrap gap-2 border-b border-border pb-2">
+      <nav className="mt-6 flex flex-wrap gap-1.5 border-b border-border pb-2 sm:mt-8 sm:gap-2">
         {tabs.map((t) => (
           <button
             key={t.id}
@@ -675,8 +677,42 @@ export default function AdminPage() {
                     <tr key={a.id}>
                       <td className="whitespace-nowrap px-3 py-2 text-text-muted">{a.ts}</td>
                       <td className="px-3 py-2">{a.action}</td>
-                      <td className="max-w-[120px] truncate px-3 py-2" title={a.actor_id ?? ""}>
-                        {a.actor_id ?? "—"}
+                      <td className="max-w-[min(100%,280px)] px-3 py-2">
+                        {a.actor_email ? (
+                          <div className="space-y-0.5">
+                            <p
+                              className="truncate font-mono text-[11px] text-text-main"
+                              title={a.actor_email}
+                            >
+                              {a.actor_email}
+                            </p>
+                            {a.actor_display_name ? (
+                              <p
+                                className="truncate text-[10px] text-text-muted"
+                                title={a.actor_display_name}
+                              >
+                                {a.actor_display_name}
+                              </p>
+                            ) : null}
+                            {a.actor_id ? (
+                              <p
+                                className="truncate font-mono text-[10px] text-text-muted"
+                                title={a.actor_id}
+                              >
+                                {a.actor_id}
+                              </p>
+                            ) : null}
+                          </div>
+                        ) : a.actor_id ? (
+                          <span
+                            className="font-mono text-[10px] text-text-muted"
+                            title={a.actor_id}
+                          >
+                            {a.actor_id}
+                          </span>
+                        ) : (
+                          "—"
+                        )}
                       </td>
                       <td className="max-w-[200px] truncate px-3 py-2">
                         {a.target_kind ?? "—"} {a.target_id ?? ""}

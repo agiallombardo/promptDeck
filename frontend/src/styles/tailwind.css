@@ -9,6 +9,7 @@
   --color-text-main: #e2e4e9;
   --color-text-muted: #828796;
   --color-accent-warning: #ff2a55;
+  --color-scrim: rgb(0 0 0 / 55%);
 
   --font-heading: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
   --font-ui: "JetBrains Mono", ui-monospace, monospace;
@@ -18,4 +19,35 @@
   --shadow-elevated: 0 0 0 1px #2a2d35, 0 20px 40px rgba(0, 0, 0, 0.9);
 
   --radius-sharp: 4px;
+}
+
+/* High-contrast daylight UI — same structure as dark, inverted values */
+html.light {
+  --color-primary: #007a8f;
+  --color-bg-void: #f2f4f8;
+  --color-bg-recessed: #e8ebf2;
+  --color-bg-elevated: #ffffff;
+  --color-border: #cfd6e3;
+  --color-text-main: #0f1218;
+  --color-text-muted: #5a6270;
+  --color-accent-warning: #c41e3a;
+  --color-scrim: rgb(15 18 24 / 38%);
+
+  --shadow-recessed: inset 0 1px 3px rgb(15 18 24 / 6%);
+  --shadow-elevated: 0 0 0 1px rgb(15 18 24 / 8%), 0 12px 40px rgb(15 18 24 / 12%);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    font-size: clamp(14px, 0.82rem + 0.45vw, 17px);
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
 }

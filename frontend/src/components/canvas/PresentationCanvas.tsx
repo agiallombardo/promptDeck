@@ -84,8 +84,7 @@ export const PresentationCanvas = forwardRef<HTMLDivElement, Props>(function Pre
   return (
     <div
       ref={ref}
-      className={`relative mx-auto w-full max-w-[min(100%,88rem)] flex-1 touch-manipulation overflow-hidden rounded-sharp shadow-elevated ${cursorClass}`}
-      style={{ aspectRatio: "16 / 9" }}
+      className={`relative mx-auto aspect-video w-full max-h-[min(82vh,96vw)] max-w-none flex-1 touch-manipulation overflow-hidden rounded-sharp shadow-elevated ${cursorClass}`}
       onTouchStart={() => {
         if (!canComment || !onLongPressCommentMode) return;
         clearLongPress();

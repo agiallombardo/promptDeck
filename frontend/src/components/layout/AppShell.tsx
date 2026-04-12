@@ -19,15 +19,15 @@ export function AppShell() {
 
   return (
     <div className="min-h-dvh bg-bg-void text-text-main">
-      <header className="border-b border-border bg-bg-recessed px-6 py-4">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4">
+      <header className="border-b border-border bg-bg-recessed px-4 py-3 sm:px-6 sm:py-4">
+        <div className="mx-auto flex w-full max-w-[min(100%,72rem)] flex-wrap items-center justify-between gap-3 sm:gap-4">
           <Link
             to="/files"
             className="font-mono text-xs uppercase tracking-wide text-primary hover:underline"
           >
             promptDeck
           </Link>
-          <nav className="flex flex-wrap items-center gap-4 font-mono text-sm text-text-muted">
+          <nav className="flex max-w-full flex-wrap items-center gap-x-3 gap-y-2 font-mono text-sm text-text-muted sm:gap-x-4">
             <Link className="hover:text-primary" to="/files">
               Files
             </Link>

@@ -53,9 +53,11 @@ export default function LoginPage() {
   const entraHref = config?.entra_login_url ? `${config.entra_login_url}?next=/files` : null;
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-bg-void px-4 text-text-main">
-      <div className="w-full max-w-md rounded-sharp border border-border bg-bg-elevated p-8 shadow-elevated">
-        <h1 className="font-heading text-2xl font-semibold">Sign in</h1>
+    <div className="flex min-h-dvh items-center justify-center bg-bg-void px-[max(1rem,env(safe-area-inset-left))] py-6 text-text-main sm:px-4">
+      <div className="w-full max-w-[min(100%,28rem)] rounded-sharp border border-border bg-bg-elevated p-6 shadow-elevated sm:p-8">
+        <h1 className="font-heading text-[clamp(1.35rem,1.1rem+1vw,1.5rem)] font-semibold">
+          Sign in
+        </h1>
         <p className="mt-2 text-sm text-text-muted">
           Use your organization account to open and collaborate on decks.
         </p>

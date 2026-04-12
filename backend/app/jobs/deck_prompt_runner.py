@@ -101,18 +101,21 @@ async def run_deck_prompt_job(job_id: uuid.UUID) -> None:
             )
 
         async with fac() as session:
+            try:
+                resolved = await resolve_deck_llm_credentials(session, settings, created_by)
+            except LlmNotConfiguredError as e:
+                raise ValueError(str(e)) from e
+
+        llm_model_used = resolved.model
+
+        async with fac() as session:
             j = await session.get(DeckPromptJob, job_id)
             if j is None:
                 raise ValueError("Deck prompt job not found")
             j.progress = 15
             j.status_message = "Calling model"
+            j.llm_model = resolved.model
             await session.commit()
-
-        async with fac() as session:
-            try:
-                resolved = await resolve_deck_llm_credentials(session, settings, created_by)
-            except LlmNotConfiguredError as e:
-                raise ValueError(str(e)) from e
 
         if is_generation:
             system_prompt = _DECK_GENERATE_SYSTEM
@@ -127,7 +130,6 @@ async def run_deck_prompt_job(job_id: uuid.UUID) -> None:
                 f"User request (apply to the deck below):\n{prompt.strip()}\n\n"
                 f"---DECK_HTML_START---\n{html_text}\n---DECK_HTML_END---"
             )
-        llm_model_used = resolved.model
         if resolved.kind == "litellm":
             assert resolved.api_base is not None
             completion_usage = await complete_deck_html_edit(

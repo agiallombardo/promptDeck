@@ -105,8 +105,12 @@ async function jsonFetch<T>(
 export function iframeSrcForDev(iframeSrc: string): string {
   if (!import.meta.env.DEV) return iframeSrc;
   try {
-    const u = new URL(iframeSrc);
-    if (u.hostname === "127.0.0.1" || u.hostname === "localhost") {
+    const base =
+      typeof window !== "undefined" && window.location?.origin
+        ? window.location.origin
+        : "http://127.0.0.1:5174";
+    const u = new URL(iframeSrc, base);
+    if (u.pathname.startsWith("/a/")) {
       return `${u.pathname}${u.search}`;
     }
   } catch {

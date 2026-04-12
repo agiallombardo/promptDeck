@@ -37,6 +37,8 @@ class AuditLogRead(BaseModel):
     id: int
     ts: datetime
     actor_id: uuid.UUID | None
+    actor_email: str | None = None
+    actor_display_name: str | None = None
     action: str
     target_kind: str | None
     target_id: uuid.UUID | None

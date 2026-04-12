@@ -130,6 +130,22 @@ def _normalized_origin(raw: str | None) -> str | None:
     return f"{parsed.scheme}://{parsed.netloc}".lower()
 
 
+def _dev_loopback_origin_match(expected_origin: str, actual_origin: str) -> bool:
+    """Treat http://127.0.0.1:P and http://localhost:P as the same origin (dev ergonomics)."""
+    try:
+        e = urlparse(expected_origin)
+        a = urlparse(actual_origin)
+    except ValueError:
+        return False
+    eh = (e.hostname or "").lower()
+    ah = (a.hostname or "").lower()
+    if eh not in ("127.0.0.1", "localhost") or ah not in ("127.0.0.1", "localhost"):
+        return False
+    if (e.scheme or "").lower() != (a.scheme or "").lower():
+        return False
+    return e.port == a.port
+
+
 def _assert_same_origin_for_cookie_auth(request: Request, settings: Settings) -> None:
     if settings.environment == "test":
         return
@@ -140,11 +156,19 @@ def _assert_same_origin_for_cookie_auth(request: Request, settings: Settings) ->
     if origin is None:
         referer = request.headers.get("referer")
         origin = _normalized_origin(referer)
-    if origin is None or origin != expected:
+    if origin is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Cross-site cookie request blocked",
         )
+    if origin == expected:
+        return
+    if settings.environment == "development" and _dev_loopback_origin_match(expected, origin):
+        return
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Cross-site cookie request blocked",
+    )
 
 
 async def _upsert_entra_user(

@@ -1,15 +1,27 @@
-import { DECK_PROMPT_TEMPLATES } from "../lib/deckPromptTemplates";
+import {
+  DECK_PROMPT_TEMPLATES_EDIT_DECK,
+  DECK_PROMPT_TEMPLATES_NEW_DECK,
+} from "../lib/deckPromptTemplates";
 
 type Props = {
   onPick: (body: string) => void;
   disabled?: boolean;
   className?: string;
+  /** New-deck flow vs editing an existing deck */
+  variant?: "new_deck" | "edit_deck";
 };
 
-export function DeckPromptTemplateChips({ onPick, disabled, className }: Props) {
+export function DeckPromptTemplateChips({
+  onPick,
+  disabled,
+  className,
+  variant = "new_deck",
+}: Props) {
+  const list =
+    variant === "edit_deck" ? DECK_PROMPT_TEMPLATES_EDIT_DECK : DECK_PROMPT_TEMPLATES_NEW_DECK;
   return (
     <div className={className ?? "flex flex-wrap gap-2"}>
-      {DECK_PROMPT_TEMPLATES.map((t) => (
+      {list.map((t) => (
         <button
           key={t.id}
           type="button"

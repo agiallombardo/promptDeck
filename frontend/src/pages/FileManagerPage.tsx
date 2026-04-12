@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { formatDurationSeconds, useWallClockElapsed } from "../hooks/useDeckPromptJobTimers";
 import { DeckPromptTemplateChips } from "../components/DeckPromptTemplateChips";
 import { RecentDeckPreviews } from "../components/RecentDeckPreviews";
 import { ShareModal } from "../components/ShareModal";
@@ -11,7 +12,7 @@ import {
   apiPresentationsList,
   apiVersionUpload,
 } from "../lib/api";
-import { readRecentDecks, RECENT_DECKS_CHANGED } from "../lib/recentDecks";
+import { readRecentDecks, RECENT_DECKS_CHANGED, removeRecentDeck } from "../lib/recentDecks";
 import { useAuthStore } from "../stores/auth";
 
 const DEFAULT_TITLE = "Untitled deck";
@@ -68,23 +69,6 @@ export default function FileManagerPage() {
     };
   }, []);
 
-  const create = useMutation({
-    mutationFn: async () => {
-      setError(null);
-      const trimmed = title.trim();
-      if (!trimmed) {
-        throw new Error("Enter a title to create an empty deck.");
-      }
-      return apiPresentationCreate(token, normalizeDeckTitle(title));
-    },
-    onSuccess: async (data) => {
-      setTitle("");
-      await qc.invalidateQueries({ queryKey: ["presentations", token] });
-      navigate(`/p/${data.id}`);
-    },
-    onError: (err: Error) => setError(err.message),
-  });
-
   const createAndUpload = useMutation({
     mutationFn: async (file: File) => {
       setError(null);
@@ -125,49 +109,43 @@ export default function FileManagerPage() {
     onError: (err: Error) => setError(err.message),
   });
 
+  const generateSubmitElapsed = useWallClockElapsed(generateFromPrompt.isPending);
+
   const remove = useMutation({
     mutationFn: async (presentationId: string) => {
       setError(null);
       await apiPresentationDelete(token, presentationId);
     },
-    onSuccess: async () => {
+    onSuccess: async (_void, presentationId) => {
+      removeRecentDeck(presentationId);
       await qc.invalidateQueries({ queryKey: ["presentations", token] });
     },
     onError: (err: Error) => setError(err.message),
   });
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-10">
-      <h1 className="font-heading text-xl font-semibold">Files</h1>
+    <main className="mx-auto w-full max-w-[min(100%,64rem)] px-4 py-8 sm:px-6 sm:py-10">
+      <h1 className="font-heading text-[clamp(1.25rem,1rem+1vw,1.5rem)] font-semibold">Files</h1>
 
-      <div className="mt-8 rounded-sharp border border-border bg-bg-elevated p-6 shadow-elevated">
+      {generateFromPrompt.isPending ? (
+        <div className="mt-4 rounded-sharp border border-border bg-bg-elevated px-3 py-2 shadow-elevated">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <p className="font-mono text-xs text-text-muted">Starting AI deck generation…</p>
+            <p className="font-mono text-[11px] text-primary tabular-nums">
+              {formatDurationSeconds(generateSubmitElapsed)} on this step
+            </p>
+          </div>
+          <p className="mt-1 font-mono text-[10px] text-text-muted">
+            Creating the deck and job on the server — you will jump to the deck when the API
+            responds; live job status appears on the next page.
+          </p>
+        </div>
+      ) : null}
+
+      <div className="mt-6 rounded-sharp border border-border bg-bg-elevated p-4 shadow-elevated sm:mt-8 sm:p-6">
         <h2 className="font-mono text-sm uppercase tracking-wide text-text-muted">
           New presentation
         </h2>
-        <p className="mt-2 text-sm text-text-muted">
-          Create an empty deck or upload a single <span className="font-mono">.html</span> file or a{" "}
-          <span className="font-mono">.zip</span> bundle that includes{" "}
-          <span className="font-mono">index.html</span>. Upload creates the deck and its first
-          version in one step.
-        </p>
-        <ul className="mt-3 list-none space-y-2 text-sm text-text-muted">
-          <li className="flex gap-3">
-            <span className="w-28 shrink-0 font-mono text-xs uppercase tracking-wide text-text-main">
-              Empty deck
-            </span>
-            <span>Enter a title first — it is required for an empty deck.</span>
-          </li>
-          <li className="flex gap-3">
-            <span className="w-28 shrink-0 font-mono text-xs uppercase tracking-wide text-text-main">
-              Upload
-            </span>
-            <span>
-              Title is optional. If you leave it blank, the file name becomes the deck title, or{" "}
-              <span className="font-mono text-text-main">{DEFAULT_TITLE}</span> when the name cannot
-              be used.
-            </span>
-          </li>
-        </ul>
         <div className="mt-4 flex flex-wrap items-end gap-3">
           <label className="flex min-w-[240px] flex-1 flex-col gap-1 font-mono text-xs text-text-muted">
             Title
@@ -179,27 +157,10 @@ export default function FileManagerPage() {
               maxLength={MAX_TITLE_LEN}
             />
           </label>
-          <button
-            type="button"
-            disabled={create.isPending || createAndUpload.isPending || generateFromPrompt.isPending}
-            onClick={() => create.mutate()}
-            className="rounded-sharp bg-primary/15 px-4 py-2 font-mono text-sm font-medium text-primary ring-1 ring-primary/40 hover:bg-primary/25 disabled:opacity-50"
-          >
-            {create.isPending ? "Creating…" : "Create empty deck"}
-          </button>
         </div>
         <div className="mt-6 border-t border-border pt-6">
-          <h3 className="font-mono text-xs uppercase tracking-wide text-text-muted">
-            Generate new deck with AI
-          </h3>
-          <p className="mt-2 text-sm text-text-muted">
-            Uses the same AI pipeline as{" "}
-            <span className="font-mono text-text-main">Edit with prompt</span> on an open deck. You
-            need a title and a brief; a starter file is created, then replaced when generation
-            finishes.
-          </p>
-          <label className="mt-3 flex flex-col gap-1 font-mono text-xs text-text-muted">
-            Prompt
+          <label className="flex flex-col gap-1 font-mono text-xs text-text-muted">
+            AI prompt
             <textarea
               className="min-h-[100px] w-full resize-y rounded-sharp border border-border bg-bg-recessed px-3 py-2 font-body text-sm text-text-main outline-none ring-primary focus:ring-1"
               value={generatePrompt}
@@ -211,13 +172,14 @@ export default function FileManagerPage() {
           </label>
           <p className="mt-2 font-mono text-[11px] text-text-muted">Quick-start templates</p>
           <DeckPromptTemplateChips
+            variant="new_deck"
             className="mt-2 flex flex-wrap gap-2"
             disabled={generateFromPrompt.isPending}
             onPick={(body) => setGeneratePrompt(body)}
           />
           <button
             type="button"
-            disabled={create.isPending || createAndUpload.isPending || generateFromPrompt.isPending}
+            disabled={createAndUpload.isPending || generateFromPrompt.isPending}
             onClick={() => generateFromPrompt.mutate()}
             className="mt-4 rounded-sharp border border-primary bg-primary/15 px-4 py-2 font-mono text-sm font-medium text-primary ring-1 ring-primary/40 hover:bg-primary/25 disabled:opacity-50"
           >
@@ -235,7 +197,7 @@ export default function FileManagerPage() {
             id={uploadInputId}
             type="file"
             accept=".html,.htm,.zip,text/html,application/zip"
-            disabled={createAndUpload.isPending || create.isPending || generateFromPrompt.isPending}
+            disabled={createAndUpload.isPending || generateFromPrompt.isPending}
             className="mt-2 block w-full max-w-md font-body text-sm text-text-main file:mr-3 file:rounded-sharp file:border file:border-border file:bg-bg-recessed file:px-3 file:py-2"
             onChange={(ev) => {
               const f = ev.target.files?.[0];

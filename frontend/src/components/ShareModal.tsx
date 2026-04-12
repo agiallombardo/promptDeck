@@ -150,7 +150,7 @@ export function ShareModal({ open, onClose, accessToken, presentationId }: Props
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-scrim p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="share-modal-title"

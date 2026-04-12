@@ -48,3 +48,11 @@ export function recordRecentDeck(id: string, title: string): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   window.dispatchEvent(new CustomEvent(RECENT_DECKS_CHANGED));
 }
+
+export function removeRecentDeck(id: string): void {
+  const prev = readRecentDecks();
+  const next = prev.filter((e) => e.id !== id);
+  if (next.length === prev.length) return;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  window.dispatchEvent(new CustomEvent(RECENT_DECKS_CHANGED));
+}

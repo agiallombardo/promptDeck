@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import functools
 import uuid
 
 import pytest
@@ -11,6 +12,19 @@ from app.security.passwords import hash_password
 from httpx import ASGITransport, AsyncClient
 
 SAMPLE_HTML = b"""<!DOCTYPE html><html><body><section>A</section></body></html>"""
+
+
+@functools.lru_cache(maxsize=1)
+def _playwright_chromium_available() -> bool:
+    try:
+        from playwright.sync_api import sync_playwright
+
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            browser.close()
+        return True
+    except Exception:
+        return False
 
 
 @pytest.fixture
@@ -158,6 +172,9 @@ async def test_share_link_exchange_grants_comment_access(editor_client) -> None:
 
 @pytest.mark.asyncio
 async def test_export_job_stub(editor_client) -> None:
+    if not _playwright_chromium_available():
+        pytest.skip("Playwright Chromium missing; run: uv run playwright install (from backend/)")
+
     c, _transport = editor_client
     p = await c.post("/api/v1/presentations", json={"title": "Ex"})
     pid = p.json()["id"]

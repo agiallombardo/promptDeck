@@ -1,6 +1,18 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem("promptdeck-ui-theme");
+          var root = document.documentElement;
+          if (t === "light") root.classList.add("light");
+          else root.classList.remove("light");
+          var m = document.querySelector('meta[name="theme-color"]');
+          if (m) m.setAttribute("content", t === "light" ? "#f2f4f8" : "#050507");
+        } catch (e) {}
+      })();
+    </script>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="theme-color" content="#050507" />

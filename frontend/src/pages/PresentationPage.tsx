@@ -1,6 +1,7 @@
 import { Drawer } from "vaul";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { DeckPromptJobActivity } from "../components/DeckPromptJobActivity";
 import { DeckPromptTemplateChips } from "../components/DeckPromptTemplateChips";
 import {
   PresentationCanvas,
@@ -20,7 +21,11 @@ import {
   apiExportGet,
   apiShareExchange,
 } from "../lib/api";
-import { pollDeckPromptJobUntilTerminal } from "../lib/deckPromptPoll";
+import {
+  deckPromptJobSnapshotFromApi,
+  pollDeckPromptJobUntilTerminal,
+  type DeckPromptJobProgressSnapshot,
+} from "../lib/deckPromptPoll";
 import { recordRecentDeck } from "../lib/recentDecks";
 import { shouldIgnoreDeckHotkeys } from "../lib/hotkeys";
 import { postSetCommentMode, postSlideGoto } from "../lib/slidePostMessage";
@@ -42,14 +47,10 @@ export default function PresentationPage() {
   const [deckPromptOpen, setDeckPromptOpen] = useState(false);
   const [deckPromptText, setDeckPromptText] = useState("");
   const [deckPromptBusy, setDeckPromptBusy] = useState(false);
-  const [deckPromptProgress, setDeckPromptProgress] = useState<{
-    pct: number;
-    msg: string;
-  } | null>(null);
-  const [deckJobFollowProgress, setDeckJobFollowProgress] = useState<{
-    pct: number;
-    msg: string;
-  } | null>(null);
+  const [deckPromptSnapshot, setDeckPromptSnapshot] =
+    useState<DeckPromptJobProgressSnapshot | null>(null);
+  const [deckJobFollowSnapshot, setDeckJobFollowSnapshot] =
+    useState<DeckPromptJobProgressSnapshot | null>(null);
   const [mobileFeedbackOpen, setMobileFeedbackOpen] = useState(false);
   const [commentsHidden, setCommentsHidden] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -242,15 +243,16 @@ export default function PresentationPage() {
       return;
     }
     setDeckPromptBusy(true);
-    setDeckPromptProgress({ pct: 0, msg: "Starting…" });
+    setDeckPromptSnapshot(null);
     useToastStore.getState().pushToast({
       level: "info",
       message: "AI edit started — this can take a minute…",
     });
     try {
       const job = await apiDeckPromptJobCreate(accessToken, id, { prompt });
+      setDeckPromptSnapshot(deckPromptJobSnapshotFromApi(job, 0));
       const { status, error: err } = await pollDeckPromptJobUntilTerminal(accessToken, job.id, {
-        onProgress: setDeckPromptProgress,
+        onProgress: setDeckPromptSnapshot,
       });
       if (status !== "succeeded") {
         const stillRunning = status === "running" || status === "queued";
@@ -282,7 +284,7 @@ export default function PresentationPage() {
       useToastStore.getState().pushToast({ level: "error", message: msg });
     } finally {
       setDeckPromptBusy(false);
-      setDeckPromptProgress(null);
+      setDeckPromptSnapshot(null);
     }
   }, [accessToken, deckPromptText, id, pres.data?.current_version_id, qc]);
 
@@ -300,7 +302,7 @@ export default function PresentationPage() {
         level: "info",
         message: "Finishing AI deck generation…",
       });
-      setDeckJobFollowProgress({ pct: 0, msg: "Starting…" });
+      setDeckJobFollowSnapshot(null);
       try {
         const { status, error: err } = await pollDeckPromptJobUntilTerminal(
           accessToken,
@@ -308,7 +310,7 @@ export default function PresentationPage() {
           {
             firstPollImmediate: true,
             onProgress: (p) => {
-              if (!cancelled) setDeckJobFollowProgress(p);
+              if (!cancelled) setDeckJobFollowSnapshot(p);
             },
           },
         );
@@ -322,7 +324,7 @@ export default function PresentationPage() {
           },
           { replace: true },
         );
-        setDeckJobFollowProgress(null);
+        setDeckJobFollowSnapshot(null);
 
         if (status === "succeeded") {
           await qc.invalidateQueries({ queryKey: ["presentation", id, accessToken] });
@@ -344,7 +346,7 @@ export default function PresentationPage() {
         }
       } catch (e) {
         if (cancelled) return;
-        setDeckJobFollowProgress(null);
+        setDeckJobFollowSnapshot(null);
         setSearchParams(
           (prev) => {
             const next = new URLSearchParams(prev);
@@ -497,8 +499,6 @@ export default function PresentationPage() {
     onReply: handleReply,
     onResolve: (threadId: string) => resolveThread.mutate(threadId),
     onDeleteComment: (commentId: string) => deleteComment.mutate(commentId),
-    commentsUiHidden: commentsHidden,
-    onShowCommentsUi: () => setCommentsHidden(false),
   };
 
   useEffect(() => {
@@ -570,26 +570,22 @@ export default function PresentationPage() {
           onToggleCommentsHidden={handleToggleCommentsHidden}
         />
 
-        {deckJobFollowProgress ? (
+        {deckJobFollowSnapshot || (deckJobFromUrl && canPromptEdit) ? (
           <div className="mx-auto max-w-[min(100%,88rem)] px-4 pt-2">
             <div className="rounded-sharp border border-border bg-bg-elevated px-3 py-2 shadow-elevated">
-              <p className="font-mono text-xs text-text-muted">AI generation in progress</p>
-              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-bg-recessed">
-                <div
-                  className="h-full bg-primary transition-[width] duration-300"
-                  style={{
-                    width: `${Math.min(100, Math.max(0, deckJobFollowProgress.pct))}%`,
-                  }}
-                />
-              </div>
-              <p className="mt-1 font-mono text-[11px] text-text-muted">
-                {deckJobFollowProgress.msg}
-              </p>
+              <DeckPromptJobActivity
+                title="AI is generating your deck"
+                snapshot={deckJobFollowSnapshot}
+                waitingSubmit={false}
+                jobActive={Boolean(deckJobFromUrl && !deckJobFollowSnapshot)}
+              />
             </div>
           </div>
         ) : null}
 
-        <div className="mx-auto grid max-w-[min(100%,88rem)] gap-6 px-4 py-4 md:grid-cols-[minmax(0,1fr)_320px]">
+        <div
+          className={`mx-auto grid w-full max-w-[min(100%,96rem)] gap-4 px-3 py-3 sm:gap-6 sm:px-4 sm:py-4 ${commentsHidden ? "" : "md:grid-cols-[minmax(0,1fr)_min(300px,32vw)]"}`}
+        >
           <section className="space-y-4">
             <PresentationCanvas
               ref={presentRootRef}
@@ -647,22 +643,26 @@ export default function PresentationPage() {
             ) : null}
           </section>
 
-          <div className="hidden md:block">
-            <FeedbackSidebar {...feedbackSidebarProps} />
-          </div>
+          {!commentsHidden ? (
+            <div className="hidden md:block">
+              <FeedbackSidebar {...feedbackSidebarProps} />
+            </div>
+          ) : null}
         </div>
 
-        <Drawer.Root open={mobileFeedbackOpen} onOpenChange={setMobileFeedbackOpen}>
-          <Drawer.Portal>
-            <Drawer.Overlay className="fixed inset-0 z-40 bg-black/40 md:hidden" />
-            <Drawer.Content className="fixed inset-x-0 bottom-0 z-50 max-h-[88vh] rounded-t-[20px] border border-border bg-bg-elevated md:hidden">
-              <div className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-border" />
-              <div className="max-h-[calc(88vh-24px)] overflow-y-auto p-4">
-                <FeedbackSidebar {...feedbackSidebarProps} embedded />
-              </div>
-            </Drawer.Content>
-          </Drawer.Portal>
-        </Drawer.Root>
+        {!commentsHidden ? (
+          <Drawer.Root open={mobileFeedbackOpen} onOpenChange={setMobileFeedbackOpen}>
+            <Drawer.Portal>
+              <Drawer.Overlay className="fixed inset-0 z-40 bg-scrim md:hidden" />
+              <Drawer.Content className="fixed inset-x-0 bottom-0 z-50 max-h-[88vh] rounded-t-[20px] border border-border bg-bg-elevated md:hidden">
+                <div className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-border" />
+                <div className="max-h-[calc(88vh-24px)] overflow-y-auto p-4">
+                  <FeedbackSidebar {...feedbackSidebarProps} embedded />
+                </div>
+              </Drawer.Content>
+            </Drawer.Portal>
+          </Drawer.Root>
+        ) : null}
 
         {canManage && accessToken ? (
           <>
@@ -677,7 +677,7 @@ export default function PresentationPage() {
 
         {deckPromptOpen ? (
           <div
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-scrim p-4"
             role="presentation"
             onMouseDown={(ev) => {
               if (ev.target === ev.currentTarget && !deckPromptBusy) setDeckPromptOpen(false);
@@ -697,6 +697,7 @@ export default function PresentationPage() {
               </p>
               <p className="mt-2 font-mono text-[11px] text-text-muted">Quick-start templates</p>
               <DeckPromptTemplateChips
+                variant="edit_deck"
                 className="mt-1 flex flex-wrap gap-2"
                 disabled={deckPromptBusy}
                 onPick={(body) => setDeckPromptText(body)}
@@ -708,16 +709,14 @@ export default function PresentationPage() {
                 disabled={deckPromptBusy}
                 onChange={(ev) => setDeckPromptText(ev.target.value)}
               />
-              {deckPromptProgress ? (
-                <div className="mt-2 space-y-1">
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-bg-recessed">
-                    <div
-                      className="h-full bg-primary transition-[width] duration-300"
-                      style={{ width: `${Math.min(100, Math.max(0, deckPromptProgress.pct))}%` }}
-                    />
-                  </div>
-                  <p className="font-mono text-[11px] text-text-muted">{deckPromptProgress.msg}</p>
-                </div>
+              {deckPromptBusy ? (
+                <DeckPromptJobActivity
+                  title="AI edit in progress"
+                  snapshot={deckPromptSnapshot}
+                  waitingSubmit={!deckPromptSnapshot}
+                  jobActive={deckPromptBusy}
+                  className="mt-2"
+                />
               ) : null}
               <div className="mt-4 flex justify-end gap-2">
                 <button

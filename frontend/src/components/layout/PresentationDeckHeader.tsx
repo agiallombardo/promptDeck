@@ -46,15 +46,28 @@ export function PresentationDeckHeader({
   onToggleCommentsHidden,
 }: Props) {
   return (
-    <header className="border-b border-border bg-bg-recessed px-4 py-3">
-      <div className="mx-auto flex max-w-[min(100%,88rem)] flex-wrap items-center justify-between gap-3">
+    <header className="border-b border-border bg-bg-recessed px-3 py-2.5 sm:px-4 sm:py-3">
+      <div className="mx-auto flex w-full max-w-[min(88rem,100%)] flex-wrap items-center justify-between gap-2 sm:gap-3">
         <div className="flex flex-wrap items-center gap-3">
-          <Link className="font-mono text-sm text-text-muted hover:text-primary" to="/files">
-            ← Files
+          <Link
+            to="/files"
+            className="shrink-0 rounded-sharp outline-none ring-primary focus-visible:ring-2"
+            title="Home"
+            aria-label="Home — file manager"
+          >
+            <img
+              src="/favicon.svg"
+              alt=""
+              width={28}
+              height={28}
+              className="h-7 w-7 opacity-90 hover:opacity-100"
+            />
           </Link>
           <div>
             <p className="font-mono text-[10px] uppercase tracking-wide text-primary">Deck</p>
-            <h1 className="font-heading text-lg font-semibold leading-tight">{title}</h1>
+            <h1 className="max-w-[min(100%,42rem)] font-heading text-[clamp(1rem,0.92rem+0.35vw,1.125rem)] font-semibold leading-tight">
+              {title}
+            </h1>
             {accessRole ? (
               <p className="mt-0.5 font-mono text-[10px] text-text-muted">Access · {accessRole}</p>
             ) : null}
