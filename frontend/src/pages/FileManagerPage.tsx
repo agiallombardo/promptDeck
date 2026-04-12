@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { DeckPromptTemplateChips } from "../components/DeckPromptTemplateChips";
+import { RecentDeckPreviews } from "../components/RecentDeckPreviews";
 import { ShareModal } from "../components/ShareModal";
 import {
   apiPresentationCreate,
@@ -10,11 +11,11 @@ import {
   apiPresentationsList,
   apiVersionUpload,
 } from "../lib/api";
+import { readRecentDecks, RECENT_DECKS_CHANGED } from "../lib/recentDecks";
 import { useAuthStore } from "../stores/auth";
 
 const DEFAULT_TITLE = "Untitled deck";
 const MAX_TITLE_LEN = 500;
-const MAX_GENERATE_DESCRIPTION_LEN = 10_000;
 
 function normalizeDeckTitle(raw: string): string {
   const t = raw.trim();
@@ -46,7 +47,7 @@ export default function FileManagerPage() {
   const uploadInputId = useId();
   const [title, setTitle] = useState("");
   const [generatePrompt, setGeneratePrompt] = useState("");
-  const [generateDescription, setGenerateDescription] = useState("");
+  const [recentDecks, setRecentDecks] = useState(readRecentDecks);
   const [error, setError] = useState<string | null>(null);
   const [sharePresentationId, setSharePresentationId] = useState<string | null>(null);
 
@@ -54,6 +55,18 @@ export default function FileManagerPage() {
     queryKey: ["presentations", token],
     queryFn: () => apiPresentationsList(token),
   });
+
+  useEffect(() => {
+    function refreshRecent() {
+      setRecentDecks(readRecentDecks());
+    }
+    window.addEventListener(RECENT_DECKS_CHANGED, refreshRecent);
+    window.addEventListener("focus", refreshRecent);
+    return () => {
+      window.removeEventListener(RECENT_DECKS_CHANGED, refreshRecent);
+      window.removeEventListener("focus", refreshRecent);
+    };
+  }, []);
 
   const create = useMutation({
     mutationFn: async () => {
@@ -99,16 +112,13 @@ export default function FileManagerPage() {
       if (!p) {
         throw new Error("Enter a prompt describing the deck you want.");
       }
-      const desc = generateDescription.trim();
       return apiPresentationGenerateFromPrompt(token, {
         title: normalizeDeckTitle(title),
         prompt: p,
-        description: desc.length ? desc : null,
       });
     },
     onSuccess: async (data) => {
       setGeneratePrompt("");
-      setGenerateDescription("");
       await qc.invalidateQueries({ queryKey: ["presentations", token] });
       navigate(`/p/${data.presentation.id}?deckJob=${data.job.id}`);
     },
@@ -189,17 +199,6 @@ export default function FileManagerPage() {
             finishes.
           </p>
           <label className="mt-3 flex flex-col gap-1 font-mono text-xs text-text-muted">
-            Description <span className="font-body font-normal text-text-muted">(optional)</span>
-            <textarea
-              className="min-h-[72px] w-full resize-y rounded-sharp border border-border bg-bg-recessed px-3 py-2 font-body text-sm text-text-main outline-none ring-primary focus:ring-1"
-              value={generateDescription}
-              onChange={(ev) => setGenerateDescription(ev.target.value)}
-              placeholder="Internal notes, audience, or context for the deck record (not sent as the main generation brief)"
-              disabled={generateFromPrompt.isPending}
-              maxLength={MAX_GENERATE_DESCRIPTION_LEN}
-            />
-          </label>
-          <label className="mt-3 flex flex-col gap-1 font-mono text-xs text-text-muted">
             Prompt
             <textarea
               className="min-h-[100px] w-full resize-y rounded-sharp border border-border bg-bg-recessed px-3 py-2 font-body text-sm text-text-main outline-none ring-primary focus:ring-1"
@@ -254,6 +253,8 @@ export default function FileManagerPage() {
           </p>
         ) : null}
       </div>
+
+      <RecentDeckPreviews accessToken={token} entries={recentDecks} />
 
       <div className="mt-10">
         <h2 className="font-mono text-sm uppercase tracking-wide text-text-muted">

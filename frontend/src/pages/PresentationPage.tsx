@@ -21,6 +21,7 @@ import {
   apiShareExchange,
 } from "../lib/api";
 import { pollDeckPromptJobUntilTerminal } from "../lib/deckPromptPoll";
+import { recordRecentDeck } from "../lib/recentDecks";
 import { shouldIgnoreDeckHotkeys } from "../lib/hotkeys";
 import { postSetCommentMode, postSlideGoto } from "../lib/slidePostMessage";
 import { useAuthStore } from "../stores/auth";
@@ -60,6 +61,11 @@ export default function PresentationPage() {
 
   const { pres, embed, upload, uploadError, iframeSrc, qc } = usePresentation(id, accessToken);
   const versionId = pres.data?.current_version_id;
+
+  useEffect(() => {
+    if (!id || !accessToken || !pres.isSuccess || !pres.data?.title) return;
+    recordRecentDeck(id, pres.data.title);
+  }, [id, accessToken, pres.isSuccess, pres.data?.title]);
 
   const noIframePlaceholder = useMemo((): PresentationCanvasPlaceholder => {
     if (iframeSrc) {
