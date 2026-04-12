@@ -1,7 +1,9 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from fastapi import APIRouter, FastAPI, Request
+from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from starlette.responses import Response
@@ -28,6 +30,25 @@ from app.routers import (
 )
 
 settings = get_settings()
+
+
+def _install_static_site(app: FastAPI, static_root: Path) -> None:
+    root = static_root.resolve()
+    if not root.is_dir():
+        return
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def _static_site_or_spa(full_path: str) -> FileResponse:
+        if full_path == "api" or full_path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="Not Found")
+        candidate = (root / full_path).resolve()
+        try:
+            candidate.relative_to(root)
+        except ValueError:
+            return FileResponse(root / "index.html")
+        if candidate.is_file():
+            return FileResponse(candidate)
+        return FileResponse(root / "index.html")
 
 
 @asynccontextmanager
@@ -83,3 +104,7 @@ app.include_router(assets.router)
 @app.get("/health", tags=["system"])
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+if settings.static_site_dir is not None:
+    _install_static_site(app, settings.static_site_dir)

@@ -8,7 +8,7 @@ Internal web app for **HTML slide decks**: upload `.html` or `.zip`, preview in 
 - **Collaboration** — Comment threads pinned to slide coordinates (refresh to see updates in v1).
 - **Sharing** — Time- or scope-limited share links.
 - **Export** — PDF and self-contained HTML output paths.
-- **Ops-friendly** — FastAPI + Postgres, sample systemd/nginx configs under `deploy/`.
+- **Ops-friendly** — FastAPI + Postgres by default; sample systemd/nginx under `deploy/`. Optional Docker all-in-one (SQLite + static UI) is described in **`docs/RUNBOOK.md`**.
 
 ## Stack
 
@@ -16,7 +16,7 @@ Internal web app for **HTML slide decks**: upload `.html` or `.zip`, preview in 
 | -------- | ----------------------------------------------- |
 | API      | Python 3.12+, FastAPI, SQLAlchemy, Alembic, uv  |
 | Frontend | Vite, React, TypeScript, Tailwind CSS 4, pnpm 10 |
-| Database | PostgreSQL (SQLite in tests)                    |
+| Database | PostgreSQL (recommended production); optional SQLite in Docker; in-memory SQLite in tests |
 
 ## Quick start
 
@@ -34,6 +34,11 @@ Internal web app for **HTML slide decks**: upload `.html` or `.zip`, preview in 
    Defaults: API `http://127.0.0.1:8005`, frontend `http://127.0.0.1:5174` (Vite proxies `/api`).
 
 Full setup, production notes, and verification: **`docs/RUNBOOK.md`**.
+
+## Deployment
+
+- **Recommended production:** PostgreSQL, Alembic migrations, **`scripts/bootstrap_users.py`**, API behind nginx — see **`docs/RUNBOOK.md`** (Production + deploy artifacts) and **`docs/UBUNTU_SERVER_SETUP.md`** with **`deploy/`** samples (systemd unit, nginx).
+- **Optional Docker (SQLite, single container):** same-origin UI, SQLite on a volume, Playwright/Chromium for export — numbered procedure in **`docs/RUNBOOK.md`** → [Docker deployment (SQLite, all-in-one)](docs/RUNBOOK.md#docker-deployment-sqlite-all-in-one). Example env vars: **`deploy/docker-compose.env.example`**.
 
 ## Development
 

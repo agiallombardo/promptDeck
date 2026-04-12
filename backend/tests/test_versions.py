@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from pathlib import Path
 
 import pytest
@@ -24,6 +25,10 @@ async def test_upload_html_version(authed_client: AsyncClient, sample_deck_path:
     assert len(body.get("slides") or []) >= 1
 
 
+@pytest.mark.skipif(
+    ":memory:" in os.environ.get("DATABASE_URL", ""),
+    reason="SQLite :memory: uses a single DB connection; concurrent requests overlap",
+)
 @pytest.mark.asyncio
 async def test_concurrent_uploads_assign_unique_version_numbers(
     authed_client: AsyncClient, sample_deck_path: Path
