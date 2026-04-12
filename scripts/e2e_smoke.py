@@ -16,6 +16,7 @@ sys.path.insert(0, str(_BACKEND))
 async def _run() -> None:
     os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
     os.environ.setdefault("JWT_SECRET_KEY", "x" * 32)
+    os.environ.setdefault("ENVIRONMENT", "test")
 
     from httpx import ASGITransport, AsyncClient
 
