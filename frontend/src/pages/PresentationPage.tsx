@@ -381,7 +381,8 @@ export default function PresentationPage() {
 
   const feedbackSidebarProps = {
     threads: threads.data?.items ?? [],
-    isLoading: Boolean(pres.isLoading || !versionId || threads.isLoading),
+    // Avoid treating "no version yet" as thread loading — query is disabled; show empty state.
+    isLoading: Boolean(versionId ? threads.isLoading : pres.isPending || pres.isLoading),
     isRefreshing: threads.isFetching && !threads.isLoading,
     error: threadsError,
     canComment,
