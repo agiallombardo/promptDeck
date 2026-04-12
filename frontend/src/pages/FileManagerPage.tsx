@@ -159,8 +159,47 @@ export default function FileManagerPage() {
           </label>
         </div>
         <div className="mt-6 border-t border-border pt-6">
-          <label className="flex flex-col gap-1 font-mono text-xs text-text-muted">
-            AI prompt
+          <p className="font-mono text-[11px] text-text-muted">Quick-start templates</p>
+          <DeckPromptTemplateChips
+            variant="new_deck"
+            className="mt-2 flex flex-wrap gap-2"
+            disabled={generateFromPrompt.isPending}
+            onPick={(body) => setGeneratePrompt(body)}
+          />
+          <div className="mt-4 flex items-center gap-2 font-mono text-xs text-text-muted">
+            <span>AI prompt</span>
+            <details className="group relative inline-block">
+              <summary className="cursor-pointer select-none list-none text-text-muted/60 hover:text-primary">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  className="inline-block h-3.5 w-3.5"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-7-4a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM9 9a.75.75 0 0 0 0 1.5h.253a.25.25 0 0 1 .244.304l-.459 2.066A1.75 1.75 0 0 0 10.747 15H11a.75.75 0 0 0 0-1.5h-.253a.25.25 0 0 1-.244-.304l.459-2.066A1.75 1.75 0 0 0 9.253 9H9Z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </summary>
+              <div className="absolute left-0 top-full z-30 mt-1 w-72 rounded-sharp border border-border bg-bg-elevated p-3 text-[11px] leading-relaxed text-text-muted shadow-elevated">
+                <p className="font-semibold text-text-main">How AI generation works</p>
+                <ul className="mt-1.5 list-disc space-y-1 pl-3.5">
+                  <li>
+                    Slides are designed for a <strong>16 : 9</strong> viewport.
+                  </li>
+                  <li>
+                    External resources (Google Fonts, CDN images) are blocked — the AI uses system
+                    fonts and inline CSS only.
+                  </li>
+                  <li>Visuals come from CSS gradients, inline SVG, and unicode/emoji.</li>
+                  <li>Text is kept large so slides stay readable even in small previews.</li>
+                </ul>
+              </div>
+            </details>
+          </div>
+          <label className="mt-1 flex flex-col gap-1">
             <textarea
               className="min-h-[100px] w-full resize-y rounded-sharp border border-border bg-bg-recessed px-3 py-2 font-body text-sm text-text-main outline-none ring-primary focus:ring-1"
               value={generatePrompt}
@@ -170,13 +209,6 @@ export default function FileManagerPage() {
               maxLength={16000}
             />
           </label>
-          <p className="mt-2 font-mono text-[11px] text-text-muted">Quick-start templates</p>
-          <DeckPromptTemplateChips
-            variant="new_deck"
-            className="mt-2 flex flex-wrap gap-2"
-            disabled={generateFromPrompt.isPending}
-            onPick={(body) => setGeneratePrompt(body)}
-          />
           <button
             type="button"
             disabled={createAndUpload.isPending || generateFromPrompt.isPending}

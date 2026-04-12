@@ -146,6 +146,25 @@ def _dev_loopback_origin_match(expected_origin: str, actual_origin: str) -> bool
     return e.port == a.port
 
 
+def _derive_origin_from_request(request: Request) -> str | None:
+    """Rebuild browser origin from Host (and forwarded headers) when Origin/Referer are omitted."""
+    forwarded = request.headers.get("x-forwarded-host")
+    raw_host = (forwarded or request.headers.get("host") or "").strip()
+    if not raw_host:
+        return None
+    host = raw_host.split(",")[0].strip()
+    if not host or any(c in host for c in " \n\r/"):
+        return None
+    xf_proto = request.headers.get("x-forwarded-proto")
+    if xf_proto:
+        scheme = xf_proto.split(",")[0].strip().lower()
+        if scheme not in ("http", "https"):
+            scheme = request.url.scheme or "http"
+    else:
+        scheme = (request.url.scheme or "http").lower()
+    return _normalized_origin(f"{scheme}://{host}")
+
+
 def _assert_same_origin_for_cookie_auth(request: Request, settings: Settings) -> None:
     if settings.environment == "test":
         return
@@ -157,6 +176,22 @@ def _assert_same_origin_for_cookie_auth(request: Request, settings: Settings) ->
         referer = request.headers.get("referer")
         origin = _normalized_origin(referer)
     if origin is None:
+        derived = _derive_origin_from_request(request)
+        if derived is not None:
+            sec_fetch_site = (request.headers.get("sec-fetch-site") or "").lower()
+            # Same-origin POST from the SPA often omits Origin/Referer (e.g. Vite proxy + strict
+            # referrer policy). Sec-Fetch-Site is still set by modern browsers.
+            host_fallback_ok = sec_fetch_site in ("same-origin", "same-site")
+            if settings.environment == "development":
+                host_fallback_ok = host_fallback_ok or sec_fetch_site == ""
+            if host_fallback_ok and (
+                derived == expected
+                or (
+                    settings.environment == "development"
+                    and _dev_loopback_origin_match(expected, derived)
+                )
+            ):
+                return
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Cross-site cookie request blocked",

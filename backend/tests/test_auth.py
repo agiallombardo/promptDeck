@@ -173,6 +173,73 @@ async def test_refresh_allows_localhost_when_public_app_is_loopback(
 
 
 @pytest.mark.asyncio
+async def test_refresh_without_origin_uses_forwarded_host_in_development(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Same-origin POST may omit Origin; Host / X-Forwarded-Host must suffice (e.g. Vite proxy)."""
+    monkeypatch.setenv("ENVIRONMENT", "development")
+    monkeypatch.setenv("PUBLIC_APP_URL", "http://test")
+    get_settings.cache_clear()
+
+    uid = uuid.uuid4()
+    async with session_factory()() as session:
+        session.add(
+            User(
+                id=uid,
+                email="nofetch@example.com",
+                display_name="NoFetch",
+                password_hash=hash_password("nf-pass"),
+                role=UserRole.user,
+            )
+        )
+        await session.commit()
+
+    login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "nofetch@example.com", "password": "nf-pass"},
+    )
+    assert login.status_code == 200
+
+    refresh = await client.post(
+        "/api/v1/auth/refresh",
+        headers={"Sec-Fetch-Site": "same-origin"},
+    )
+    assert refresh.status_code == 200
+    assert refresh.json()["user"]["email"] == "nofetch@example.com"
+
+
+@pytest.mark.asyncio
+async def test_refresh_without_origin_rejected_in_production_without_sec_fetch(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    monkeypatch.setenv("PUBLIC_APP_URL", "http://test")
+    get_settings.cache_clear()
+
+    uid = uuid.uuid4()
+    async with session_factory()() as session:
+        session.add(
+            User(
+                id=uid,
+                email="prod-refresh@example.com",
+                display_name="Prod",
+                password_hash=hash_password("pr-pass"),
+                role=UserRole.user,
+            )
+        )
+        await session.commit()
+
+    login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "prod-refresh@example.com", "password": "pr-pass"},
+    )
+    assert login.status_code == 200
+
+    refresh = await client.post("/api/v1/auth/refresh")
+    assert refresh.status_code == 403
+
+
+@pytest.mark.asyncio
 async def test_me_settings_clear_llm_provider(client: AsyncClient) -> None:
     uid = uuid.uuid4()
     async with session_factory()() as session:

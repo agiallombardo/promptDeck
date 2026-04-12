@@ -54,7 +54,7 @@ export const SlideFrame = forwardRef<HTMLIFrameElement, SlideFrameProps>(functio
       ref={setFrameRef}
       title="Presentation"
       className="h-full w-full rounded-sharp border border-border bg-bg-recessed"
-      sandbox="allow-scripts"
+      sandbox="allow-scripts allow-same-origin"
       src={src}
     />
   );

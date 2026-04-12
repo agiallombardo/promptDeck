@@ -786,7 +786,20 @@ function AdminEntraPanel({
         <span className="font-mono text-text-main">scripts/azure-entra-app-registration.sh</span>.
       </p>
 
-      <div className="rounded-sharp border border-border bg-bg-elevated p-4 shadow-elevated space-y-4">
+      <form
+        className="space-y-4 rounded-sharp border border-border bg-bg-elevated p-4 shadow-elevated"
+        onSubmit={(e) => {
+          e.preventDefault();
+          entraPatch.mutate({
+            entra_enabled: enabled,
+            entra_tenant_id: tenantId.trim() || null,
+            entra_client_id: clientId.trim() || null,
+            entra_authority_host: authorityHost.trim() || null,
+            entra_client_secret: clientSecret.trim() || null,
+            clear_entra_client_secret: clearSecret,
+          });
+        }}
+      >
         <label className="flex cursor-pointer items-center gap-2 font-mono text-xs text-text-main">
           <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
           Enable Microsoft Entra (OIDC) login
@@ -855,23 +868,13 @@ function AdminEntraPanel({
         </div>
 
         <button
-          type="button"
+          type="submit"
           className="rounded-sharp bg-primary/15 px-4 py-2 font-mono text-xs text-primary ring-1 ring-primary/40 disabled:opacity-50"
           disabled={entraPatch.isPending}
-          onClick={() =>
-            entraPatch.mutate({
-              entra_enabled: enabled,
-              entra_tenant_id: tenantId.trim() || null,
-              entra_client_id: clientId.trim() || null,
-              entra_authority_host: authorityHost.trim() || null,
-              entra_client_secret: clientSecret.trim() || null,
-              clear_entra_client_secret: clearSecret,
-            })
-          }
         >
           {entraPatch.isPending ? "Saving…" : "Save Entra settings"}
         </button>
-      </div>
+      </form>
     </div>
   );
 }
@@ -948,7 +951,26 @@ function AdminSmtpPanel({
         TLS, authenticate with a licensed mailbox (username is usually the full email address).
       </p>
 
-      <div className="rounded-sharp border border-border bg-bg-elevated p-4 shadow-elevated space-y-4">
+      <form
+        className="space-y-4 rounded-sharp border border-border bg-bg-elevated p-4 shadow-elevated"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const parsedPort = Number.parseInt(port, 10);
+          smtpPatch.mutate({
+            smtp_enabled: enabled,
+            smtp_host: host.trim() || null,
+            smtp_port: Number.isFinite(parsedPort) ? parsedPort : 587,
+            smtp_username: authMode === "login" ? username.trim() || null : null,
+            smtp_from: from.trim() || null,
+            smtp_starttls: starttls,
+            smtp_implicit_tls: implicitTls,
+            smtp_validate_certs: validateCerts,
+            smtp_auth_mode: authMode,
+            ...(password.trim() ? { smtp_password: password.trim() } : {}),
+            ...(clearPassword ? { clear_smtp_password: true } : {}),
+          });
+        }}
+      >
         <label className="flex cursor-pointer items-center gap-2 font-mono text-xs text-text-main">
           <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
           Enable outbound SMTP
@@ -1091,25 +1113,9 @@ function AdminSmtpPanel({
 
         <div className="flex flex-wrap gap-2 pt-2">
           <button
-            type="button"
+            type="submit"
             disabled={smtpPatch.isPending}
             className="rounded-sharp bg-primary/15 px-3 py-1.5 font-mono text-xs text-primary ring-1 ring-primary/40 disabled:opacity-40"
-            onClick={() => {
-              const parsedPort = Number.parseInt(port, 10);
-              smtpPatch.mutate({
-                smtp_enabled: enabled,
-                smtp_host: host.trim() || null,
-                smtp_port: Number.isFinite(parsedPort) ? parsedPort : 587,
-                smtp_username: authMode === "login" ? username.trim() || null : null,
-                smtp_from: from.trim() || null,
-                smtp_starttls: starttls,
-                smtp_implicit_tls: implicitTls,
-                smtp_validate_certs: validateCerts,
-                smtp_auth_mode: authMode,
-                ...(password.trim() ? { smtp_password: password.trim() } : {}),
-                ...(clearPassword ? { clear_smtp_password: true } : {}),
-              });
-            }}
           >
             {smtpPatch.isPending ? "Saving…" : "Save settings"}
           </button>
@@ -1124,7 +1130,7 @@ function AdminSmtpPanel({
             Saved. Ready to send: {smtpPatch.data.smtp_ready ? "yes" : "no"}.
           </p>
         ) : null}
-      </div>
+      </form>
 
       <div className="rounded-sharp border border-border bg-bg-elevated p-4 shadow-elevated space-y-3">
         <p className="font-mono text-[10px] uppercase tracking-wide text-text-muted">Test send</p>
@@ -1257,7 +1263,47 @@ function AdminLlmPanel({
         <span className="font-mono text-text-main">DECK_LLM_MODEL</span> for all).
       </p>
 
-      <div className="rounded-sharp border border-border bg-bg-elevated p-4 shadow-elevated space-y-4">
+      <form
+        className="space-y-4 rounded-sharp border border-border bg-bg-elevated p-4 shadow-elevated"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const body = emptyAdminLlmPatch();
+          if (providerDirty) {
+            body.deck_llm_provider = deckProvider;
+          }
+          if (clearLitellmBase) {
+            body.clear_litellm_api_base = true;
+          } else if (litellmBaseDirty) {
+            body.litellm_api_base = litellmBase.trim();
+          }
+          if (clearLitellmKey) {
+            body.clear_litellm_api_key = true;
+          } else if (litellmKey.trim()) {
+            body.litellm_api_key = litellmKey.trim();
+          }
+          if (clearOpenaiBase) {
+            body.clear_openai_api_base = true;
+          } else if (openaiBaseDirty) {
+            body.openai_api_base = openaiBase.trim();
+          }
+          if (clearOpenaiKey) {
+            body.clear_openai_api_key = true;
+          } else if (openaiKey.trim()) {
+            body.openai_api_key = openaiKey.trim();
+          }
+          if (clearAnthropicBase) {
+            body.clear_anthropic_api_base = true;
+          } else if (anthropicBaseDirty) {
+            body.anthropic_api_base = anthropicBase.trim();
+          }
+          if (clearAnthropicKey) {
+            body.clear_anthropic_api_key = true;
+          } else if (anthropicKey.trim()) {
+            body.anthropic_api_key = anthropicKey.trim();
+          }
+          llmPatch.mutate(body);
+        }}
+      >
         <p className="font-mono text-[10px] uppercase tracking-wide text-text-muted">Summary</p>
         <p className="font-mono text-xs text-text-main">
           Active backend:{" "}
@@ -1441,46 +1487,9 @@ function AdminLlmPanel({
         ) : null}
 
         <button
-          type="button"
+          type="submit"
           className="rounded-sharp bg-primary/15 px-4 py-2 font-mono text-xs text-primary ring-1 ring-primary/40 disabled:opacity-50"
           disabled={llmPatch.isPending}
-          onClick={() => {
-            const body = emptyAdminLlmPatch();
-            if (providerDirty) {
-              body.deck_llm_provider = deckProvider;
-            }
-            if (clearLitellmBase) {
-              body.clear_litellm_api_base = true;
-            } else if (litellmBaseDirty) {
-              body.litellm_api_base = litellmBase.trim();
-            }
-            if (clearLitellmKey) {
-              body.clear_litellm_api_key = true;
-            } else if (litellmKey.trim()) {
-              body.litellm_api_key = litellmKey.trim();
-            }
-            if (clearOpenaiBase) {
-              body.clear_openai_api_base = true;
-            } else if (openaiBaseDirty) {
-              body.openai_api_base = openaiBase.trim();
-            }
-            if (clearOpenaiKey) {
-              body.clear_openai_api_key = true;
-            } else if (openaiKey.trim()) {
-              body.openai_api_key = openaiKey.trim();
-            }
-            if (clearAnthropicBase) {
-              body.clear_anthropic_api_base = true;
-            } else if (anthropicBaseDirty) {
-              body.anthropic_api_base = anthropicBase.trim();
-            }
-            if (clearAnthropicKey) {
-              body.clear_anthropic_api_key = true;
-            } else if (anthropicKey.trim()) {
-              body.anthropic_api_key = anthropicKey.trim();
-            }
-            llmPatch.mutate(body);
-          }}
         >
           {llmPatch.isPending ? "Saving…" : "Save LLM settings"}
         </button>
@@ -1495,7 +1504,7 @@ function AdminLlmPanel({
             Saved.
           </p>
         ) : null}
-      </div>
+      </form>
     </div>
   );
 }

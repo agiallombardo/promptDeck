@@ -21,7 +21,9 @@ def upgrade() -> None:
         "deck_prompt_jobs",
         sa.Column("is_generation", sa.Boolean(), nullable=False, server_default=sa.false()),
     )
-    op.alter_column("deck_prompt_jobs", "is_generation", server_default=None)
+    bind = op.get_bind()
+    if bind.dialect.name != "sqlite":
+        op.alter_column("deck_prompt_jobs", "is_generation", server_default=None)
 
 
 def downgrade() -> None:

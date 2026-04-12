@@ -11,13 +11,11 @@ function stepsForSnapshot(s: DeckPromptJobProgressSnapshot): Step[] {
   const { status, progress } = s;
   const failed = status === "failed";
   const succeeded = status === "succeeded";
-  const queuedDone = status !== "queued" || progress > 0;
   const readDone = progress >= 15 || succeeded || (failed && progress >= 15);
   const llmDone = progress >= 80 || succeeded || (failed && progress >= 80);
   const saveDone = succeeded || (failed && progress >= 80);
 
   const steps: Step[] = [
-    { label: "Queued", done: queuedDone, active: false },
     { label: "Reading deck", done: readDone, active: false },
     { label: "Calling model", done: llmDone, active: false },
     { label: "Saving new version", done: saveDone, active: false },
@@ -78,7 +76,7 @@ export function DeckPromptJobActivity({
         ) : null}
       </div>
 
-      <div className="relative mt-2 h-2 w-full overflow-hidden rounded-full bg-bg-recessed">
+      <div className="relative mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-bg-recessed">
         {inLlmHold ? (
           <div className="pointer-events-none absolute inset-0 animate-pulse bg-primary/20" />
         ) : null}
@@ -104,7 +102,7 @@ export function DeckPromptJobActivity({
             ) : null}
           </div>
           {steps ? (
-            <ol className="mt-3 grid gap-1.5 font-mono text-[10px]">
+            <ol className="mt-2 grid gap-1 font-mono text-[10px]">
               {steps.map((st) => (
                 <li
                   key={st.label}
@@ -120,10 +118,6 @@ export function DeckPromptJobActivity({
               ))}
             </ol>
           ) : null}
-          <p className="mt-2 font-mono text-[10px] leading-relaxed text-text-muted">
-            Progress and timing come from the server on each refresh. The bar may sit still while
-            the model runs; elapsed time and the step list show the job is still active.
-          </p>
         </>
       ) : waitingSubmit ? (
         <p className="mt-2 font-mono text-[10px] text-text-muted">Sending your request…</p>

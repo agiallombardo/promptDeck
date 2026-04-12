@@ -37,6 +37,11 @@ class Settings(BaseSettings):
         validation_alias="STORAGE_ROOT",
         description="Root directory for LocalFSStorage (presentations/…)",
     )
+    static_site_dir: Path | None = Field(
+        default=None,
+        validation_alias="STATIC_SITE_DIR",
+        description="If set, serve the Vite production build and SPA fallback from this directory",
+    )
     asset_url_ttl_seconds: int = Field(default=3600, description="Signed /a/… URL lifetime")
     public_app_url: str = Field(
         default="http://127.0.0.1:5174",
@@ -135,6 +140,16 @@ class Settings(BaseSettings):
         validation_alias="DECK_LLM_MODEL_LITELLM",
         description="Model for LiteLLM / OpenAI-compatible HTTP (default: claude-sonnet-4-6)",
     )
+
+    @field_validator("static_site_dir", mode="before")
+    @classmethod
+    def _coerce_static_site_dir(cls, v: object) -> Path | None:
+        if v is None:
+            return None
+        if isinstance(v, Path):
+            return v if str(v).strip() else None
+        s = str(v).strip()
+        return Path(s) if s else None
 
     @field_validator("smtp_auth_mode", mode="before")
     @classmethod

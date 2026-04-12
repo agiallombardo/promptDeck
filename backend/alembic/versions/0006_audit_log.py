@@ -29,7 +29,7 @@ def upgrade() -> None:
         sa.Column(
             "ts",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
         sa.ForeignKeyConstraint(["actor_id"], ["users.id"], ondelete="SET NULL"),

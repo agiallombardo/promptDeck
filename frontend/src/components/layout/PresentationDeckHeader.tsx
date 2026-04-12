@@ -11,6 +11,11 @@ type Props = {
   onExportHtml: () => void;
   /** Which export is running, if any (disables both buttons). */
   exportBusy?: "pdf" | "single_html" | null;
+  showUploadAction?: boolean;
+  onUploadFile?: (file: File) => void;
+  showPromptEditAction?: boolean;
+  promptEditBusy?: boolean;
+  onPromptEdit?: () => void;
   showPresentAction: boolean;
   onPresent: () => void;
   isFullscreen: boolean;
@@ -59,6 +64,41 @@ function IconDownload() {
     >
       <path d="M8 2v8m0 0 3-3M8 10 5 7" />
       <path d="M3 11v2a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-2" />
+    </svg>
+  );
+}
+
+function IconUpload() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M8 10V2m0 0L5 5m3-3 3 3" />
+      <path d="M3 11v2a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-2" />
+    </svg>
+  );
+}
+
+function IconSparkle() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M8 1v3M8 12v3M1 8h3M12 8h3M3.5 3.5l2 2M10.5 10.5l2 2M12.5 3.5l-2 2M3.5 12.5l2-2" />
     </svg>
   );
 }
@@ -255,7 +295,7 @@ function ExportDropdown({
               setOpen(false);
             }}
           >
-            {exportBusy === "single_html" ? "Exporting HTML…" : "Single-file HTML"}
+            {exportBusy === "single_html" ? "Exporting HTML…" : "HTML"}
           </button>
         </div>
       ) : null}
@@ -274,6 +314,11 @@ export function PresentationDeckHeader({
   onExportPdf,
   onExportHtml,
   exportBusy = null,
+  showUploadAction = false,
+  onUploadFile,
+  showPromptEditAction = false,
+  promptEditBusy = false,
+  onPromptEdit,
   showPresentAction,
   onPresent,
   isFullscreen,
@@ -322,9 +367,36 @@ export function PresentationDeckHeader({
         {/* ── Right: action zones ────────────────────────────────── */}
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
           {/* Zone A — Document actions */}
-          {(showShareAction || showExportAction) && (
+          {(showShareAction || showExportAction || showUploadAction || showPromptEditAction) && (
             <>
               <div className="flex items-center gap-1.5">
+                {showUploadAction && onUploadFile ? (
+                  <label className={`${ghostBtn} cursor-pointer`}>
+                    <IconUpload />
+                    <span className="hidden md:inline">Upload</span>
+                    <input
+                      type="file"
+                      accept=".html,.htm,.zip,text/html,application/zip"
+                      className="hidden"
+                      onChange={(ev) => {
+                        const f = ev.target.files?.[0];
+                        ev.target.value = "";
+                        if (f) onUploadFile(f);
+                      }}
+                    />
+                  </label>
+                ) : null}
+                {showPromptEditAction && onPromptEdit ? (
+                  <button
+                    type="button"
+                    className={ghostBtn}
+                    disabled={promptEditBusy}
+                    onClick={onPromptEdit}
+                  >
+                    <IconSparkle />
+                    <span className="hidden md:inline">AI edit</span>
+                  </button>
+                ) : null}
                 {showShareAction ? (
                   <button type="button" className={ghostBtn} onClick={onShare}>
                     <IconShare />

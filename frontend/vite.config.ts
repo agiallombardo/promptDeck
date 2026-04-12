@@ -22,10 +22,28 @@ export default defineConfig(({ mode }) => {
         "/api": {
           target: apiTarget,
           changeOrigin: true,
+          configure: (proxy) => {
+            proxy.on("proxyReq", (proxyReq, req) => {
+              const host = req.headers.host;
+              if (host) {
+                proxyReq.setHeader("X-Forwarded-Host", host);
+                proxyReq.setHeader("X-Forwarded-Proto", "http");
+              }
+            });
+          },
         },
         "/a": {
           target: apiTarget,
           changeOrigin: true,
+          configure: (proxy) => {
+            proxy.on("proxyReq", (proxyReq, req) => {
+              const host = req.headers.host;
+              if (host) {
+                proxyReq.setHeader("X-Forwarded-Host", host);
+                proxyReq.setHeader("X-Forwarded-Proto", "http");
+              }
+            });
+          },
         },
       },
     },

@@ -73,16 +73,16 @@ export default function LoginPage() {
           </p>
         ) : null}
 
-        {config?.entra_enabled && entraHref ? (
+        {!config && !configError ? (
+          <p className="mt-6 font-mono text-sm text-text-muted">Loading sign-in options…</p>
+        ) : config?.entra_enabled && entraHref ? (
           <a
             href={entraHref}
             className="mt-6 inline-flex w-full items-center justify-center rounded-sharp bg-primary/15 px-4 py-2 font-mono text-sm font-medium text-primary ring-1 ring-primary/40 hover:bg-primary/25"
           >
             Sign in with Microsoft
           </a>
-        ) : (
-          <p className="mt-6 font-mono text-sm text-text-muted">Loading sign-in options…</p>
-        )}
+        ) : null}
 
         {config?.local_password_auth_enabled ? (
           <form

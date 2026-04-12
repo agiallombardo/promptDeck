@@ -7,9 +7,19 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
+from sqlalchemy.pool import NullPool
 
 _engine: AsyncEngine | None = None
 _session_factory: async_sessionmaker[AsyncSession] | None = None
+
+
+def _engine_kwargs(database_url: str) -> dict:
+    if database_url.startswith("sqlite"):
+        # :memory: must stay on one connection (each new connection is an empty DB).
+        if ":memory:" in database_url:
+            return {"pool_pre_ping": False}
+        return {"pool_pre_ping": False, "poolclass": NullPool}
+    return {"pool_pre_ping": True}
 
 
 def _ensure_factory() -> async_sessionmaker[AsyncSession]:
@@ -17,7 +27,7 @@ def _ensure_factory() -> async_sessionmaker[AsyncSession]:
     if _session_factory is not None:
         return _session_factory
     settings = get_settings()
-    _engine = create_async_engine(settings.database_url, pool_pre_ping=True)
+    _engine = create_async_engine(settings.database_url, **_engine_kwargs(settings.database_url))
     _session_factory = async_sessionmaker(
         _engine,
         class_=AsyncSession,

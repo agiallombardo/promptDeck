@@ -53,3 +53,9 @@ api-contract:
 
 smoke:
     cd backend && uv run python ../scripts/e2e_smoke.py
+
+docker-build:
+    docker build -t promptdeck:local .
+
+docker-up:
+    docker compose up --build -d

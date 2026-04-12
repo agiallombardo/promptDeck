@@ -1,0 +1,26 @@
+# Optional single-container stack (SQLite + API + static UI). See docs/RUNBOOK.md § Docker.
+services:
+  promptdeck:
+    build: .
+    ports:
+      - "8080:8005"
+    environment:
+      DATABASE_URL: sqlite+aiosqlite:////data/promptdeck.db
+      STORAGE_ROOT: /data/storage
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in your environment or a .env file next to this compose file}
+      STATIC_SITE_DIR: /app/backend/static/site
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-http://127.0.0.1:8080}
+      PUBLIC_API_URL: ${PUBLIC_API_URL:-http://127.0.0.1:8080}
+      # JSON array (match PUBLIC_APP_URL origin). Override via `environment` or a compose `env_file`.
+      CORS_ORIGINS: '["http://127.0.0.1:8080","http://localhost:8080"]'
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      LOCAL_PASSWORD_AUTH_ENABLED: ${LOCAL_PASSWORD_AUTH_ENABLED:-true}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      ENTRA_ENABLED: ${ENTRA_ENABLED:-false}
+      ENTRA_TENANT_ID: ${ENTRA_TENANT_ID:-}
+      ENTRA_CLIENT_ID: ${ENTRA_CLIENT_ID:-}
+      ENTRA_CLIENT_SECRET: ${ENTRA_CLIENT_SECRET:-}
+    volumes:
+      - promptdeck-data:/data
+volumes:
+  promptdeck-data:

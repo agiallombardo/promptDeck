@@ -1,7 +1,8 @@
 import { useQueries } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { apiPresentationEmbed, apiPresentationGet, iframeSrcForDev } from "../lib/api";
-import type { RecentDeckEntry } from "../lib/recentDecks";
+import { removeRecentDeck, type RecentDeckEntry } from "../lib/recentDecks";
 
 type Props = {
   accessToken: string;
@@ -33,6 +34,14 @@ export function RecentDeckPreviews({ accessToken, entries }: Props) {
         presQueries[i]?.isSuccess === true,
     })),
   });
+
+  useEffect(() => {
+    for (let i = 0; i < entries.length; i++) {
+      if (presQueries[i]?.isError) {
+        removeRecentDeck(entries[i].id);
+      }
+    }
+  }, [entries, presQueries]);
 
   if (!entries.length) {
     return null;
@@ -71,7 +80,7 @@ export function RecentDeckPreviews({ accessToken, entries }: Props) {
                   <iframe
                     title={`Preview: ${title}`}
                     src={iframeSrc}
-                    sandbox="allow-scripts"
+                    sandbox="allow-scripts allow-same-origin"
                     loading="lazy"
                     className="pointer-events-none h-full w-full border-0"
                   />

@@ -557,6 +557,11 @@ export default function PresentationPage() {
           onExportPdf={() => void runExport("pdf")}
           onExportHtml={() => void runExport("single_html")}
           exportBusy={exportBusy}
+          showUploadAction={Boolean(canManage && accessToken)}
+          onUploadFile={(f) => upload.mutate(f)}
+          showPromptEditAction={Boolean(canPromptEdit && versionId)}
+          promptEditBusy={deckPromptBusy}
+          onPromptEdit={() => setDeckPromptOpen(true)}
           showPresentAction={Boolean(iframeSrc && embed.data?.slide_count)}
           onPresent={togglePresentFullscreen}
           isFullscreen={canvasFullscreen}
@@ -583,86 +588,67 @@ export default function PresentationPage() {
           </div>
         ) : null}
 
-        <div
-          className={`mx-auto grid w-full max-w-[min(100%,96rem)] gap-4 px-3 py-3 sm:gap-6 sm:px-4 sm:py-4 ${commentsHidden ? "" : "md:grid-cols-[minmax(0,1fr)_min(300px,32vw)]"}`}
-        >
-          <section className="space-y-4">
-            <PresentationCanvas
-              ref={presentRootRef}
-              iframeRef={iframeRef}
-              iframeSrc={iframeSrc}
-              iframeRemountKey={versionId ?? undefined}
-              noIframePlaceholder={noIframePlaceholder}
-              slideIndex={slideIndex}
-              commentMode={commentsHidden ? false : commentMode}
-              canComment={canComment}
-              threads={threads.data?.items ?? []}
-              onManifest={onManifest}
-              onSelectThread={onThreadSelectFromCanvas}
-              onSlideClick={commentsHidden ? undefined : onSlideClick}
-              onLongPressCommentMode={commentsHidden ? undefined : () => setCommentMode(true)}
-              showFullscreenExit={canvasFullscreen}
-              onExitFullscreen={() => {
-                void document.exitFullscreen();
-              }}
-              hideCommentMarkers={commentsHidden}
-              commentsHidden={commentsHidden}
-              onToggleCommentsHidden={handleToggleCommentsHidden}
-            />
-            {uploadError ? (
-              <p className="text-sm text-accent-warning" role="alert">
-                {uploadError}
-              </p>
-            ) : null}
-            {canManage && accessToken ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <label className="inline-flex cursor-pointer items-center gap-3 rounded-sharp border border-border px-3 py-2 font-mono text-xs text-text-muted hover:bg-bg-elevated">
-                  <span>{versionId ? "Upload new version" : "Upload HTML or zip"}</span>
-                  <input
-                    type="file"
-                    accept=".html,.htm,.zip,text/html,application/zip"
-                    className="hidden"
-                    onChange={(ev) => {
-                      const f = ev.target.files?.[0];
-                      ev.target.value = "";
-                      if (f) upload.mutate(f);
+        {(() => {
+          const hasThreads = (threads.data?.items ?? []).length > 0;
+          const showFeedback = !commentsHidden && (hasThreads || commentMode || pendingPin != null);
+          return (
+            <>
+              <div
+                className={`mx-auto grid w-full max-w-[min(100%,96rem)] gap-4 px-3 py-3 sm:gap-6 sm:px-4 sm:py-4 ${showFeedback ? "md:grid-cols-[minmax(0,1fr)_min(300px,32vw)]" : ""}`}
+              >
+                <section className="space-y-4">
+                  <PresentationCanvas
+                    ref={presentRootRef}
+                    iframeRef={iframeRef}
+                    iframeSrc={iframeSrc}
+                    iframeRemountKey={versionId ?? undefined}
+                    noIframePlaceholder={noIframePlaceholder}
+                    slideIndex={slideIndex}
+                    commentMode={commentsHidden ? false : commentMode}
+                    canComment={canComment}
+                    threads={threads.data?.items ?? []}
+                    onManifest={onManifest}
+                    onSelectThread={onThreadSelectFromCanvas}
+                    onSlideClick={commentsHidden ? undefined : onSlideClick}
+                    onLongPressCommentMode={commentsHidden ? undefined : () => setCommentMode(true)}
+                    showFullscreenExit={canvasFullscreen}
+                    onExitFullscreen={() => {
+                      void document.exitFullscreen();
                     }}
+                    hideCommentMarkers={commentsHidden}
+                    commentsHidden={commentsHidden}
+                    onToggleCommentsHidden={handleToggleCommentsHidden}
                   />
-                </label>
-                {canPromptEdit && versionId ? (
-                  <button
-                    type="button"
-                    className="rounded-sharp border border-border px-3 py-2 font-mono text-xs text-text-muted hover:bg-bg-elevated disabled:opacity-50"
-                    disabled={deckPromptBusy}
-                    onClick={() => setDeckPromptOpen(true)}
-                  >
-                    Edit with prompt
-                  </button>
+                  {uploadError ? (
+                    <p className="text-sm text-accent-warning" role="alert">
+                      {uploadError}
+                    </p>
+                  ) : null}
+                </section>
+
+                {showFeedback ? (
+                  <div className="hidden md:block">
+                    <FeedbackSidebar {...feedbackSidebarProps} />
+                  </div>
                 ) : null}
               </div>
-            ) : null}
-          </section>
 
-          {!commentsHidden ? (
-            <div className="hidden md:block">
-              <FeedbackSidebar {...feedbackSidebarProps} />
-            </div>
-          ) : null}
-        </div>
-
-        {!commentsHidden ? (
-          <Drawer.Root open={mobileFeedbackOpen} onOpenChange={setMobileFeedbackOpen}>
-            <Drawer.Portal>
-              <Drawer.Overlay className="fixed inset-0 z-40 bg-scrim md:hidden" />
-              <Drawer.Content className="fixed inset-x-0 bottom-0 z-50 max-h-[88vh] rounded-t-[20px] border border-border bg-bg-elevated md:hidden">
-                <div className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-border" />
-                <div className="max-h-[calc(88vh-24px)] overflow-y-auto p-4">
-                  <FeedbackSidebar {...feedbackSidebarProps} embedded />
-                </div>
-              </Drawer.Content>
-            </Drawer.Portal>
-          </Drawer.Root>
-        ) : null}
+              {showFeedback ? (
+                <Drawer.Root open={mobileFeedbackOpen} onOpenChange={setMobileFeedbackOpen}>
+                  <Drawer.Portal>
+                    <Drawer.Overlay className="fixed inset-0 z-40 bg-scrim md:hidden" />
+                    <Drawer.Content className="fixed inset-x-0 bottom-0 z-50 max-h-[88vh] rounded-t-[20px] border border-border bg-bg-elevated md:hidden">
+                      <div className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-border" />
+                      <div className="max-h-[calc(88vh-24px)] overflow-y-auto p-4">
+                        <FeedbackSidebar {...feedbackSidebarProps} embedded />
+                      </div>
+                    </Drawer.Content>
+                  </Drawer.Portal>
+                </Drawer.Root>
+              ) : null}
+            </>
+          );
+        })()}
 
         {canManage && accessToken ? (
           <>
@@ -692,9 +678,41 @@ export default function PresentationPage() {
               <h2 id="deck-prompt-title" className="font-heading text-base font-semibold">
                 Edit deck with AI
               </h2>
-              <p className="mt-1 font-mono text-[11px] text-text-muted">
-                Describe the change you want. A new version is created when the model finishes.
-              </p>
+              <div className="mt-1 flex items-center gap-2 font-mono text-[11px] text-text-muted">
+                <p>
+                  Describe the change you want. A new version is created when the model finishes.
+                </p>
+                <details className="group relative inline-block shrink-0">
+                  <summary className="cursor-pointer select-none list-none text-text-muted/60 hover:text-primary">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                      className="inline-block h-3.5 w-3.5"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-7-4a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM9 9a.75.75 0 0 0 0 1.5h.253a.25.25 0 0 1 .244.304l-.459 2.066A1.75 1.75 0 0 0 10.747 15H11a.75.75 0 0 0 0-1.5h-.253a.25.25 0 0 1-.244-.304l.459-2.066A1.75 1.75 0 0 0 9.253 9H9Z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </summary>
+                  <div className="absolute right-0 top-full z-30 mt-1 w-72 rounded-sharp border border-border bg-bg-elevated p-3 text-[11px] leading-relaxed text-text-muted shadow-elevated">
+                    <p className="font-semibold text-text-main">How AI editing works</p>
+                    <ul className="mt-1.5 list-disc space-y-1 pl-3.5">
+                      <li>
+                        Slides are designed for a <strong>16 : 9</strong> viewport.
+                      </li>
+                      <li>
+                        External resources (Google Fonts, CDN images) are blocked — the AI uses
+                        system fonts and inline CSS only.
+                      </li>
+                      <li>Visuals come from CSS gradients, inline SVG, and unicode/emoji.</li>
+                      <li>Text is kept large so slides stay readable even in small previews.</li>
+                    </ul>
+                  </div>
+                </details>
+              </div>
               <p className="mt-2 font-mono text-[11px] text-text-muted">Quick-start templates</p>
               <DeckPromptTemplateChips
                 variant="edit_deck"
