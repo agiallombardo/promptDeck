@@ -31,6 +31,16 @@ import { useAuthStore } from "../stores/auth";
 
 const CHANNELS = ["", "http", "auth", "audit", "script"] as const;
 
+/** `is_generation` exists at runtime after backend migration; generated types may be stale on deploy. */
+function adminDeckPromptJobIsGeneration(
+  job: components["schemas"]["AdminDeckPromptJobRead"],
+): boolean {
+  return (
+    (job as components["schemas"]["AdminDeckPromptJobRead"] & { is_generation?: boolean })
+      .is_generation === true
+  );
+}
+
 type Tab =
   | "setup"
   | "identity"
@@ -526,39 +536,42 @@ export default function AdminPage() {
                   </thead>
                   <tbody className="divide-y divide-border font-mono text-xs">
                     {deckPromptJobs.data?.items.length ? (
-                      deckPromptJobs.data.items.map((j) => (
-                        <tr key={j.id}>
-                          <td className="px-3 py-2 text-text-muted">{j.created_at}</td>
-                          <td className="px-3 py-2">
-                            <span
-                              className={
-                                j.is_generation
-                                  ? "rounded-sharp border border-primary/40 bg-primary/10 px-2 py-0.5 text-primary"
-                                  : "rounded-sharp border border-border bg-bg-recessed px-2 py-0.5 text-text-muted"
-                              }
+                      deckPromptJobs.data.items.map((j) => {
+                        const isGen = adminDeckPromptJobIsGeneration(j);
+                        return (
+                          <tr key={j.id}>
+                            <td className="px-3 py-2 text-text-muted">{j.created_at}</td>
+                            <td className="px-3 py-2">
+                              <span
+                                className={
+                                  isGen
+                                    ? "rounded-sharp border border-primary/40 bg-primary/10 px-2 py-0.5 text-primary"
+                                    : "rounded-sharp border border-border bg-bg-recessed px-2 py-0.5 text-text-muted"
+                                }
+                              >
+                                {isGen ? "Generate" : "Edit"}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2">{j.presentation_title}</td>
+                            <td
+                              className="max-w-[14rem] truncate px-3 py-2 text-text-muted"
+                              title={j.prompt_preview || undefined}
                             >
-                              {j.is_generation ? "Generate" : "Edit"}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2">{j.presentation_title}</td>
-                          <td
-                            className="max-w-[14rem] truncate px-3 py-2 text-text-muted"
-                            title={j.prompt_preview || undefined}
-                          >
-                            {j.prompt_preview || "—"}
-                          </td>
-                          <td className="px-3 py-2">{j.llm_model ?? "—"}</td>
-                          <td className="px-3 py-2 tabular-nums">
-                            {j.prompt_tokens != null ||
-                            j.completion_tokens != null ||
-                            j.total_tokens != null
-                              ? `${j.prompt_tokens ?? "—"} / ${j.completion_tokens ?? "—"} / ${j.total_tokens ?? "—"}`
-                              : "—"}
-                          </td>
-                          <td className="px-3 py-2">{j.status}</td>
-                          <td className="px-3 py-2">{j.creator_email}</td>
-                        </tr>
-                      ))
+                              {j.prompt_preview || "—"}
+                            </td>
+                            <td className="px-3 py-2">{j.llm_model ?? "—"}</td>
+                            <td className="px-3 py-2 tabular-nums">
+                              {j.prompt_tokens != null ||
+                              j.completion_tokens != null ||
+                              j.total_tokens != null
+                                ? `${j.prompt_tokens ?? "—"} / ${j.completion_tokens ?? "—"} / ${j.total_tokens ?? "—"}`
+                                : "—"}
+                            </td>
+                            <td className="px-3 py-2">{j.status}</td>
+                            <td className="px-3 py-2">{j.creator_email}</td>
+                          </tr>
+                        );
+                      })
                     ) : (
                       <tr>
                         <td className="px-3 py-6 text-text-muted" colSpan={8}>
