@@ -4,19 +4,17 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from typing import Literal
 from urllib.parse import urlparse
 
 from app.config import Settings
 from app.db.models.system_setting import SystemSetting
 from app.db.models.user import User
 from app.schemas.admin import AdminLlmSettingsRead
+from app.services.deck_llm_defaults import DeckLlmKind, effective_deck_llm_model
 from app.services.entra_runtime import load_system_settings_kv
 from app.services.token_crypto import decrypt_text, encrypt_text
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
-
-DeckLlmKind = Literal["litellm", "openai", "claude"]
 
 _DECK_LLM_PROVIDER = "deck_llm_provider"
 _LITELLM_API_BASE = "litellm_api_base"
@@ -125,7 +123,7 @@ def _system_anthropic_base(kv: dict[str, str], settings: Settings) -> str | None
 async def _resolve_system_deck_llm(db: AsyncSession, settings: Settings) -> ResolvedDeckLlm:
     kv = await load_system_settings_kv(db)
     provider = _effective_system_provider(kv, settings)
-    model = (settings.deck_llm_model or "").strip() or "gpt-4o-mini"
+    model = effective_deck_llm_model(settings, provider)
 
     if provider == "litellm":
         api_base, api_key = await resolve_litellm_http_credentials(db, settings)
@@ -191,7 +189,7 @@ def _user_litellm_key(user: User, settings: Settings) -> str | None:
 
 def _user_override_resolved(user: User, settings: Settings) -> ResolvedDeckLlm | None:
     prov = normalize_deck_llm_provider(user.llm_provider)
-    model = (settings.deck_llm_model or "").strip() or "gpt-4o-mini"
+    model = effective_deck_llm_model(settings, prov)
 
     if user.llm_provider is None or not str(user.llm_provider).strip():
         return None

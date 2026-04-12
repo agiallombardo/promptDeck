@@ -1202,7 +1202,11 @@ function AdminLlmPanel({
         <span className="font-mono text-text-main">Claude</span> use the official Python SDKs.{" "}
         <span className="font-mono text-text-main">LiteLLM</span> uses an OpenAI-compatible HTTP
         endpoint (your proxy or gateway). Environment variables still apply as fallbacks; database
-        values override where noted. Keys are encrypted and never returned.
+        values override where noted. Keys are encrypted and never returned. Model ids default per
+        provider (see <span className="font-mono text-text-main">DECK_LLM_MODEL_OPENAI</span>,{" "}
+        <span className="font-mono text-text-main">DECK_LLM_MODEL_ANTHROPIC</span>,{" "}
+        <span className="font-mono text-text-main">DECK_LLM_MODEL_LITELLM</span>, or a single{" "}
+        <span className="font-mono text-text-main">DECK_LLM_MODEL</span> for all).
       </p>
 
       <div className="rounded-sharp border border-border bg-bg-elevated p-4 shadow-elevated space-y-4">

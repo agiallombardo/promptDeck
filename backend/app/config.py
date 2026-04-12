@@ -13,6 +13,7 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
+        populate_by_name=True,
     )
 
     database_url: str = Field(
@@ -111,10 +112,28 @@ class Settings(BaseSettings):
         validation_alias="ANTHROPIC_API_BASE",
         description="Optional Anthropic API base URL override",
     )
-    deck_llm_model: str = Field(
-        default="gpt-4o-mini",
+    deck_llm_model: str | None = Field(
+        default=None,
         validation_alias="DECK_LLM_MODEL",
-        description="Model id for deck prompt edits (OpenAI, Claude, or LiteLLM routing id)",
+        description=(
+            "Optional: same model id for all providers. If unset, use per-provider env or "
+            "code defaults (gpt-5.4 / claude-sonnet-4-6 / litellm→Sonnet)."
+        ),
+    )
+    deck_llm_model_openai: str | None = Field(
+        default=None,
+        validation_alias="DECK_LLM_MODEL_OPENAI",
+        description="OpenAI model id for deck jobs (default: gpt-5.4 non-pro alias)",
+    )
+    deck_llm_model_anthropic: str | None = Field(
+        default=None,
+        validation_alias="DECK_LLM_MODEL_ANTHROPIC",
+        description="Anthropic model id for deck jobs (default: claude-sonnet-4-6)",
+    )
+    deck_llm_model_litellm: str | None = Field(
+        default=None,
+        validation_alias="DECK_LLM_MODEL_LITELLM",
+        description="Model for LiteLLM / OpenAI-compatible HTTP (default: claude-sonnet-4-6)",
     )
 
     @field_validator("smtp_auth_mode", mode="before")
