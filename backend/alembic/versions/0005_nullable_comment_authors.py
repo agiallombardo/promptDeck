@@ -17,30 +17,60 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.alter_column(
-        "comments",
-        "author_id",
-        existing_type=sa.Uuid(as_uuid=True),
-        nullable=True,
-    )
-    op.alter_column(
-        "comment_threads",
-        "created_by",
-        existing_type=sa.Uuid(as_uuid=True),
-        nullable=True,
-    )
+    bind = op.get_bind()
+    if bind.dialect.name == "sqlite":
+        with op.batch_alter_table("comments") as batch_op:
+            batch_op.alter_column(
+                "author_id",
+                existing_type=sa.Uuid(as_uuid=True),
+                nullable=True,
+            )
+        with op.batch_alter_table("comment_threads") as batch_op:
+            batch_op.alter_column(
+                "created_by",
+                existing_type=sa.Uuid(as_uuid=True),
+                nullable=True,
+            )
+    else:
+        op.alter_column(
+            "comments",
+            "author_id",
+            existing_type=sa.Uuid(as_uuid=True),
+            nullable=True,
+        )
+        op.alter_column(
+            "comment_threads",
+            "created_by",
+            existing_type=sa.Uuid(as_uuid=True),
+            nullable=True,
+        )
 
 
 def downgrade() -> None:
-    op.alter_column(
-        "comment_threads",
-        "created_by",
-        existing_type=sa.Uuid(as_uuid=True),
-        nullable=False,
-    )
-    op.alter_column(
-        "comments",
-        "author_id",
-        existing_type=sa.Uuid(as_uuid=True),
-        nullable=False,
-    )
+    bind = op.get_bind()
+    if bind.dialect.name == "sqlite":
+        with op.batch_alter_table("comment_threads") as batch_op:
+            batch_op.alter_column(
+                "created_by",
+                existing_type=sa.Uuid(as_uuid=True),
+                nullable=False,
+            )
+        with op.batch_alter_table("comments") as batch_op:
+            batch_op.alter_column(
+                "author_id",
+                existing_type=sa.Uuid(as_uuid=True),
+                nullable=False,
+            )
+    else:
+        op.alter_column(
+            "comment_threads",
+            "created_by",
+            existing_type=sa.Uuid(as_uuid=True),
+            nullable=False,
+        )
+        op.alter_column(
+            "comments",
+            "author_id",
+            existing_type=sa.Uuid(as_uuid=True),
+            nullable=False,
+        )
