@@ -152,7 +152,10 @@ async def test_create_and_save_diagram(editor_client: AsyncClient) -> None:
 async def test_generate_diagram_from_prompt_happy_path(
     editor_client: AsyncClient, monkeypatch
 ) -> None:
-    async def _fake_complete(**_kwargs: object) -> DeckLlmCompletionResult:
+    captured: dict[str, str] = {}
+
+    async def _fake_complete(*, user_message: str, **_kwargs: object) -> DeckLlmCompletionResult:
+        captured["user_message"] = user_message
         return DeckLlmCompletionResult(
             text=_DIAGRAM_JSON,
             prompt_tokens=9,
@@ -188,6 +191,8 @@ async def test_generate_diagram_from_prompt_happy_path(
     assert status == "succeeded", poll_body.get("error")
     assert poll_body.get("result_version_id")
     assert poll_body.get("job_type") == "diagram_generate"
+    assert "Presentation title: Generated Diagram" in captured.get("user_message", "")
+    assert "Presentation type: diagram" in captured["user_message"]
 
 
 @pytest.mark.asyncio

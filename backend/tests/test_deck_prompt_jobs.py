@@ -70,7 +70,10 @@ async def editor_client(tmp_path, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_deck_prompt_job_happy_path(editor_client: AsyncClient, monkeypatch) -> None:
-    async def _fake_complete(**_kwargs: object) -> DeckLlmCompletionResult:
+    captured: dict[str, str] = {}
+
+    async def _fake_complete(*, user_message: str, **_kwargs: object) -> DeckLlmCompletionResult:
+        captured["user_message"] = user_message
         return DeckLlmCompletionResult(
             text=_EDITED_HTML,
             prompt_tokens=10,
@@ -118,6 +121,8 @@ async def test_deck_prompt_job_happy_path(editor_client: AsyncClient, monkeypatc
     assert status == "succeeded", err
     assert body.get("result_version_id")
     assert body.get("progress") == 100
+    assert "Presentation title: AI deck" in captured.get("user_message", "")
+    assert "Presentation type: deck" in captured["user_message"]
     assert body.get("total_tokens") == 30
     assert body.get("prompt_tokens") == 10
     assert body.get("completion_tokens") == 20
@@ -226,7 +231,10 @@ async def test_deck_prompt_job_fails_if_llm_unconfigured(
 
 @pytest.mark.asyncio
 async def test_generate_from_prompt_happy_path(editor_client: AsyncClient, monkeypatch) -> None:
-    async def _fake_complete(**_kwargs: object) -> DeckLlmCompletionResult:
+    captured: dict[str, str] = {}
+
+    async def _fake_complete(*, user_message: str, **_kwargs: object) -> DeckLlmCompletionResult:
+        captured["user_message"] = user_message
         return DeckLlmCompletionResult(
             text=_EDITED_HTML,
             prompt_tokens=11,
@@ -267,6 +275,8 @@ async def test_generate_from_prompt_happy_path(editor_client: AsyncClient, monke
 
     assert status == "succeeded", err
     assert poll_body.get("result_version_id")
+    assert "Presentation title: AI generated deck" in captured.get("user_message", "")
+    assert "Presentation type: deck" in captured["user_message"]
     pres = await c.get(f"/api/v1/presentations/{pid}")
     assert pres.status_code == 200
     assert pres.json()["current_version_id"] == poll_body["result_version_id"]
