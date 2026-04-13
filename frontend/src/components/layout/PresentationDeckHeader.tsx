@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { PromptDeckHomeLink } from "./PromptDeckHomeLink";
 
 type Props = {
   title: string;
@@ -294,20 +294,7 @@ export function PresentationDeckHeader({
       <div className="mx-auto flex w-full max-w-[min(88rem,100%)] flex-wrap items-center justify-between gap-2 sm:gap-3">
         {/* ── Left: branding + title ─────────────────────────────── */}
         <div className="flex flex-wrap items-center gap-3">
-          <Link
-            to="/files"
-            className="shrink-0 rounded-sharp outline-none ring-primary focus-visible:ring-2"
-            title="Home"
-            aria-label="Home — file manager"
-          >
-            <img
-              src="/favicon.svg"
-              alt=""
-              width={28}
-              height={28}
-              className="h-7 w-7 opacity-90 hover:opacity-100"
-            />
-          </Link>
+          <PromptDeckHomeLink />
           <div>
             <p className="font-mono text-[10px] uppercase tracking-wide text-primary">Deck</p>
             <h1 className="max-w-[min(100%,42rem)] font-heading text-[clamp(1rem,0.92rem+0.35vw,1.125rem)] font-semibold leading-tight">

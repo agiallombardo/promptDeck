@@ -1,6 +1,7 @@
 import { Link, Outlet, useNavigate } from "react-router-dom";
 import { apiLogout } from "../../lib/api";
 import { useAuthStore } from "../../stores/auth";
+import { PromptDeckHomeLink } from "./PromptDeckHomeLink";
 
 export function AppShell() {
   const navigate = useNavigate();
@@ -21,12 +22,7 @@ export function AppShell() {
     <div className="min-h-dvh bg-bg-void text-text-main">
       <header className="border-b border-border bg-bg-recessed px-4 py-3 sm:px-6 sm:py-4">
         <div className="mx-auto flex w-full max-w-[min(100%,72rem)] flex-wrap items-center justify-between gap-3 sm:gap-4">
-          <Link
-            to="/files"
-            className="font-mono text-xs uppercase tracking-wide text-primary hover:underline"
-          >
-            promptDeck
-          </Link>
+          <PromptDeckHomeLink showWordmark />
           <nav className="flex max-w-full flex-wrap items-center gap-x-3 gap-y-2 font-mono text-sm text-text-muted sm:gap-x-4">
             <Link className="hover:text-primary" to="/files">
               Files
