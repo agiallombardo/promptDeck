@@ -1,18 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { PromptDeckHomeLink } from "./PromptDeckHomeLink";
 
+export type PresentationHeaderActionItem = {
+  id: string;
+  label: string;
+  onSelect: () => void;
+  disabled?: boolean;
+  hidden?: boolean;
+};
+
 type Props = {
   title: string;
   /** Shown as the small uppercase label above the title (deck vs diagram). */
   titleKind?: "deck" | "diagram";
   accessRole: string | null;
-  showShareAction: boolean;
-  showExportAction: boolean;
-  onShare: () => void;
-  onExportPdf: () => void;
-  onExportHtml: () => void;
-  /** Which export is running, if any (disables both buttons). */
-  exportBusy?: "pdf" | "single_html" | null;
+  actionMenuItems?: PresentationHeaderActionItem[];
   showPresentAction: boolean;
   onPresent: () => void;
   isFullscreen: boolean;
@@ -21,17 +23,11 @@ type Props = {
   canNavigate: boolean;
   onPrev: () => void;
   onNext: () => void;
-  /** Presenter-friendly: hide markers and sidebar threads. */
-  showCommentsVisibilityToggle?: boolean;
-  commentsHidden?: boolean;
-  onToggleCommentsHidden?: () => void;
-  showCommentAction?: boolean;
-  onStartComment?: () => void;
 };
 
 /* ── Inline SVG icons (16×16, stroke-based, currentColor) ──────────── */
 
-function IconShare() {
+function IconActions() {
   return (
     <svg
       width="16"
@@ -43,26 +39,9 @@ function IconShare() {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <path d="M8 10V2m0 0L5 5m3-3 3 3" />
-      <path d="M3 9v4a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V9" />
-    </svg>
-  );
-}
-
-function IconDownload() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M8 2v8m0 0 3-3M8 10 5 7" />
-      <path d="M3 11v2a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-2" />
+      <circle cx="3" cy="8" r="1" />
+      <circle cx="8" cy="8" r="1" />
+      <circle cx="13" cy="8" r="1" />
     </svg>
   );
 }
@@ -105,43 +84,6 @@ function IconMinimize() {
       strokeLinejoin="round"
     >
       <path d="M6 2v4H2M10 14v-4h4M2 6l4-4M14 10l-4 4" />
-    </svg>
-  );
-}
-
-function IconEye() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M1.5 8s2.5-4.5 6.5-4.5S14.5 8 14.5 8s-2.5 4.5-6.5 4.5S1.5 8 1.5 8Z" />
-      <circle cx="8" cy="8" r="2" />
-    </svg>
-  );
-}
-
-function IconEyeOff() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M6.59 6.59a2 2 0 0 0 2.82 2.82" />
-      <path d="M10.73 10.73A6.2 6.2 0 0 1 8 12.5C4 12.5 1.5 8 1.5 8a11.2 11.2 0 0 1 3.77-3.73m2.3-.93A5.4 5.4 0 0 1 8 3.5c4 0 6.5 4.5 6.5 4.5a11.3 11.3 0 0 1-1.77 2.23" />
-      <path d="m2 2 12 12" />
     </svg>
   );
 }
@@ -194,17 +136,9 @@ function ZoneDivider() {
   return <div className="mx-1 hidden h-5 border-l border-border sm:block" aria-hidden />;
 }
 
-/* ── Export dropdown ───────────────────────────────────────────────── */
+/* ── Unified actions dropdown ──────────────────────────────────────── */
 
-function ExportDropdown({
-  exportBusy,
-  onExportPdf,
-  onExportHtml,
-}: {
-  exportBusy: "pdf" | "single_html" | null;
-  onExportPdf: () => void;
-  onExportHtml: () => void;
-}) {
+function ActionsDropdown({ items }: { items: PresentationHeaderActionItem[] }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -222,45 +156,36 @@ function ExportDropdown({
       <button
         type="button"
         className={ghostBtn}
-        disabled={exportBusy != null}
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="menu"
       >
-        <IconDownload />
-        <span className="hidden md:inline">{exportBusy ? "Exporting…" : "Export"}</span>
+        <IconActions />
+        <span>Actions</span>
         <IconChevronDown />
       </button>
 
       {open ? (
         <div
           role="menu"
-          className="absolute right-0 top-full z-50 mt-1.5 min-w-[10rem] rounded-sharp border border-border bg-bg-elevated p-1 shadow-elevated"
+          className="absolute right-0 top-full z-50 mt-1.5 min-w-[12rem] rounded-sharp border border-border bg-bg-elevated p-1 shadow-elevated"
         >
-          <button
-            type="button"
-            role="menuitem"
-            className="flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left font-mono text-xs text-text-main transition-colors duration-150 hover:bg-bg-recessed disabled:opacity-40"
-            disabled={exportBusy != null}
-            onClick={() => {
-              onExportPdf();
-              setOpen(false);
-            }}
-          >
-            {exportBusy === "pdf" ? "Exporting PDF…" : "PDF"}
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            className="flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left font-mono text-xs text-text-main transition-colors duration-150 hover:bg-bg-recessed disabled:opacity-40"
-            disabled={exportBusy != null}
-            onClick={() => {
-              onExportHtml();
-              setOpen(false);
-            }}
-          >
-            {exportBusy === "single_html" ? "Exporting HTML…" : "Single-file HTML"}
-          </button>
+          {items.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              role="menuitem"
+              className="flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left font-mono text-xs text-text-main transition-colors duration-150 hover:bg-bg-recessed disabled:opacity-40"
+              disabled={item.disabled}
+              onClick={() => {
+                if (item.disabled) return;
+                item.onSelect();
+                setOpen(false);
+              }}
+            >
+              {item.label}
+            </button>
+          ))}
         </div>
       ) : null}
     </div>
@@ -273,12 +198,7 @@ export function PresentationDeckHeader({
   title,
   titleKind = "deck",
   accessRole,
-  showShareAction,
-  showExportAction,
-  onShare,
-  onExportPdf,
-  onExportHtml,
-  exportBusy = null,
+  actionMenuItems = [],
   showPresentAction,
   onPresent,
   isFullscreen,
@@ -287,14 +207,11 @@ export function PresentationDeckHeader({
   canNavigate,
   onPrev,
   onNext,
-  showCommentsVisibilityToggle = false,
-  commentsHidden = false,
-  onToggleCommentsHidden,
-  showCommentAction = false,
-  onStartComment,
 }: Props) {
   const prevDisabled = !canNavigate || slideIndex <= 0;
   const nextDisabled = !canNavigate || slideIndex >= slideCount - 1;
+  const visibleActionItems = actionMenuItems.filter((item) => !item.hidden);
+  const hasActionMenu = visibleActionItems.length > 0;
 
   return (
     <header className="border-b border-border bg-bg-recessed px-3 py-2.5 sm:px-4 sm:py-3">
@@ -315,69 +232,20 @@ export function PresentationDeckHeader({
           </div>
         </div>
 
-        {/* ── Right: action zones ────────────────────────────────── */}
+        {/* ── Right: actions + presentation mode + slide nav ────── */}
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-          {/* Zone A — Document actions */}
-          {(showShareAction || showExportAction) && (
-            <>
-              <div className="flex items-center gap-1.5">
-                {showShareAction ? (
-                  <button type="button" className={ghostBtn} onClick={onShare}>
-                    <IconShare />
-                    <span className="hidden md:inline">Share</span>
-                  </button>
-                ) : null}
-                {showExportAction ? (
-                  <ExportDropdown
-                    exportBusy={exportBusy}
-                    onExportPdf={onExportPdf}
-                    onExportHtml={onExportHtml}
-                  />
-                ) : null}
-              </div>
-              <ZoneDivider />
-            </>
-          )}
+          {hasActionMenu ? <ActionsDropdown items={visibleActionItems} /> : null}
+          {hasActionMenu ? <ZoneDivider /> : null}
 
-          {/* Zone B — Presentation mode */}
-          {(showPresentAction ||
-            showCommentAction ||
-            (showCommentsVisibilityToggle && onToggleCommentsHidden)) && (
-            <>
-              <div className="flex items-center gap-1.5">
-                {showPresentAction ? (
-                  <button type="button" className={primaryBtn} onClick={onPresent}>
-                    {isFullscreen ? <IconMinimize /> : <IconPlay />}
-                    <span>{isFullscreen ? "Exit" : "Present"}</span>
-                  </button>
-                ) : null}
-                {showCommentAction && onStartComment ? (
-                  <button
-                    type="button"
-                    className={ghostBtn}
-                    onClick={onStartComment}
-                    title="Add first comment"
-                  >
-                    <span>Add comment</span>
-                  </button>
-                ) : null}
-                {showCommentsVisibilityToggle && onToggleCommentsHidden ? (
-                  <button
-                    type="button"
-                    className={ghostBtn}
-                    onClick={onToggleCommentsHidden}
-                    title={commentsHidden ? "Show comments" : "Hide comments"}
-                  >
-                    {commentsHidden ? <IconEye /> : <IconEyeOff />}
-                    <span className="hidden md:inline">{commentsHidden ? "Show" : "Hide"}</span>
-                  </button>
-                ) : null}
-              </div>
-              <ZoneDivider />
-            </>
-          )}
+          {showPresentAction ? (
+            <button type="button" className={primaryBtn} onClick={onPresent}>
+              {isFullscreen ? <IconMinimize /> : <IconPlay />}
+              <span>{isFullscreen ? "Exit" : "Present"}</span>
+            </button>
+          ) : null}
 
-          {/* Zone C — Slide navigation pill */}
+          {showPresentAction ? <ZoneDivider /> : null}
+
           <div className="inline-flex items-center overflow-hidden rounded-sharp border border-border">
             <button
               type="button"

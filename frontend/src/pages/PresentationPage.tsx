@@ -12,7 +12,10 @@ import {
 import { DiagramCanvasErrorBoundary } from "../components/diagram/DiagramCanvasErrorBoundary";
 import { FeedbackSidebar } from "../components/feedback/FeedbackSidebar";
 import { RequireDeckAccess } from "../components/RequireDeckAccess";
-import { PresentationDeckHeader } from "../components/layout/PresentationDeckHeader";
+import {
+  PresentationDeckHeader,
+  type PresentationHeaderActionItem,
+} from "../components/layout/PresentationDeckHeader";
 import { ShareModal } from "../components/ShareModal";
 import { useComments } from "../hooks/useComments";
 import { usePresentation } from "../hooks/usePresentation";
@@ -47,6 +50,10 @@ import { shouldIgnoreDeckHotkeys } from "../lib/hotkeys";
 import { postSetCommentMode, postSlideGoto } from "../lib/slidePostMessage";
 import { useAuthStore } from "../stores/auth";
 import { useToastStore } from "../stores/toasts";
+import {
+  buildPresentationActionMenuEntries,
+  type PresentationActionMenuId,
+} from "./presentationActionMenu";
 
 const DeckCodeEditorModal = lazy(() =>
   import("../components/DeckCodeEditorModal").then((m) => ({ default: m.DeckCodeEditorModal })),
@@ -87,6 +94,9 @@ export default function PresentationPage() {
   const [commentsHidden, setCommentsHidden] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const presentRootRef = useRef<HTMLDivElement | null>(null);
+  const uploadVersionInputRef = useRef<HTMLInputElement | null>(null);
+  const uploadSourceInputRef = useRef<HTMLInputElement | null>(null);
+  const importDiagramSourceInputRef = useRef<HTMLInputElement | null>(null);
   const [canvasFullscreen, setCanvasFullscreen] = useState(false);
   const [diagramDoc, setDiagramDoc] = useState<DiagramDocument>(blankDiagramDocument);
   const [diagramDirty, setDiagramDirty] = useState(false);
@@ -746,6 +756,94 @@ export default function PresentationPage() {
     }
   }, [commentsHidden, setCommentMode]);
 
+  const showCommentAction = Boolean(versionId && canComment && !hasVisibleComments);
+  const showCommentsVisibilityToggle = Boolean(versionId && hasVisibleComments);
+
+  const triggerUploadVersion = useCallback(() => {
+    uploadVersionInputRef.current?.click();
+  }, []);
+
+  const triggerUploadSource = useCallback(() => {
+    uploadSourceInputRef.current?.click();
+  }, []);
+
+  const triggerImportDiagramSource = useCallback(() => {
+    importDiagramSourceInputRef.current?.click();
+  }, []);
+
+  const actionMenuEntries = useMemo(
+    () =>
+      buildPresentationActionMenuEntries({
+        canManage,
+        hasAccessToken: Boolean(accessToken),
+        hasCurrentVersion: Boolean(versionId),
+        isDiagram,
+        canPromptEdit,
+        showCommentAction,
+        showCommentsVisibilityToggle,
+        commentsHidden,
+        exportBusy,
+        codeLoadBusy,
+        codeSaveBusy,
+        deckPromptBusy,
+        diagramDirty,
+        saveDiagramPending: saveDiagram.isPending,
+      }),
+    [
+      accessToken,
+      canManage,
+      canPromptEdit,
+      codeLoadBusy,
+      codeSaveBusy,
+      commentsHidden,
+      deckPromptBusy,
+      diagramDirty,
+      exportBusy,
+      isDiagram,
+      saveDiagram.isPending,
+      showCommentAction,
+      showCommentsVisibilityToggle,
+      versionId,
+    ],
+  );
+
+  const actionMenuHandlers = useMemo<Record<PresentationActionMenuId, () => void>>(
+    () => ({
+      share: () => setShareOpen(true),
+      "export-pdf": () => void runExport("pdf"),
+      "export-html": () => void runExport("single_html"),
+      "add-comment": handleStartFirstComment,
+      "toggle-comments": handleToggleCommentsHidden,
+      "upload-version": triggerUploadVersion,
+      "upload-source": triggerUploadSource,
+      "edit-code": openCodeEditor,
+      "edit-with-prompt": () => setDeckPromptOpen(true),
+      "import-diagram-source": triggerImportDiagramSource,
+      "save-diagram": () => void runSaveDiagram(),
+    }),
+    [
+      handleStartFirstComment,
+      handleToggleCommentsHidden,
+      openCodeEditor,
+      runExport,
+      runSaveDiagram,
+      triggerImportDiagramSource,
+      triggerUploadSource,
+      triggerUploadVersion,
+    ],
+  );
+
+  const actionMenuItems = useMemo<PresentationHeaderActionItem[]>(
+    () =>
+      actionMenuEntries.map((entry) => ({
+        id: entry.id,
+        label: entry.label,
+        disabled: entry.disabled,
+        onSelect: actionMenuHandlers[entry.id],
+      })),
+    [actionMenuEntries, actionMenuHandlers],
+  );
+
   const feedbackSidebarProps = {
     threads: commentThreads,
     // Avoid treating "no version yet" as thread loading — query is disabled; show empty state.
@@ -836,12 +934,7 @@ export default function PresentationPage() {
           title={pres.data?.title ?? "Presentation"}
           titleKind={isDiagram ? "diagram" : "deck"}
           accessRole={accessRole}
-          showShareAction={Boolean(canManage && accessToken)}
-          showExportAction={Boolean(canManage && accessToken && pres.data?.current_version_id)}
-          onShare={() => setShareOpen(true)}
-          onExportPdf={() => void runExport("pdf")}
-          onExportHtml={() => void runExport("single_html")}
-          exportBusy={exportBusy}
+          actionMenuItems={actionMenuItems}
           showPresentAction={!isDiagram && Boolean(iframeSrc && embed.data?.slide_count)}
           onPresent={togglePresentFullscreen}
           isFullscreen={canvasFullscreen}
@@ -850,11 +943,6 @@ export default function PresentationPage() {
           canNavigate={!isDiagram && Boolean(embed.data?.slide_count)}
           onPrev={() => go(slideIndex - 1)}
           onNext={() => go(slideIndex + 1)}
-          showCommentsVisibilityToggle={Boolean(versionId && hasVisibleComments)}
-          commentsHidden={commentsHidden}
-          onToggleCommentsHidden={handleToggleCommentsHidden}
-          showCommentAction={Boolean(versionId && canComment && !hasVisibleComments)}
-          onStartComment={handleStartFirstComment}
         />
 
         {deckJobFollowSnapshot || (deckJobFromUrl && canPromptJob) ? (
@@ -937,82 +1025,44 @@ export default function PresentationPage() {
             ) : null}
             {canManage && accessToken ? (
               <>
-                <div className="flex flex-wrap items-center gap-2">
-                  {!isDiagram ? (
-                    <label className="inline-flex cursor-pointer items-center gap-3 rounded-sharp border border-border px-3 py-2 font-mono text-xs text-text-muted hover:bg-bg-elevated">
-                      <span>{versionId ? "Upload new version" : "Upload HTML or zip"}</span>
-                      <input
-                        type="file"
-                        accept=".html,.htm,.zip,text/html,application/zip"
-                        className="hidden"
-                        onChange={(ev) => {
-                          const f = ev.target.files?.[0];
-                          ev.target.value = "";
-                          if (f) upload.mutate(f);
-                        }}
-                      />
-                    </label>
-                  ) : null}
-                  {!isDiagram && versionId ? (
-                    <label className="inline-flex cursor-pointer items-center gap-3 rounded-sharp border border-border px-3 py-2 font-mono text-xs text-text-muted hover:bg-bg-elevated">
-                      <span>Upload source</span>
-                      <input
-                        type="file"
-                        className="hidden"
-                        onChange={(ev) => {
-                          const f = ev.target.files?.[0];
-                          ev.target.value = "";
-                          if (f) setSourceIntentFile(f);
-                        }}
-                      />
-                    </label>
-                  ) : null}
-                  {isDiagram ? (
-                    <label className="inline-flex cursor-pointer items-center gap-3 rounded-sharp border border-border px-3 py-2 font-mono text-xs text-text-muted hover:bg-bg-elevated">
-                      <span>Import diagram source</span>
-                      <input
-                        type="file"
-                        accept=".json,.pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,.svg,.drawio,.vsdx,.vdx,.graphml,.dot,.mmd,.puml,.uml,.xml,.yaml,.yml,.csv,.txt,.md,.zip"
-                        className="hidden"
-                        onChange={(ev) => {
-                          const f = ev.target.files?.[0];
-                          ev.target.value = "";
-                          if (f) upload.mutate(f);
-                        }}
-                      />
-                    </label>
-                  ) : null}
-                  {isDiagram ? (
-                    <button
-                      type="button"
-                      className="rounded-sharp border border-primary bg-primary/15 px-3 py-2 font-mono text-xs text-primary hover:bg-primary/25 disabled:opacity-50"
-                      disabled={!diagramDirty || saveDiagram.isPending}
-                      onClick={() => void runSaveDiagram()}
-                    >
-                      {saveDiagram.isPending ? "Saving…" : diagramDirty ? "Save diagram" : "Saved"}
-                    </button>
-                  ) : null}
-                  {canPromptEdit && versionId ? (
-                    <button
-                      type="button"
-                      className="rounded-sharp border border-border px-3 py-2 font-mono text-xs text-text-muted hover:bg-bg-elevated disabled:opacity-50"
-                      disabled={codeLoadBusy || codeSaveBusy}
-                      onClick={openCodeEditor}
-                    >
-                      Edit code
-                    </button>
-                  ) : null}
-                  {canPromptEdit && versionId ? (
-                    <button
-                      type="button"
-                      className="rounded-sharp border border-border px-3 py-2 font-mono text-xs text-text-muted hover:bg-bg-elevated disabled:opacity-50"
-                      disabled={deckPromptBusy}
-                      onClick={() => setDeckPromptOpen(true)}
-                    >
-                      Edit with prompt
-                    </button>
-                  ) : null}
-                </div>
+                {!isDiagram ? (
+                  <input
+                    ref={uploadVersionInputRef}
+                    type="file"
+                    accept=".html,.htm,.zip,text/html,application/zip"
+                    className="hidden"
+                    onChange={(ev) => {
+                      const f = ev.target.files?.[0];
+                      ev.target.value = "";
+                      if (f) upload.mutate(f);
+                    }}
+                  />
+                ) : null}
+                {!isDiagram && versionId ? (
+                  <input
+                    ref={uploadSourceInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={(ev) => {
+                      const f = ev.target.files?.[0];
+                      ev.target.value = "";
+                      if (f) setSourceIntentFile(f);
+                    }}
+                  />
+                ) : null}
+                {isDiagram ? (
+                  <input
+                    ref={importDiagramSourceInputRef}
+                    type="file"
+                    accept=".json,.pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,.svg,.drawio,.vsdx,.vdx,.graphml,.dot,.mmd,.puml,.uml,.xml,.yaml,.yml,.csv,.txt,.md,.zip"
+                    className="hidden"
+                    onChange={(ev) => {
+                      const f = ev.target.files?.[0];
+                      ev.target.value = "";
+                      if (f) upload.mutate(f);
+                    }}
+                  />
+                ) : null}
                 {!isDiagram && versionId && sourceArtifacts.data?.items?.length ? (
                   <ul className="mt-3 space-y-2 rounded-sharp border border-border bg-bg-recessed/50 p-3">
                     <li className="list-none font-mono text-[10px] uppercase tracking-wide text-text-muted">
@@ -1040,8 +1090,8 @@ export default function PresentationPage() {
                             })
                           }
                         >
-                          <option value="embed">Embed</option>
-                          <option value="inspire">Inspire</option>
+                          <option value="embed">Embedded (include directly)</option>
+                          <option value="inspire">Inspiration only (reference)</option>
                         </select>
                         <button
                           type="button"
@@ -1089,9 +1139,16 @@ export default function PresentationPage() {
           >
             <div className="w-full max-w-md rounded-sharp border border-border bg-bg-elevated p-4 shadow-elevated">
               <h2 id="source-intent-title" className="font-heading text-base font-semibold">
-                How should this file be used?
+                How should AI use this file?
               </h2>
               <p className="mt-2 font-mono text-xs text-text-muted">{sourceIntentFile.name}</p>
+              <p className="mt-2 text-sm text-text-muted">
+                Pick one mode:
+                <span className="font-medium text-text-main"> Embedded</span> includes content from
+                this file in the deck.
+                <span className="font-medium text-text-main"> Inspiration only</span> uses it as
+                reference without directly embedding content.
+              </p>
               <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
                 <button
                   type="button"
@@ -1109,7 +1166,7 @@ export default function PresentationPage() {
                     uploadSourceArtifact.mutate({ file: sourceIntentFile, intent: "inspire" })
                   }
                 >
-                  Use as inspiration
+                  Inspiration only (reference)
                 </button>
                 <button
                   type="button"
@@ -1119,7 +1176,7 @@ export default function PresentationPage() {
                     uploadSourceArtifact.mutate({ file: sourceIntentFile, intent: "embed" })
                   }
                 >
-                  Embed in deck
+                  Embedded (include directly)
                 </button>
               </div>
             </div>
@@ -1222,7 +1279,7 @@ export default function PresentationPage() {
                                 : "shrink-0 rounded-sm bg-bg-elevated px-1.5 py-0.5 text-[10px] text-text-muted"
                             }
                           >
-                            {a.intent === "embed" ? "Embed" : "Inspire"}
+                            {a.intent === "embed" ? "Embedded" : "Inspiration"}
                           </span>
                         </label>
                       </li>
