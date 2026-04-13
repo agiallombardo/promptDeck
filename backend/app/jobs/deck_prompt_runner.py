@@ -9,7 +9,7 @@ from sqlalchemy import select
 from app.config import get_settings
 from app.db.models.deck_prompt_job import DeckPromptJob, DeckPromptJobStatus, DeckPromptJobType
 from app.db.models.deck_prompt_job_artifact import DeckPromptJobArtifact
-from app.db.models.presentation import PresentationVersion
+from app.db.models.presentation import Presentation, PresentationVersion
 from app.db.models.presentation_source_artifact import PresentationSourceArtifact
 from app.db.session import session_factory
 from app.logging_channels import LogChannel, channel_logger
@@ -40,6 +40,13 @@ log = channel_logger(LogChannel.audit)
 
 MAX_SOURCE_HTML_CHARS_FOR_LLM = 350_000
 MAX_SOURCE_DIAGRAM_JSON_CHARS_FOR_LLM = 220_000
+
+
+def _presentation_context_prefix(*, title: str, kind: str) -> str:
+    """Stable context line the model can use for naming, tone, and scope."""
+    t = title.strip() or "(untitled)"
+    return f"Presentation title: {t}\nPresentation type: {kind}\n\n"
+
 
 _DECK_EDIT_SYSTEM = (
     "You are a careful HTML editor for a self-contained slide deck (single HTML file).\n"
@@ -103,8 +110,12 @@ def _build_deck_user_message_with_artifacts(
     job_type: DeckPromptJobType,
     is_generation: bool,
     resolved: list[ResolvedArtifactForLlm],
+    presentation_title: str,
+    presentation_kind: str,
 ) -> tuple[str, list[tuple[bytes, str]]]:
-    parts: list[str] = []
+    parts: list[str] = [
+        _presentation_context_prefix(title=presentation_title, kind=presentation_kind)
+    ]
     if resolved:
         parts.append("---SOURCE_ARTIFACTS_START---\n")
         for r in resolved:
@@ -154,7 +165,11 @@ async def run_deck_prompt_job(job_id: uuid.UUID) -> None:
         job0.status = DeckPromptJobStatus.running
         job0.started_at = datetime.now(UTC)
         job0.progress = 5
-        job0.status_message = "Reading deck"
+        job0.status_message = (
+            "Reading diagram"
+            if job0.job_type == DeckPromptJobType.diagram_generate
+            else "Reading deck"
+        )
         pres_id = job0.presentation_id
         created_by = job0.created_by
         prompt = job0.prompt
@@ -169,11 +184,19 @@ async def run_deck_prompt_job(job_id: uuid.UUID) -> None:
     llm_model_used: str | None = None
     completion_usage: DeckLlmCompletionResult | None = None
 
+    presentation_title = ""
+    presentation_kind = "deck"
+
     try:
         async with fac() as session:
             ver = await session.get(PresentationVersion, source_version_id)
             if ver is None or ver.presentation_id != pres_id:
                 raise ValueError("Source version not found")
+            pres_row = await session.get(Presentation, pres_id)
+            if pres_row is None:
+                raise ValueError("Presentation not found")
+            presentation_title = pres_row.title
+            presentation_kind = str(pres_row.kind)
             if job_type in (DeckPromptJobType.deck_edit, DeckPromptJobType.deck_generate):
                 if ver.storage_kind != "single_html":
                     raise ValueError(
@@ -265,12 +288,15 @@ async def run_deck_prompt_job(job_id: uuid.UUID) -> None:
                 job_type=job_type,
                 is_generation=is_generation,
                 resolved=resolved_for_llm,
+                presentation_title=presentation_title,
+                presentation_kind=presentation_kind,
             )
             if resolved_for_llm:
                 system_prompt += _SOURCE_ARTIFACT_SYSTEM_SUPPLEMENT
         else:
+            ctx = _presentation_context_prefix(title=presentation_title, kind=presentation_kind)
             user_msg = (
-                f"User brief (create one complete diagram):\n{prompt.strip()}\n\n"
+                ctx + f"User brief (create one complete diagram):\n{prompt.strip()}\n\n"
                 "Starter diagram JSON (replace entirely if needed):\n"
                 f"---DIAGRAM_JSON_START---\n{source_text}\n---DIAGRAM_JSON_END---"
             )

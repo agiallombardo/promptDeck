@@ -33,7 +33,13 @@ Internal web app for **HTML slide decks** (and optional **diagram** canvases): u
 
    Defaults: API `http://127.0.0.1:8005`, frontend `http://127.0.0.1:5174` (Vite proxies `/api`).
 
-Full setup, production notes, and verification: **`docs/RUNBOOK.md`**.
+**Also useful for day-to-day work**
+
+- **Quality gate:** `just verify` (lint, types, tests, OpenAPI snapshot, smoke) before you push.
+- **AI deck/diagram jobs:** In `backend/.env`, configure at least one provider block under “Deck LLM” in `backend/.env.example` (e.g. `LITELLM_API_BASE` + `LITELLM_API_KEY`, or OpenAI / Anthropic keys). Without this, generate-from-prompt and “edit with prompt” return errors about the LLM not being configured.
+- **Optional data:** `cd backend && uv run python ../scripts/seed.py` for sample content (see `docs/RUNBOOK.md`).
+- **Contract after API changes:** `cd backend && uv run python -m app.scripts.dump_openapi` then `just api-contract`.
+- **Deep dive:** full setup, production, Docker, and troubleshooting — **`docs/RUNBOOK.md`**.
 
 ## Deployment
 

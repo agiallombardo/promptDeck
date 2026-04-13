@@ -209,3 +209,5 @@ async def test_deck_prompt_job_sends_artifact_context(
     assert "SOURCE_ARTIFACTS_START" in captured.get("user_message", "")
     assert "brief.txt" in captured["user_message"]
     assert "intent=inspire" in captured["user_message"]
+    assert "Presentation title: LLM ctx" in captured["user_message"]
+    assert "Presentation type: deck" in captured["user_message"]
