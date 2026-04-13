@@ -2,7 +2,7 @@
 
 ## Elevator pitch
 
-Internal app: **HTML deck** presentations — upload `.html` / `.zip`, sandboxed iframe preview, coordinate-pinned comments (v1 = manual refresh), scoped share links, export PDF / single-file HTML. Repo tuned for agents: navigate, verify, extend safely.
+Internal app: **HTML deck** (and **diagram**) presentations — upload `.html` / `.zip`, sandboxed iframe preview, coordinate-pinned comments (v1 = manual refresh), scoped share links, export PDF / single-file HTML, optional AI edits and source artifacts. Repo tuned for agents: navigate, verify, extend safely.
 
 ## Directory map
 
@@ -10,9 +10,10 @@ Internal app: **HTML deck** presentations — upload `.html` / `.zip`, sandboxed
 |------|------|
 | `backend/` | FastAPI (`app/main.py`), routers, Alembic, `openapi.json` |
 | `frontend/` | Vite + React + TS + Tailwind 4 (`src/styles/tailwind.css` `@theme`) |
-| `scripts/` | `verify.sh`, `dev.sh`, `e2e_smoke.py`, `bootstrap_users.py`, `seed.py` |
+| `scripts/` | `verify.sh`, `dev.sh`, `e2e_smoke.py`, `bootstrap_users.py`, `seed.py`, `docker-entrypoint.sh` (Docker image) |
 | `docs/` | Conventions, runbook, ADRs, `docs/ROADMAP.md`, `API.md` (OpenAPI) |
-| `deploy/` | Samples: `systemd/promptdeck-api.service`, `nginx/promptdeck.conf.sample` (`/opt/promptDeck`, local/LAN HTTP by default) |
+| `deploy/` | `docker-compose.env.example`; samples: `systemd/promptdeck-api.service`, `nginx/promptdeck.conf.sample` (`/opt/promptDeck`, local/LAN HTTP by default) |
+| repo root | `Dockerfile`, `docker-compose.yml`, `.dockerignore` — optional **SQLite all-in-one** image (`docs/RUNBOOK.md` § Docker) |
 
 ### Files most often modified
 

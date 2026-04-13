@@ -4,10 +4,13 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.deck_prompt_job import DeckPromptJob, DeckPromptJobStatus, DeckPromptJobType
+from app.db.models.deck_prompt_job_artifact import DeckPromptJobArtifact
 from app.db.models.presentation import Presentation, PresentationKind, PresentationVersion
+from app.db.models.presentation_source_artifact import PresentationSourceArtifact
 from app.db.models.user import User
 from app.db.session import get_db
 from app.deps import PresentationGrant, get_current_user, get_presentation_editor
@@ -54,6 +57,20 @@ async def create_deck_prompt_job(
             detail="Only single-file HTML decks support prompt editing",
         )
 
+    if body.source_artifact_ids:
+        stmt = select(PresentationSourceArtifact).where(
+            PresentationSourceArtifact.presentation_id == presentation.id,
+            PresentationSourceArtifact.id.in_(body.source_artifact_ids),
+        )
+        found = (await db.execute(stmt)).scalars().all()
+        found_ids = {a.id for a in found}
+        missing = [str(x) for x in body.source_artifact_ids if x not in found_ids]
+        if missing:
+            raise HTTPException(
+                status_code=400,
+                detail="Unknown or foreign source artifact id for this presentation",
+            )
+
     job = DeckPromptJob(
         presentation_id=presentation.id,
         source_version_id=ver.id,
@@ -66,6 +83,9 @@ async def create_deck_prompt_job(
         created_by=grant.user.id,
     )
     db.add(job)
+    await db.flush()
+    for aid in body.source_artifact_ids:
+        db.add(DeckPromptJobArtifact(job_id=job.id, artifact_id=aid))
     await db.commit()
     await db.refresh(job)
 
@@ -75,7 +95,11 @@ async def create_deck_prompt_job(
         action="presentation.deck_prompt.created",
         target_kind="deck_prompt_job",
         target_id=job.id,
-        metadata={"presentation_id": str(presentation.id), "source_version_id": str(ver.id)},
+        metadata={
+            "presentation_id": str(presentation.id),
+            "source_version_id": str(ver.id),
+            "source_artifact_ids": [str(x) for x in body.source_artifact_ids],
+        },
         client_ip=client_ip_from_request(request),
     )
 

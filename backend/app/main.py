@@ -24,6 +24,7 @@ from app.routers import (
     directory,
     exports,
     members,
+    presentation_source_artifacts,
     presentations,
     shares,
     versions,
@@ -91,6 +92,7 @@ api.include_router(auth.router, prefix="/auth", tags=["auth"])
 api.include_router(admin.router, prefix="/admin", tags=["admin"])
 api.include_router(directory.router)
 api.include_router(presentations.router)
+api.include_router(presentation_source_artifacts.router)
 api.include_router(versions.router)
 api.include_router(comments.router)
 api.include_router(members.router)

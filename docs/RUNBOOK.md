@@ -25,11 +25,11 @@ just verify
 
 Optional **single-container** layout: API + **file-backed SQLite** on a Docker volume, production **Vite** assets served from the API (same origin as `/api/v1`), and **Playwright Chromium** in the image for PDF/HTML export. The image is **large** (Chromium). For normal production, prefer **PostgreSQL + systemd + nginx** ([§ Production (Ubuntu VM)](#production-ubuntu-vm), **`docs/UBUNTU_SERVER_SETUP.md`**, and samples under **`deploy/`**).
 
-**Repository files (when using this layout):** root **`Dockerfile`**, root **`docker-compose.yml`**, **`scripts/docker-entrypoint.sh`**, and **`deploy/docker-compose.env.example`** (copy or adapt for secrets). If your checkout does not include the Docker assets yet, use the **Postgres + systemd + nginx** path above or merge the branch that adds them.
+**Repository files:** root **`Dockerfile`**, root **`docker-compose.yml`**, **`scripts/docker-entrypoint.sh`**, and **`deploy/docker-compose.env.example`** (copy to **`.env`** beside `docker-compose.yml` before `up`).
 
 1. **Prerequisites:** Docker Engine and **Compose v2**, several gigabytes free disk for the image and layers, and a free host port (default compose mapping **8080→8005** inside the container). Adjust `ports` in `docker-compose.yml` if 8080 is taken.
 
-2. **Secrets:** set **`JWT_SECRET_KEY`** to at least 32 random bytes (production). Example: `export JWT_SECRET_KEY=$(openssl rand -hex 32)`. Compose may require this variable to be set before `up` (see `docker-compose.yml`). Optionally copy **`deploy/docker-compose.env.example`** to **`.env`** next to `docker-compose.yml` and edit—do not commit real secrets.
+2. **Secrets:** copy **`deploy/docker-compose.env.example`** to **`.env`** next to **`docker-compose.yml`**, then set **`JWT_SECRET_KEY`** to at least 32 random bytes (production). Example: `openssl rand -hex 32`. Edit **`PUBLIC_APP_URL`**, **`PUBLIC_API_URL`**, and **`CORS_ORIGINS`** if you change the host port (default **8080** → **8005** inside the container). Never commit real **`.env`** files.
 
 3. **Build:** from the **repository root**, run **`docker compose build`**.
 
@@ -40,7 +40,7 @@ Optional **single-container** layout: API + **file-backed SQLite** on a Docker v
    - **`STORAGE_ROOT`** — e.g. `/data/storage` for uploads and export artifacts; must live on a **persistent volume** with the DB.
    - **`STATIC_SITE_DIR`** — path to the baked **Vite `dist`** inside the image (e.g. `/app/backend/static/site`) so the UI and API share one origin.
    - **`PUBLIC_APP_URL`** and **`PUBLIC_API_URL`** — the **exact origin** users use in the browser (scheme + host + port), e.g. `http://127.0.0.1:8080` for local compose.
-   - **`CORS_ORIGINS`** — JSON array of allowed origins; **must include** the same origin as `PUBLIC_APP_URL` (see the default in `docker-compose.yml` and override when you change the URL).
+   - **`CORS_ORIGINS`** — JSON array of allowed origins; **must include** the same origin as `PUBLIC_APP_URL` (see **`deploy/docker-compose.env.example`**).
    - Optional **`ENTRA_*`**, **`COOKIE_SECURE`**, **`ENVIRONMENT`**, **`LOCAL_PASSWORD_AUTH_ENABLED`** — same semantics as **`backend/.env.example`**.
 
 6. **Volumes:** use a **named volume** (or bind mount) mounted at **`/data`** so **`promptdeck.db`** and **`STORAGE_ROOT`** survive container recreation. Back up this volume for disaster recovery (see step 10).

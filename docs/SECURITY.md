@@ -14,4 +14,8 @@ Signed HTML decks are served from `/a/…` with a dedicated CSP string in `backe
 
 Password hashing uses Argon2id via `argon2-cffi`. Time cost, memory (KiB), and parallelism are configurable through settings (`ARGON2_TIME_COST`, `ARGON2_MEMORY_COST`, `ARGON2_PARALLELISM` in `app/config.py`) for production tuning against your CPU/RAM envelope.
 
+## Frontend dependency hygiene
+
+`@monaco-editor/react` pulls **DOMPurify** transitively for HTML sanitization in the editor. The repo pins **`dompurify@3.3.2`** via **`pnpm.overrides`** in `frontend/package.json` so security patches are explicit; after bumping the override, run **`pnpm install`** (or `just setup`) and commit the lockfile.
+
 This document will gain operational checklists as features land.

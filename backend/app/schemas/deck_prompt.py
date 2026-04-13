@@ -5,11 +5,25 @@ from datetime import datetime
 from typing import Literal
 
 from app.db.models.deck_prompt_job import DeckPromptJobStatus
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class DeckPromptJobCreate(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=16_000)
+    source_artifact_ids: list[uuid.UUID] = Field(default_factory=list)
+
+    @field_validator("source_artifact_ids")
+    @classmethod
+    def _normalize_artifact_ids(cls, v: list[uuid.UUID]) -> list[uuid.UUID]:
+        if len(v) > 20:
+            raise ValueError("At most 20 source artifacts per job")
+        seen: set[uuid.UUID] = set()
+        out: list[uuid.UUID] = []
+        for x in v:
+            if x not in seen:
+                seen.add(x)
+                out.append(x)
+        return out
 
 
 class DeckPromptJobRead(BaseModel):

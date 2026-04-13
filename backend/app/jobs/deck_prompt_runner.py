@@ -4,9 +4,13 @@ import json
 import uuid
 from datetime import UTC, datetime
 
+from sqlalchemy import select
+
 from app.config import get_settings
 from app.db.models.deck_prompt_job import DeckPromptJob, DeckPromptJobStatus, DeckPromptJobType
+from app.db.models.deck_prompt_job_artifact import DeckPromptJobArtifact
 from app.db.models.presentation import PresentationVersion
+from app.db.models.presentation_source_artifact import PresentationSourceArtifact
 from app.db.session import session_factory
 from app.logging_channels import LogChannel, channel_logger
 from app.services.app_logging import write_app_log
@@ -15,12 +19,20 @@ from app.services.deck_llm_completion import (
     DeckLlmCompletionResult,
     complete_deck_html_edit,
     complete_deck_html_edit_anthropic,
+    complete_deck_html_edit_anthropic_multimodal,
+    complete_deck_html_edit_multimodal,
     complete_deck_html_edit_openai,
+    complete_deck_html_edit_openai_multimodal,
 )
 from app.services.diagram_icons import format_icon_catalog
 from app.services.diagram_schema import normalize_diagram_document
 from app.services.diagram_version import persist_new_diagram_version
 from app.services.llm_runtime import LlmNotConfiguredError, resolve_deck_llm_credentials
+from app.services.presentation_source_artifacts import (
+    ResolvedArtifactForLlm,
+    read_artifact_bytes,
+    resolve_bytes_for_llm,
+)
 from app.services.single_html_version import persist_new_single_html_version
 from app.storage.local import read_bytes_if_exists
 
@@ -51,6 +63,15 @@ _DECK_GENERATE_SYSTEM = (
     "Do not add explanations before or after the HTML."
 )
 
+_SOURCE_ARTIFACT_SYSTEM_SUPPLEMENT = (
+    "\n\nSOURCE ARTIFACTS (when the user message includes ---SOURCE_ARTIFACTS--- sections):\n"
+    "- intent=inspire: reference-only; do not copy large excerpts unless the user asks.\n"
+    "- intent=embed: you may incorporate into the deck HTML (e.g. small images as data URIs when "
+    "practical).\n"
+    "Binary images may appear as separate vision inputs in the same user turn; map them to the "
+    "matching filename in the text summaries."
+)
+
 _DIAGRAM_GENERATE_SYSTEM = (
     "You are an expert diagram builder for business and technical systems.\n"
     "Return one valid JSON object only (no markdown fences, no extra text) matching this schema:\n"
@@ -73,6 +94,43 @@ def _validate_model_html(text: str) -> bytes:
     if b"<html" not in lower and b"<!doctype" not in lower:
         raise ValueError("Model did not return a recognizable HTML document")
     return raw
+
+
+def _build_deck_user_message_with_artifacts(
+    *,
+    prompt: str,
+    source_text: str,
+    job_type: DeckPromptJobType,
+    is_generation: bool,
+    resolved: list[ResolvedArtifactForLlm],
+) -> tuple[str, list[tuple[bytes, str]]]:
+    parts: list[str] = []
+    if resolved:
+        parts.append("---SOURCE_ARTIFACTS_START---\n")
+        for r in resolved:
+            parts.append(f"### {r.filename} [intent={str(r.intent)}]\n{r.text_excerpt}\n")
+        parts.append("---SOURCE_ARTIFACTS_END---\n\n")
+    if job_type == DeckPromptJobType.deck_generate and is_generation:
+        parts.append(f"User brief (create one complete deck):\n{prompt.strip()}\n\n")
+        parts.append(
+            "Starter placeholder HTML (replace entirely; do not preserve this content):\n"
+            f"---DECK_HTML_START---\n{source_text}\n---DECK_HTML_END---"
+        )
+    elif job_type == DeckPromptJobType.deck_edit:
+        parts.append(f"User request (apply to the deck below):\n{prompt.strip()}\n\n")
+        parts.append(f"---DECK_HTML_START---\n{source_text}\n---DECK_HTML_END---")
+    else:
+        parts.append(f"User brief (create one complete diagram):\n{prompt.strip()}\n\n")
+        parts.append(
+            "Starter diagram JSON (replace entirely if needed):\n"
+            f"---DIAGRAM_JSON_START---\n{source_text}\n---DIAGRAM_JSON_END---"
+        )
+    user_text = "".join(parts)
+    images: list[tuple[bytes, str]] = []
+    for r in resolved:
+        if r.image_bytes is not None and r.image_media_type is not None:
+            images.append((r.image_bytes, r.image_media_type))
+    return user_text, images
 
 
 def _validate_model_diagram_json(text: str) -> dict[str, object]:
@@ -144,13 +202,44 @@ async def run_deck_prompt_job(job_id: uuid.UUID) -> None:
                 f"(max {MAX_SOURCE_DIAGRAM_JSON_CHARS_FOR_LLM} characters)"
             )
 
+        resolved_for_llm: list[ResolvedArtifactForLlm] = []
+        async with fac() as session:
+            art_ids = (
+                (
+                    await session.execute(
+                        select(DeckPromptJobArtifact.artifact_id).where(
+                            DeckPromptJobArtifact.job_id == job_id
+                        )
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            if art_ids:
+                if job_type not in (DeckPromptJobType.deck_edit, DeckPromptJobType.deck_generate):
+                    raise ValueError(
+                        "Source artifacts are only supported for deck HTML prompt jobs"
+                    )
+                stmt = select(PresentationSourceArtifact).where(
+                    PresentationSourceArtifact.id.in_(art_ids)
+                )
+                by_id = {a.id: a for a in (await session.execute(stmt)).scalars().all()}
+                for aid in art_ids:
+                    row = by_id.get(aid)
+                    if row is None or row.presentation_id != pres_id:
+                        raise ValueError("Source artifact not found for this presentation")
+                    raw_a = read_artifact_bytes(settings, row)
+                    if raw_a is None:
+                        raise ValueError(f"Source artifact file missing: {row.original_filename}")
+                    resolved_for_llm.append(resolve_bytes_for_llm(artifact=row, data=raw_a))
+
         async with fac() as session:
             try:
-                resolved = await resolve_deck_llm_credentials(session, settings, created_by)
+                llm_resolved = await resolve_deck_llm_credentials(session, settings, created_by)
             except LlmNotConfiguredError as e:
                 raise ValueError(str(e)) from e
 
-        llm_model_used = resolved.model
+        llm_model_used = llm_resolved.model
 
         async with fac() as session:
             j = await session.get(DeckPromptJob, job_id)
@@ -158,53 +247,92 @@ async def run_deck_prompt_job(job_id: uuid.UUID) -> None:
                 raise ValueError("Deck prompt job not found")
             j.progress = 15
             j.status_message = "Calling model"
-            j.llm_model = resolved.model
+            j.llm_model = llm_resolved.model
             await session.commit()
 
+        image_attachments: list[tuple[bytes, str]] = []
         if job_type == DeckPromptJobType.deck_generate and is_generation:
             system_prompt = _DECK_GENERATE_SYSTEM
-            user_msg = (
-                f"User brief (create one complete deck):\n{prompt.strip()}\n\n"
-                "Starter placeholder HTML (replace entirely; do not preserve this content):\n"
-                f"---DECK_HTML_START---\n{source_text}\n---DECK_HTML_END---"
-            )
         elif job_type == DeckPromptJobType.deck_edit:
             system_prompt = _DECK_EDIT_SYSTEM
-            user_msg = (
-                f"User request (apply to the deck below):\n{prompt.strip()}\n\n"
-                f"---DECK_HTML_START---\n{source_text}\n---DECK_HTML_END---"
-            )
         else:
             system_prompt = _DIAGRAM_GENERATE_SYSTEM
+
+        if job_type in (DeckPromptJobType.deck_edit, DeckPromptJobType.deck_generate):
+            user_msg, image_attachments = _build_deck_user_message_with_artifacts(
+                prompt=prompt,
+                source_text=source_text,
+                job_type=job_type,
+                is_generation=is_generation,
+                resolved=resolved_for_llm,
+            )
+            if resolved_for_llm:
+                system_prompt += _SOURCE_ARTIFACT_SYSTEM_SUPPLEMENT
+        else:
             user_msg = (
                 f"User brief (create one complete diagram):\n{prompt.strip()}\n\n"
                 "Starter diagram JSON (replace entirely if needed):\n"
                 f"---DIAGRAM_JSON_START---\n{source_text}\n---DIAGRAM_JSON_END---"
             )
-        if resolved.kind == "litellm":
-            assert resolved.api_base is not None
+
+        deck_html_job = job_type in (DeckPromptJobType.deck_edit, DeckPromptJobType.deck_generate)
+        use_vision = deck_html_job and len(image_attachments) > 0
+
+        if deck_html_job and use_vision:
+            if llm_resolved.kind == "litellm":
+                assert llm_resolved.api_base is not None
+                completion_usage = await complete_deck_html_edit_multimodal(
+                    api_base=llm_resolved.api_base,
+                    api_key=llm_resolved.api_key,
+                    model=llm_resolved.model,
+                    system_prompt=system_prompt,
+                    user_text=user_msg,
+                    image_attachments=image_attachments,
+                )
+            elif llm_resolved.kind == "openai":
+                assert llm_resolved.openai_api_key is not None
+                completion_usage = await complete_deck_html_edit_openai_multimodal(
+                    api_key=llm_resolved.openai_api_key,
+                    base_url=llm_resolved.openai_base_url,
+                    model=llm_resolved.model,
+                    system_prompt=system_prompt,
+                    user_text=user_msg,
+                    image_attachments=image_attachments,
+                )
+            else:
+                assert llm_resolved.anthropic_api_key is not None
+                completion_usage = await complete_deck_html_edit_anthropic_multimodal(
+                    api_key=llm_resolved.anthropic_api_key,
+                    base_url=llm_resolved.anthropic_base_url,
+                    model=llm_resolved.model,
+                    system_prompt=system_prompt,
+                    user_text=user_msg,
+                    image_attachments=image_attachments,
+                )
+        elif llm_resolved.kind == "litellm":
+            assert llm_resolved.api_base is not None
             completion_usage = await complete_deck_html_edit(
-                api_base=resolved.api_base,
-                api_key=resolved.api_key,
-                model=resolved.model,
+                api_base=llm_resolved.api_base,
+                api_key=llm_resolved.api_key,
+                model=llm_resolved.model,
                 system_prompt=system_prompt,
                 user_message=user_msg,
             )
-        elif resolved.kind == "openai":
-            assert resolved.openai_api_key is not None
+        elif llm_resolved.kind == "openai":
+            assert llm_resolved.openai_api_key is not None
             completion_usage = await complete_deck_html_edit_openai(
-                api_key=resolved.openai_api_key,
-                base_url=resolved.openai_base_url,
-                model=resolved.model,
+                api_key=llm_resolved.openai_api_key,
+                base_url=llm_resolved.openai_base_url,
+                model=llm_resolved.model,
                 system_prompt=system_prompt,
                 user_message=user_msg,
             )
         else:
-            assert resolved.anthropic_api_key is not None
+            assert llm_resolved.anthropic_api_key is not None
             completion_usage = await complete_deck_html_edit_anthropic(
-                api_key=resolved.anthropic_api_key,
-                base_url=resolved.anthropic_base_url,
-                model=resolved.model,
+                api_key=llm_resolved.anthropic_api_key,
+                base_url=llm_resolved.anthropic_base_url,
+                model=llm_resolved.model,
                 system_prompt=system_prompt,
                 user_message=user_msg,
             )

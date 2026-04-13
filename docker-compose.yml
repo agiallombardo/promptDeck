@@ -1,0 +1,22 @@
+# SQLite + single-container promptDeck.
+# Copy deploy/docker-compose.env.example → `.env` in this directory, then: docker compose up -d
+# See docs/RUNBOOK.md § Docker deployment (SQLite, all-in-one).
+
+name: promptdeck
+
+services:
+  promptdeck:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: promptdeck:local
+    ports:
+      - "${PROMPTDECK_HTTP_PORT:-8080}:8005"
+    env_file:
+      - .env
+    volumes:
+      - promptdeck_data:/data
+    restart: unless-stopped
+
+volumes:
+  promptdeck_data:

@@ -1475,6 +1475,25 @@
         "title": "Body_upload_html_version_api_v1_presentations__presentation_id__versions_post",
         "type": "object"
       },
+      "Body_upload_source_artifact_api_v1_presentations__presentation_id__source_artifacts_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          },
+          "intent": {
+            "title": "Intent",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file",
+          "intent"
+        ],
+        "title": "Body_upload_source_artifact_api_v1_presentations__presentation_id__source_artifacts_post",
+        "type": "object"
+      },
       "CommentCreate": {
         "properties": {
           "body": {
@@ -1563,6 +1582,14 @@
             "minLength": 1,
             "title": "Prompt",
             "type": "string"
+          },
+          "source_artifact_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Source Artifact Ids",
+            "type": "array"
           }
         },
         "required": [
@@ -2550,6 +2577,101 @@
           "updated_at"
         ],
         "title": "PresentationRead",
+        "type": "object"
+      },
+      "PresentationSourceArtifactListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PresentationSourceArtifactRead"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "PresentationSourceArtifactListResponse",
+        "type": "object"
+      },
+      "PresentationSourceArtifactRead": {
+        "properties": {
+          "content_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Type"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "intent": {
+            "enum": [
+              "embed",
+              "inspire"
+            ],
+            "title": "Intent",
+            "type": "string"
+          },
+          "original_filename": {
+            "title": "Original Filename",
+            "type": "string"
+          },
+          "presentation_id": {
+            "format": "uuid",
+            "title": "Presentation Id",
+            "type": "string"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "presentation_id",
+          "original_filename",
+          "content_type",
+          "size_bytes",
+          "sha256",
+          "intent",
+          "created_at"
+        ],
+        "title": "PresentationSourceArtifactRead",
+        "type": "object"
+      },
+      "PresentationSourceArtifactUpdate": {
+        "properties": {
+          "intent": {
+            "enum": [
+              "embed",
+              "inspire"
+            ],
+            "title": "Intent",
+            "type": "string"
+          }
+        },
+        "required": [
+          "intent"
+        ],
+        "title": "PresentationSourceArtifactUpdate",
         "type": "object"
       },
       "PresentationUpdate": {
@@ -5920,6 +6042,227 @@
         "summary": "Revoke Share Link",
         "tags": [
           "shares"
+        ]
+      }
+    },
+    "/api/v1/presentations/{presentation_id}/source-artifacts": {
+      "get": {
+        "operationId": "list_source_artifacts_api_v1_presentations__presentation_id__source_artifacts_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "presentation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Presentation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresentationSourceArtifactListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Source Artifacts",
+        "tags": [
+          "presentation-source-artifacts"
+        ]
+      },
+      "post": {
+        "operationId": "upload_source_artifact_api_v1_presentations__presentation_id__source_artifacts_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "presentation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Presentation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_source_artifact_api_v1_presentations__presentation_id__source_artifacts_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresentationSourceArtifactRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Upload Source Artifact",
+        "tags": [
+          "presentation-source-artifacts"
+        ]
+      }
+    },
+    "/api/v1/presentations/{presentation_id}/source-artifacts/{artifact_id}": {
+      "delete": {
+        "operationId": "delete_source_artifact_api_v1_presentations__presentation_id__source_artifacts__artifact_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "artifact_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Artifact Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "presentation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Presentation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Source Artifact",
+        "tags": [
+          "presentation-source-artifacts"
+        ]
+      },
+      "patch": {
+        "operationId": "patch_source_artifact_api_v1_presentations__presentation_id__source_artifacts__artifact_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "artifact_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Artifact Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "presentation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Presentation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PresentationSourceArtifactUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresentationSourceArtifactRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Patch Source Artifact",
+        "tags": [
+          "presentation-source-artifacts"
         ]
       }
     },

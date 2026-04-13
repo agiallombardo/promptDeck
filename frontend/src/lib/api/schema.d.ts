@@ -678,6 +678,42 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/presentations/{presentation_id}/source-artifacts": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Source Artifacts */
+    get: operations["list_source_artifacts_api_v1_presentations__presentation_id__source_artifacts_get"];
+    put?: never;
+    /** Upload Source Artifact */
+    post: operations["upload_source_artifact_api_v1_presentations__presentation_id__source_artifacts_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/presentations/{presentation_id}/source-artifacts/{artifact_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Delete Source Artifact */
+    delete: operations["delete_source_artifact_api_v1_presentations__presentation_id__source_artifacts__artifact_id__delete"];
+    options?: never;
+    head?: never;
+    /** Patch Source Artifact */
+    patch: operations["patch_source_artifact_api_v1_presentations__presentation_id__source_artifacts__artifact_id__patch"];
+    trace?: never;
+  };
   "/api/v1/presentations/{presentation_id}/threads": {
     parameters: {
       query?: never;
@@ -1382,6 +1418,13 @@ export interface components {
       /** File */
       file: string;
     };
+    /** Body_upload_source_artifact_api_v1_presentations__presentation_id__source_artifacts_post */
+    Body_upload_source_artifact_api_v1_presentations__presentation_id__source_artifacts_post: {
+      /** File */
+      file: string;
+      /** Intent */
+      intent: string;
+    };
     /** CommentCreate */
     CommentCreate: {
       /** Body */
@@ -1414,6 +1457,8 @@ export interface components {
     DeckPromptJobCreate: {
       /** Prompt */
       prompt: string;
+      /** Source Artifact Ids */
+      source_artifact_ids?: string[];
     };
     /** DeckPromptJobRead */
     DeckPromptJobRead: {
@@ -1804,6 +1849,50 @@ export interface components {
        * Format: date-time
        */
       updated_at: string;
+    };
+    /** PresentationSourceArtifactListResponse */
+    PresentationSourceArtifactListResponse: {
+      /** Items */
+      items: components["schemas"]["PresentationSourceArtifactRead"][];
+    };
+    /** PresentationSourceArtifactRead */
+    PresentationSourceArtifactRead: {
+      /** Content Type */
+      content_type: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Intent
+       * @enum {string}
+       */
+      intent: "embed" | "inspire";
+      /** Original Filename */
+      original_filename: string;
+      /**
+       * Presentation Id
+       * Format: uuid
+       */
+      presentation_id: string;
+      /** Sha256 */
+      sha256: string;
+      /** Size Bytes */
+      size_bytes: number;
+    };
+    /** PresentationSourceArtifactUpdate */
+    PresentationSourceArtifactUpdate: {
+      /**
+       * Intent
+       * @enum {string}
+       */
+      intent: "embed" | "inspire";
     };
     /** PresentationUpdate */
     PresentationUpdate: {
@@ -3677,6 +3766,138 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_source_artifacts_api_v1_presentations__presentation_id__source_artifacts_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        presentation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PresentationSourceArtifactListResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  upload_source_artifact_api_v1_presentations__presentation_id__source_artifacts_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        presentation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "multipart/form-data": components["schemas"]["Body_upload_source_artifact_api_v1_presentations__presentation_id__source_artifacts_post"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PresentationSourceArtifactRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_source_artifact_api_v1_presentations__presentation_id__source_artifacts__artifact_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        artifact_id: string;
+        presentation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  patch_source_artifact_api_v1_presentations__presentation_id__source_artifacts__artifact_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        artifact_id: string;
+        presentation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PresentationSourceArtifactUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PresentationSourceArtifactRead"];
+        };
       };
       /** @description Validation Error */
       422: {

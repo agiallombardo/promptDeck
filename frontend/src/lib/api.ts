@@ -23,6 +23,7 @@ export type ThreadDto = components["schemas"]["ThreadRead"];
 export type CommentDto = components["schemas"]["CommentRead"];
 export type ExportJobDto = components["schemas"]["ExportJobRead"];
 export type DeckPromptJobDto = components["schemas"]["DeckPromptJobRead"];
+export type PresentationSourceArtifactDto = components["schemas"]["PresentationSourceArtifactRead"];
 
 export type DirectoryUserDto = {
   entra_object_id: string;
@@ -561,12 +562,68 @@ export async function apiExportGet(accessToken: string, jobId: string) {
 export async function apiDeckPromptJobCreate(
   accessToken: string,
   presentationId: string,
-  body: { prompt: string },
+  body: { prompt: string; source_artifact_ids?: string[] },
 ) {
   return jsonFetch<DeckPromptJobDto>(`${API}/presentations/${presentationId}/deck-prompt-jobs`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
     body: JSON.stringify(body),
+  });
+}
+
+export async function apiPresentationSourceArtifactsList(
+  accessToken: string,
+  presentationId: string,
+) {
+  return jsonFetch<{ items: PresentationSourceArtifactDto[] }>(
+    `${API}/presentations/${presentationId}/source-artifacts`,
+    { headers: { ...authHeaders(accessToken) } },
+  );
+}
+
+export async function apiPresentationSourceArtifactUpload(
+  accessToken: string,
+  presentationId: string,
+  file: File,
+  intent: "embed" | "inspire",
+) {
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("intent", intent);
+  return jsonFetch<PresentationSourceArtifactDto>(
+    `${API}/presentations/${presentationId}/source-artifacts`,
+    {
+      method: "POST",
+      headers: { ...authHeaders(accessToken) },
+      body: fd,
+    },
+  );
+}
+
+export async function apiPresentationSourceArtifactPatch(
+  accessToken: string,
+  presentationId: string,
+  artifactId: string,
+  body: { intent: "embed" | "inspire" },
+) {
+  return jsonFetch<PresentationSourceArtifactDto>(
+    `${API}/presentations/${presentationId}/source-artifacts/${artifactId}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export async function apiPresentationSourceArtifactDelete(
+  accessToken: string,
+  presentationId: string,
+  artifactId: string,
+) {
+  await jsonFetch<void>(`${API}/presentations/${presentationId}/source-artifacts/${artifactId}`, {
+    method: "DELETE",
+    headers: { ...authHeaders(accessToken) },
   });
 }
 

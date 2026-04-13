@@ -64,11 +64,20 @@ def parse_drawio_xml(text: str) -> dict | None:
         tgt = (c.attrib.get("target") or "").strip()
         if src in known and tgt in known:
             edges.append(
-                {"id": f"e{idx+1}", "source": src, "target": tgt, "type": "smoothstep"}
+                {
+                    "id": f"e{idx + 1}",
+                    "source": src,
+                    "target": tgt,
+                    "type": "smoothstep",
+                }
             )
     if not nodes:
         return None
-    return {"nodes": nodes, "edges": edges, "viewport": {"x": 0, "y": 0, "zoom": 1}}
+    return {
+        "nodes": nodes,
+        "edges": edges,
+        "viewport": {"x": 0, "y": 0, "zoom": 1},
+    }
 
 
 _MERMAID_EDGE = re.compile(
@@ -93,7 +102,9 @@ def parse_mermaid_flowchart(text: str) -> dict | None:
             a, b = m.group(1), m.group(2)
             ids.add(a)
             ids.add(b)
-            edges.append({"id": f"e{len(edges)+1}", "source": a, "target": b, "type": "smoothstep"})
+            edges.append(
+                {"id": f"e{len(edges) + 1}", "source": a, "target": b, "type": "smoothstep"}
+            )
             continue
         n = _MERMAID_NODE.match(line)
         if n:
@@ -114,7 +125,11 @@ def parse_mermaid_flowchart(text: str) -> dict | None:
                 "data": {"label": labels.get(nid, nid)},
             }
         )
-    return {"nodes": nodes, "edges": edges, "viewport": {"x": 0, "y": 0, "zoom": 1}}
+    return {
+        "nodes": nodes,
+        "edges": edges,
+        "viewport": {"x": 0, "y": 0, "zoom": 1},
+    }
 
 
 def parse_vsdx(raw: bytes) -> dict | None:
@@ -124,9 +139,7 @@ def parse_vsdx(raw: bytes) -> dict | None:
         return None
     try:
         page_names = [
-            n
-            for n in zf.namelist()
-            if n.startswith("visio/pages/page") and n.endswith(".xml")
+            n for n in zf.namelist() if n.startswith("visio/pages/page") and n.endswith(".xml")
         ]
         if not page_names:
             return None
@@ -156,8 +169,8 @@ def parse_vsdx(raw: bytes) -> dict | None:
                             pinx = _float(c.attrib.get("V"), None)  # type: ignore[arg-type]
                         elif n == "PinY":
                             piny = _float(c.attrib.get("V"), None)  # type: ignore[arg-type]
-                x = ((pinx if pinx is not None else (idx % 6) * 2.6) * 100.0)
-                y = ((piny if piny is not None else (idx // 6) * 1.6) * 100.0)
+                x = (pinx if pinx is not None else (idx % 6) * 2.6) * 100.0
+                y = (piny if piny is not None else (idx // 6) * 1.6) * 100.0
                 nid = f"shape_{sid}"
                 if nid in known:
                     continue
@@ -178,7 +191,7 @@ def parse_vsdx(raw: bytes) -> dict | None:
                 if a in known and b in known:
                     edges.append(
                         {
-                            "id": f"e{len(edges)+1}",
+                            "id": f"e{len(edges) + 1}",
                             "source": a,
                             "target": b,
                             "type": "smoothstep",
@@ -186,7 +199,11 @@ def parse_vsdx(raw: bytes) -> dict | None:
                     )
         if not nodes:
             return None
-        return {"nodes": nodes, "edges": edges, "viewport": {"x": 0, "y": 0, "zoom": 1}}
+        return {
+            "nodes": nodes,
+            "edges": edges,
+            "viewport": {"x": 0, "y": 0, "zoom": 1},
+        }
     finally:
         zf.close()
 

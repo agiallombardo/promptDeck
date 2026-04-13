@@ -54,6 +54,10 @@ Regenerate with `just api-contract` after changing `backend/openapi.json`.
 | GET | `/api/v1/presentations/{presentation_id}/share-links` | List Share Links |
 | POST | `/api/v1/presentations/{presentation_id}/share-links` | Create Share Link |
 | DELETE | `/api/v1/presentations/{presentation_id}/share-links/{share_link_id}` | Revoke Share Link |
+| GET | `/api/v1/presentations/{presentation_id}/source-artifacts` | List Source Artifacts |
+| POST | `/api/v1/presentations/{presentation_id}/source-artifacts` | Upload Source Artifact |
+| DELETE | `/api/v1/presentations/{presentation_id}/source-artifacts/{artifact_id}` | Delete Source Artifact |
+| PATCH | `/api/v1/presentations/{presentation_id}/source-artifacts/{artifact_id}` | Patch Source Artifact |
 | GET | `/api/v1/presentations/{presentation_id}/threads` | List Threads |
 | POST | `/api/v1/presentations/{presentation_id}/threads` | Create Thread |
 | GET | `/api/v1/presentations/{presentation_id}/versions` | List Versions |

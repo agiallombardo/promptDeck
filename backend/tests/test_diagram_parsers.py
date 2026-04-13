@@ -7,8 +7,7 @@ from app.services.diagram_parsers import parse_native_diagram_source
 
 
 def test_parse_drawio_xml() -> None:
-    raw = (
-        b"""
+    raw = b"""
 <mxGraphModel><root>
   <mxCell id="0"/><mxCell id="1" parent="0"/>
   <mxCell id="n1" value="Client" vertex="1">
@@ -20,7 +19,6 @@ def test_parse_drawio_xml() -> None:
   <mxCell id="e1" edge="1" source="n1" target="n2"/>
 </root></mxGraphModel>
 """
-    )
     out = parse_native_diagram_source("sample.drawio", raw)
     assert out is not None
     assert len(out["nodes"]) == 2

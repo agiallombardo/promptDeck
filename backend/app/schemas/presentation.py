@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from app.schemas.deck_prompt import DeckPromptJobRead
 from app.services.acl import PresentationAccess
@@ -108,3 +108,24 @@ class PresentationCodeUpdate(BaseModel):
     html: str = Field(min_length=1, max_length=2_000_000)
     css: str = Field(default="", max_length=500_000)
     js: str = Field(default="", max_length=500_000)
+
+
+class PresentationSourceArtifactRead(BaseModel):
+    id: uuid.UUID
+    presentation_id: uuid.UUID
+    original_filename: str
+    content_type: str | None
+    size_bytes: int
+    sha256: str
+    intent: Literal["embed", "inspire"]
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class PresentationSourceArtifactUpdate(BaseModel):
+    intent: Literal["embed", "inspire"]
+
+
+class PresentationSourceArtifactListResponse(BaseModel):
+    items: list[PresentationSourceArtifactRead]

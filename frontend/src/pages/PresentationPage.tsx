@@ -1,4 +1,5 @@
 import { Drawer } from "vaul";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { DeckPromptJobActivity } from "../components/DeckPromptJobActivity";
@@ -21,6 +22,10 @@ import {
   apiPresentationCodeGet,
   apiPresentationCodeSave,
   apiDeckPromptJobCreate,
+  apiPresentationSourceArtifactDelete,
+  apiPresentationSourceArtifactPatch,
+  apiPresentationSourceArtifactUpload,
+  apiPresentationSourceArtifactsList,
   apiExportCreate,
   apiExportDownloadFile,
   apiExportGet,
@@ -78,6 +83,8 @@ export default function PresentationPage() {
   const [diagramDoc, setDiagramDoc] = useState<DiagramDocument>(blankDiagramDocument);
   const [diagramDirty, setDiagramDirty] = useState(false);
   const [diagramRenderError, setDiagramRenderError] = useState<string | null>(null);
+  const [sourceIntentFile, setSourceIntentFile] = useState<File | null>(null);
+  const [selectedDeckPromptArtifactIds, setSelectedDeckPromptArtifactIds] = useState<string[]>([]);
 
   const [slideIndex, setSlideIndex] = useState(0);
   const [slideCount, setSlideCount] = useState(1);
@@ -88,6 +95,51 @@ export default function PresentationPage() {
   );
   const versionId = pres.data?.current_version_id;
   const isDiagram = pres.data?.kind === "diagram";
+
+  const sourceArtifacts = useQuery({
+    queryKey: ["presentation-source-artifacts", id, accessToken],
+    queryFn: () => apiPresentationSourceArtifactsList(accessToken!, id!),
+    enabled: Boolean(id && accessToken && !isDiagram),
+  });
+
+  const uploadSourceArtifact = useMutation({
+    mutationFn: (args: { file: File; intent: "embed" | "inspire" }) =>
+      apiPresentationSourceArtifactUpload(accessToken!, id!, args.file, args.intent),
+    onSuccess: async () => {
+      setSourceIntentFile(null);
+      await qc.invalidateQueries({ queryKey: ["presentation-source-artifacts", id, accessToken] });
+      useToastStore.getState().pushToast({ level: "info", message: "Source file uploaded" });
+    },
+    onError: (err: Error) =>
+      useToastStore.getState().pushToast({ level: "error", message: err.message }),
+  });
+
+  const patchSourceArtifact = useMutation({
+    mutationFn: (args: { artifactId: string; intent: "embed" | "inspire" }) =>
+      apiPresentationSourceArtifactPatch(accessToken!, id!, args.artifactId, {
+        intent: args.intent,
+      }),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["presentation-source-artifacts", id, accessToken] });
+    },
+    onError: (err: Error) =>
+      useToastStore.getState().pushToast({ level: "error", message: err.message }),
+  });
+
+  const deleteSourceArtifact = useMutation({
+    mutationFn: (artifactId: string) =>
+      apiPresentationSourceArtifactDelete(accessToken!, id!, artifactId),
+    onSuccess: async (_void, artifactId) => {
+      await qc.invalidateQueries({ queryKey: ["presentation-source-artifacts", id, accessToken] });
+      setSelectedDeckPromptArtifactIds((prev) => prev.filter((x) => x !== artifactId));
+    },
+    onError: (err: Error) =>
+      useToastStore.getState().pushToast({ level: "error", message: err.message }),
+  });
+
+  useEffect(() => {
+    if (deckPromptOpen) setSelectedDeckPromptArtifactIds([]);
+  }, [deckPromptOpen]);
 
   useEffect(() => {
     if (!id || !accessToken || !pres.isSuccess || !pres.data?.title) return;
@@ -316,7 +368,10 @@ export default function PresentationPage() {
       message: "AI edit started — this can take a minute…",
     });
     try {
-      const job = await apiDeckPromptJobCreate(accessToken, id, { prompt });
+      const job = await apiDeckPromptJobCreate(accessToken, id, {
+        prompt,
+        source_artifact_ids: selectedDeckPromptArtifactIds,
+      });
       setDeckPromptSnapshot(deckPromptJobSnapshotFromApi(job, 0));
       const { status, error: err } = await pollDeckPromptJobUntilTerminal(accessToken, job.id, {
         onProgress: setDeckPromptSnapshot,
@@ -353,7 +408,15 @@ export default function PresentationPage() {
       setDeckPromptBusy(false);
       setDeckPromptSnapshot(null);
     }
-  }, [accessToken, deckPromptText, id, isDiagram, pres.data?.current_version_id, qc]);
+  }, [
+    accessToken,
+    deckPromptText,
+    id,
+    isDiagram,
+    pres.data?.current_version_id,
+    qc,
+    selectedDeckPromptArtifactIds,
+  ]);
 
   const runSaveDiagram = useCallback(async () => {
     if (!id || !accessToken || !isDiagram) return;
@@ -828,68 +891,126 @@ export default function PresentationPage() {
               </p>
             ) : null}
             {canManage && accessToken ? (
-              <div className="flex flex-wrap items-center gap-2">
-                {!isDiagram ? (
-                  <label className="inline-flex cursor-pointer items-center gap-3 rounded-sharp border border-border px-3 py-2 font-mono text-xs text-text-muted hover:bg-bg-elevated">
-                    <span>{versionId ? "Upload new version" : "Upload HTML or zip"}</span>
-                    <input
-                      type="file"
-                      accept=".html,.htm,.zip,text/html,application/zip"
-                      className="hidden"
-                      onChange={(ev) => {
-                        const f = ev.target.files?.[0];
-                        ev.target.value = "";
-                        if (f) upload.mutate(f);
-                      }}
-                    />
-                  </label>
+              <>
+                <div className="flex flex-wrap items-center gap-2">
+                  {!isDiagram ? (
+                    <label className="inline-flex cursor-pointer items-center gap-3 rounded-sharp border border-border px-3 py-2 font-mono text-xs text-text-muted hover:bg-bg-elevated">
+                      <span>{versionId ? "Upload new version" : "Upload HTML or zip"}</span>
+                      <input
+                        type="file"
+                        accept=".html,.htm,.zip,text/html,application/zip"
+                        className="hidden"
+                        onChange={(ev) => {
+                          const f = ev.target.files?.[0];
+                          ev.target.value = "";
+                          if (f) upload.mutate(f);
+                        }}
+                      />
+                    </label>
+                  ) : null}
+                  {!isDiagram && versionId ? (
+                    <label className="inline-flex cursor-pointer items-center gap-3 rounded-sharp border border-border px-3 py-2 font-mono text-xs text-text-muted hover:bg-bg-elevated">
+                      <span>Upload source</span>
+                      <input
+                        type="file"
+                        className="hidden"
+                        onChange={(ev) => {
+                          const f = ev.target.files?.[0];
+                          ev.target.value = "";
+                          if (f) setSourceIntentFile(f);
+                        }}
+                      />
+                    </label>
+                  ) : null}
+                  {isDiagram ? (
+                    <label className="inline-flex cursor-pointer items-center gap-3 rounded-sharp border border-border px-3 py-2 font-mono text-xs text-text-muted hover:bg-bg-elevated">
+                      <span>Import diagram source</span>
+                      <input
+                        type="file"
+                        accept=".json,.pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,.svg,.drawio,.vsdx,.vdx,.graphml,.dot,.mmd,.puml,.uml,.xml,.yaml,.yml,.csv,.txt,.md,.zip"
+                        className="hidden"
+                        onChange={(ev) => {
+                          const f = ev.target.files?.[0];
+                          ev.target.value = "";
+                          if (f) upload.mutate(f);
+                        }}
+                      />
+                    </label>
+                  ) : null}
+                  {isDiagram ? (
+                    <button
+                      type="button"
+                      className="rounded-sharp border border-primary bg-primary/15 px-3 py-2 font-mono text-xs text-primary hover:bg-primary/25 disabled:opacity-50"
+                      disabled={!diagramDirty || saveDiagram.isPending}
+                      onClick={() => void runSaveDiagram()}
+                    >
+                      {saveDiagram.isPending ? "Saving…" : diagramDirty ? "Save diagram" : "Saved"}
+                    </button>
+                  ) : null}
+                  {canPromptEdit && versionId ? (
+                    <button
+                      type="button"
+                      className="rounded-sharp border border-border px-3 py-2 font-mono text-xs text-text-muted hover:bg-bg-elevated disabled:opacity-50"
+                      disabled={codeLoadBusy || codeSaveBusy}
+                      onClick={openCodeEditor}
+                    >
+                      Edit code
+                    </button>
+                  ) : null}
+                  {canPromptEdit && versionId ? (
+                    <button
+                      type="button"
+                      className="rounded-sharp border border-border px-3 py-2 font-mono text-xs text-text-muted hover:bg-bg-elevated disabled:opacity-50"
+                      disabled={deckPromptBusy}
+                      onClick={() => setDeckPromptOpen(true)}
+                    >
+                      Edit with prompt
+                    </button>
+                  ) : null}
+                </div>
+                {!isDiagram && versionId && sourceArtifacts.data?.items?.length ? (
+                  <ul className="mt-3 space-y-2 rounded-sharp border border-border bg-bg-recessed/50 p-3">
+                    <li className="list-none font-mono text-[10px] uppercase tracking-wide text-text-muted">
+                      AI source files
+                    </li>
+                    {sourceArtifacts.data.items.map((a) => (
+                      <li
+                        key={a.id}
+                        className="flex list-none flex-wrap items-center gap-2 font-mono text-xs"
+                      >
+                        <span
+                          className="min-w-0 flex-1 truncate text-text-main"
+                          title={a.original_filename}
+                        >
+                          {a.original_filename}
+                        </span>
+                        <select
+                          className="rounded-sharp border border-border bg-bg-elevated px-2 py-1 text-[11px] text-text-main"
+                          value={a.intent}
+                          disabled={patchSourceArtifact.isPending}
+                          onChange={(ev) =>
+                            patchSourceArtifact.mutate({
+                              artifactId: a.id,
+                              intent: ev.target.value as "embed" | "inspire",
+                            })
+                          }
+                        >
+                          <option value="embed">Embed</option>
+                          <option value="inspire">Inspire</option>
+                        </select>
+                        <button
+                          type="button"
+                          className="rounded-sharp border border-border px-2 py-1 text-[11px] text-accent-warning hover:bg-bg-elevated disabled:opacity-50"
+                          disabled={deleteSourceArtifact.isPending}
+                          onClick={() => deleteSourceArtifact.mutate(a.id)}
+                        >
+                          Remove
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
                 ) : null}
-                {isDiagram ? (
-                  <label className="inline-flex cursor-pointer items-center gap-3 rounded-sharp border border-border px-3 py-2 font-mono text-xs text-text-muted hover:bg-bg-elevated">
-                    <span>Import diagram source</span>
-                    <input
-                      type="file"
-                      accept=".json,.pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,.svg,.drawio,.vsdx,.vdx,.graphml,.dot,.mmd,.puml,.uml,.xml,.yaml,.yml,.csv,.txt,.md,.zip"
-                      className="hidden"
-                      onChange={(ev) => {
-                        const f = ev.target.files?.[0];
-                        ev.target.value = "";
-                        if (f) upload.mutate(f);
-                      }}
-                    />
-                  </label>
-                ) : null}
-                {isDiagram ? (
-                  <button
-                    type="button"
-                    className="rounded-sharp border border-primary bg-primary/15 px-3 py-2 font-mono text-xs text-primary hover:bg-primary/25 disabled:opacity-50"
-                    disabled={!diagramDirty || saveDiagram.isPending}
-                    onClick={() => void runSaveDiagram()}
-                  >
-                    {saveDiagram.isPending ? "Saving…" : diagramDirty ? "Save diagram" : "Saved"}
-                  </button>
-                ) : null}
-                {canPromptEdit && versionId ? (
-                  <button
-                    type="button"
-                    className="rounded-sharp border border-border px-3 py-2 font-mono text-xs text-text-muted hover:bg-bg-elevated disabled:opacity-50"
-                    disabled={codeLoadBusy || codeSaveBusy}
-                    onClick={openCodeEditor}
-                  >
-                    Edit code
-                  </button>
-                ) : null}
-                {canPromptEdit && versionId ? (
-                  <button
-                    type="button"
-                    className="rounded-sharp border border-border px-3 py-2 font-mono text-xs text-text-muted hover:bg-bg-elevated disabled:opacity-50"
-                    disabled={deckPromptBusy}
-                    onClick={() => setDeckPromptOpen(true)}
-                  >
-                    Edit with prompt
-                  </button>
-                ) : null}
-              </div>
+              </>
             ) : null}
           </section>
 
@@ -912,6 +1033,56 @@ export default function PresentationPage() {
               </Drawer.Content>
             </Drawer.Portal>
           </Drawer.Root>
+        ) : null}
+
+        {sourceIntentFile ? (
+          <div
+            className="fixed inset-0 z-[110] flex items-center justify-center bg-scrim p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="source-intent-title"
+          >
+            <div className="w-full max-w-md rounded-sharp border border-border bg-bg-elevated p-4 shadow-elevated">
+              <h2 id="source-intent-title" className="font-heading text-base font-semibold">
+                How should this file be used?
+              </h2>
+              <p className="mt-2 font-mono text-xs text-text-muted">{sourceIntentFile.name}</p>
+              <p className="mt-2 font-mono text-[11px] leading-relaxed text-text-muted">
+                Embed places content into generated slide HTML when practical. Inspire uses the file
+                only as reference context for the model.
+              </p>
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+                <button
+                  type="button"
+                  className="rounded-sharp border border-border px-3 py-1.5 font-mono text-xs hover:bg-bg-recessed disabled:opacity-50"
+                  disabled={uploadSourceArtifact.isPending}
+                  onClick={() => setSourceIntentFile(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="rounded-sharp border border-border bg-bg-recessed px-3 py-1.5 font-mono text-xs hover:bg-bg-elevated disabled:opacity-50"
+                  disabled={uploadSourceArtifact.isPending}
+                  onClick={() =>
+                    uploadSourceArtifact.mutate({ file: sourceIntentFile, intent: "inspire" })
+                  }
+                >
+                  Use as inspiration
+                </button>
+                <button
+                  type="button"
+                  className="rounded-sharp border border-primary bg-primary/15 px-3 py-1.5 font-mono text-xs text-primary hover:bg-primary/25 disabled:opacity-50"
+                  disabled={uploadSourceArtifact.isPending}
+                  onClick={() =>
+                    uploadSourceArtifact.mutate({ file: sourceIntentFile, intent: "embed" })
+                  }
+                >
+                  Embed in deck
+                </button>
+              </div>
+            </div>
+          </div>
         ) : null}
 
         {canManage && accessToken ? (
@@ -975,6 +1146,44 @@ export default function PresentationPage() {
                 disabled={deckPromptBusy}
                 onChange={(ev) => setDeckPromptText(ev.target.value)}
               />
+              {!isDiagram && sourceArtifacts.data?.items?.length ? (
+                <div className="mt-3 rounded-sharp border border-border bg-bg-recessed/60 p-3">
+                  <p className="font-mono text-[11px] text-text-muted">
+                    Include source files for this run (optional)
+                  </p>
+                  <ul className="mt-2 space-y-2">
+                    {sourceArtifacts.data.items.map((a) => (
+                      <li key={a.id} className="list-none">
+                        <label className="flex cursor-pointer items-center gap-2 font-mono text-xs">
+                          <input
+                            type="checkbox"
+                            className="rounded-sm border-border"
+                            checked={selectedDeckPromptArtifactIds.includes(a.id)}
+                            disabled={deckPromptBusy}
+                            onChange={(ev) => {
+                              setSelectedDeckPromptArtifactIds((prev) =>
+                                ev.target.checked
+                                  ? [...prev, a.id]
+                                  : prev.filter((x) => x !== a.id),
+                              );
+                            }}
+                          />
+                          <span className="min-w-0 flex-1 truncate">{a.original_filename}</span>
+                          <span
+                            className={
+                              a.intent === "embed"
+                                ? "shrink-0 rounded-sm bg-primary/20 px-1.5 py-0.5 text-[10px] text-primary"
+                                : "shrink-0 rounded-sm bg-bg-elevated px-1.5 py-0.5 text-[10px] text-text-muted"
+                            }
+                          >
+                            {a.intent === "embed" ? "Embed" : "Inspire"}
+                          </span>
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
               {deckPromptBusy ? (
                 <DeckPromptJobActivity
                   title="AI edit in progress"

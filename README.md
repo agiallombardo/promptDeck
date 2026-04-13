@@ -1,6 +1,6 @@
 # promptDeck
 
-Internal web app for **HTML slide decks**: upload `.html` or `.zip`, preview in a sandboxed iframe, add coordinate-pinned comments, share via scoped links, and export to PDF or a single-file HTML bundle.
+Internal web app for **HTML slide decks** (and optional **diagram** canvases): upload `.html` or `.zip`, preview in a sandboxed iframe, add coordinate-pinned comments, share via scoped links, export to PDF or a single-file HTML bundle, and use AI-assisted edits with optional **source files** (embed vs inspire) on deck presentations.
 
 ## Features
 
@@ -38,7 +38,7 @@ Full setup, production notes, and verification: **`docs/RUNBOOK.md`**.
 ## Deployment
 
 - **Recommended production:** PostgreSQL, Alembic migrations, **`scripts/bootstrap_users.py`**, API behind nginx — see **`docs/RUNBOOK.md`** (Production + deploy artifacts) and **`docs/UBUNTU_SERVER_SETUP.md`** with **`deploy/`** samples (systemd unit, nginx).
-- **Optional Docker (SQLite, single container):** same-origin UI, SQLite on a volume, Playwright/Chromium for export — numbered procedure in **`docs/RUNBOOK.md`** → [Docker deployment (SQLite, all-in-one)](docs/RUNBOOK.md#docker-deployment-sqlite-all-in-one). Example env vars: **`deploy/docker-compose.env.example`**.
+- **Optional Docker (SQLite, single container):** **`Dockerfile`**, **`docker-compose.yml`**, **`scripts/docker-entrypoint.sh`** — same-origin UI, SQLite on a volume, Playwright/Chromium for export. Procedure: **`docs/RUNBOOK.md`** → [Docker deployment (SQLite, all-in-one)](docs/RUNBOOK.md#docker-deployment-sqlite-all-in-one). Copy **`deploy/docker-compose.env.example`** → **`.env`** beside `docker-compose.yml`.
 
 ## Development
 
