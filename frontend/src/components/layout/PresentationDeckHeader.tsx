@@ -3,6 +3,8 @@ import { PromptDeckHomeLink } from "./PromptDeckHomeLink";
 
 type Props = {
   title: string;
+  /** Shown as the small uppercase label above the title (deck vs diagram). */
+  titleKind?: "deck" | "diagram";
   accessRole: string | null;
   showShareAction: boolean;
   showExportAction: boolean;
@@ -267,6 +269,7 @@ function ExportDropdown({
 
 export function PresentationDeckHeader({
   title,
+  titleKind = "deck",
   accessRole,
   showShareAction,
   showExportAction,
@@ -296,7 +299,9 @@ export function PresentationDeckHeader({
         <div className="flex flex-wrap items-center gap-3">
           <PromptDeckHomeLink />
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-wide text-primary">Deck</p>
+            <p className="font-mono text-[10px] uppercase tracking-wide text-primary">
+              {titleKind === "diagram" ? "Diagram" : "Deck"}
+            </p>
             <h1 className="max-w-[min(100%,42rem)] font-heading text-[clamp(1rem,0.92rem+0.35vw,1.125rem)] font-semibold leading-tight">
               {title}
             </h1>

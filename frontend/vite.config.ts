@@ -9,6 +9,8 @@ export default defineConfig(({ mode }) => {
   const devPort = Number(env["VITE_DEV_PORT"]) || 5174;
 
   return {
+    // Dev-only: set VITE_DEV_EMBED_ORIGIN in `.env.local` when the app shell is not served from
+    // the Vite origin (e.g. opening a build from file://) but `/a/*` must still use that origin.
     plugins: [react(), tailwindcss()],
     build: {
       // Align with tsconfig `target` (Vite 6 default browserslist is older; esbuild cannot downlevel

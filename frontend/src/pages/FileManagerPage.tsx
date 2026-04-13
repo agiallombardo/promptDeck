@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { formatDurationSeconds, useWallClockElapsed } from "../hooks/useDeckPromptJobTimers";
 import { DeckPromptTemplateChips } from "../components/DeckPromptTemplateChips";
@@ -59,6 +59,13 @@ export default function FileManagerPage() {
     queryKey: ["presentations", token],
     queryFn: () => apiPresentationsList(token),
   });
+
+  const { deckItems, diagramItems } = useMemo(() => {
+    const items = q.data?.items ?? [];
+    const decks = items.filter((p) => (p.kind ?? "deck") !== "diagram");
+    const diagrams = items.filter((p) => (p.kind ?? "deck") === "diagram");
+    return { deckItems: decks, diagramItems: diagrams };
+  }, [q.data?.items]);
 
   useEffect(() => {
     function refreshRecent() {
@@ -348,7 +355,7 @@ export default function FileManagerPage() {
 
       <RecentDeckPreviews accessToken={token} entries={recentDecks} />
 
-      <div className="mt-10">
+      <div className="mt-10 space-y-10">
         <h2 className="font-mono text-sm uppercase tracking-wide text-text-muted">
           Your presentations and shares
         </h2>
@@ -357,58 +364,127 @@ export default function FileManagerPage() {
         ) : q.isError ? (
           <p className="mt-4 text-sm text-accent-warning">{(q.error as Error).message}</p>
         ) : (
-          <ul className="mt-4 divide-y divide-border rounded-sharp border border-border bg-bg-elevated">
-            {q.data?.items.length ? (
-              q.data.items.map((p) => (
-                <li
-                  key={p.id}
-                  className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+          <>
+            {deckItems.length ? (
+              <section aria-labelledby="files-decks-heading">
+                <h3
+                  id="files-decks-heading"
+                  className="font-mono text-xs uppercase tracking-wide text-text-muted"
                 >
-                  <div>
-                    <p className="font-heading text-base font-medium">{p.title}</p>
-                    <p className="font-mono text-xs text-text-muted">
-                      {(p.kind ?? "deck").toUpperCase()} · Role: {p.current_user_role ?? "user"} ·{" "}
-                      {p.current_version_id ? "Has version" : "No content yet"}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Link
-                      className="rounded-sharp border border-border px-3 py-1.5 font-mono text-sm text-primary hover:bg-primary/10"
-                      to={`/p/${p.id}`}
+                  Decks
+                </h3>
+                <ul className="mt-3 divide-y divide-border rounded-sharp border border-border bg-bg-elevated">
+                  {deckItems.map((p) => (
+                    <li
+                      key={p.id}
+                      className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
                     >
-                      Open
-                    </Link>
-                    {canManageDeck(p.current_user_role) ? (
-                      <button
-                        type="button"
-                        className="rounded-sharp border border-border px-3 py-1.5 font-mono text-sm text-primary hover:bg-primary/10"
-                        onClick={() => setSharePresentationId(p.id)}
-                      >
-                        Share
-                      </button>
-                    ) : null}
-                    {canDeleteDeck(p.current_user_role) ? (
-                      <button
-                        type="button"
-                        disabled={remove.isPending}
-                        className="rounded-sharp border border-border px-3 py-1.5 font-mono text-sm text-accent-warning hover:bg-accent-warning/10 disabled:opacity-50"
-                        onClick={() => {
-                          if (!window.confirm(`Delete “${p.title}”? This cannot be undone.`)) {
-                            return;
-                          }
-                          remove.mutate(p.id);
-                        }}
-                      >
-                        Delete
-                      </button>
-                    ) : null}
-                  </div>
-                </li>
-              ))
-            ) : (
-              <li className="px-4 py-6 text-sm text-text-muted">No presentations yet.</li>
-            )}
-          </ul>
+                      <div>
+                        <p className="font-heading text-base font-medium">{p.title}</p>
+                        <p className="font-mono text-xs text-text-muted">
+                          DECK · Role: {p.current_user_role ?? "user"} ·{" "}
+                          {p.current_version_id ? "Has version" : "No content yet"}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Link
+                          className="rounded-sharp border border-border px-3 py-1.5 font-mono text-sm text-primary hover:bg-primary/10"
+                          to={`/p/${p.id}`}
+                        >
+                          Open
+                        </Link>
+                        {canManageDeck(p.current_user_role) ? (
+                          <button
+                            type="button"
+                            className="rounded-sharp border border-border px-3 py-1.5 font-mono text-sm text-primary hover:bg-primary/10"
+                            onClick={() => setSharePresentationId(p.id)}
+                          >
+                            Share
+                          </button>
+                        ) : null}
+                        {canDeleteDeck(p.current_user_role) ? (
+                          <button
+                            type="button"
+                            disabled={remove.isPending}
+                            className="rounded-sharp border border-border px-3 py-1.5 font-mono text-sm text-accent-warning hover:bg-accent-warning/10 disabled:opacity-50"
+                            onClick={() => {
+                              if (!window.confirm(`Delete “${p.title}”? This cannot be undone.`)) {
+                                return;
+                              }
+                              remove.mutate(p.id);
+                            }}
+                          >
+                            Delete
+                          </button>
+                        ) : null}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+            {diagramItems.length ? (
+              <section aria-labelledby="files-diagrams-heading">
+                <h3
+                  id="files-diagrams-heading"
+                  className="font-mono text-xs uppercase tracking-wide text-text-muted"
+                >
+                  Diagrams
+                </h3>
+                <ul className="mt-3 divide-y divide-border rounded-sharp border border-border bg-bg-elevated">
+                  {diagramItems.map((p) => (
+                    <li
+                      key={p.id}
+                      className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+                    >
+                      <div>
+                        <p className="font-heading text-base font-medium">{p.title}</p>
+                        <p className="font-mono text-xs text-text-muted">
+                          DIAGRAM · Role: {p.current_user_role ?? "user"} ·{" "}
+                          {p.current_version_id ? "Has version" : "No content yet"}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Link
+                          className="rounded-sharp border border-border px-3 py-1.5 font-mono text-sm text-primary hover:bg-primary/10"
+                          to={`/p/${p.id}`}
+                        >
+                          Open
+                        </Link>
+                        {canManageDeck(p.current_user_role) ? (
+                          <button
+                            type="button"
+                            className="rounded-sharp border border-border px-3 py-1.5 font-mono text-sm text-primary hover:bg-primary/10"
+                            onClick={() => setSharePresentationId(p.id)}
+                          >
+                            Share
+                          </button>
+                        ) : null}
+                        {canDeleteDeck(p.current_user_role) ? (
+                          <button
+                            type="button"
+                            disabled={remove.isPending}
+                            className="rounded-sharp border border-border px-3 py-1.5 font-mono text-sm text-accent-warning hover:bg-accent-warning/10 disabled:opacity-50"
+                            onClick={() => {
+                              if (!window.confirm(`Delete “${p.title}”? This cannot be undone.`)) {
+                                return;
+                              }
+                              remove.mutate(p.id);
+                            }}
+                          >
+                            Delete
+                          </button>
+                        ) : null}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+            {!deckItems.length && !diagramItems.length ? (
+              <p className="mt-4 text-sm text-text-muted">No presentations yet.</p>
+            ) : null}
+          </>
         )}
       </div>
 
