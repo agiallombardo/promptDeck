@@ -9,10 +9,15 @@ import {
   ReactFlow,
   type Connection,
   type Edge,
+  type EdgeChange,
   type Node,
+  type NodeChange,
+  type NodeMouseHandler,
   type OnConnect,
+  type OnMoveEnd,
   type Viewport,
 } from "@xyflow/react";
+import type { MouseEvent as ReactMouseEvent } from "react";
 import type { DiagramDocument } from "../../lib/diagram";
 import type { ThreadDto } from "../../lib/api";
 
@@ -218,15 +223,17 @@ export function DiagramCanvas({
         edges={edges}
         defaultViewport={viewport}
         fitView={nodes.length === 0}
-        onMoveEnd={(_, vp) => {
-          setViewport(vp);
-          emit(nodes, edges, vp);
-        }}
-        onNodesChange={(changes) => {
+        onMoveEnd={
+          ((_event, vp) => {
+            setViewport(vp);
+            emit(nodes, edges, vp);
+          }) satisfies OnMoveEnd
+        }
+        onNodesChange={(changes: NodeChange[]) => {
           if (readOnly) return;
           setNodes((prev) => {
             const next = prev.map((node) => {
-              const hit = changes.find((c) => c.id === node.id);
+              const hit = changes.find((c: NodeChange) => c.id === node.id);
               if (!hit || hit.type !== "position" || !hit.position) return node;
               return { ...node, position: hit.position };
             });
@@ -234,10 +241,12 @@ export function DiagramCanvas({
             return next;
           });
         }}
-        onEdgesChange={(changes) => {
+        onEdgesChange={(changes: EdgeChange[]) => {
           if (readOnly) return;
           setEdges((prev) => {
-            const remove = new Set(changes.filter((c) => c.type === "remove").map((c) => c.id));
+            const remove = new Set(
+              changes.filter((c: EdgeChange) => c.type === "remove").map((c: EdgeChange) => c.id),
+            );
             const next = prev.filter((e) => !remove.has(e.id));
             emit(nodes, next, viewport);
             return next;
@@ -245,14 +254,16 @@ export function DiagramCanvas({
         }}
         onConnectEnd={() => undefined}
         onConnect={onConnect}
-        onNodeClick={(event, node) => {
-          if (!commentMode || !onPickTarget) return;
-          const rect = (event.currentTarget as Element).getBoundingClientRect();
-          const x = rect.width ? (event.clientX - rect.left) / rect.width : 0;
-          const y = rect.height ? (event.clientY - rect.top) / rect.height : 0;
-          onPickTarget({ kind: "node", id: node.id, x, y });
-        }}
-        onEdgeClick={(event, edge) => {
+        onNodeClick={
+          ((event, node) => {
+            if (!commentMode || !onPickTarget) return;
+            const rect = (event.currentTarget as Element).getBoundingClientRect();
+            const x = rect.width ? (event.clientX - rect.left) / rect.width : 0;
+            const y = rect.height ? (event.clientY - rect.top) / rect.height : 0;
+            onPickTarget({ kind: "node", id: node.id, x, y });
+          }) satisfies NodeMouseHandler
+        }
+        onEdgeClick={(event: ReactMouseEvent, edge: Edge) => {
           if (!commentMode || !onPickTarget) return;
           const rect = (event.currentTarget as Element).getBoundingClientRect();
           const x = rect.width ? (event.clientX - rect.left) / rect.width : 0;

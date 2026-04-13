@@ -44,7 +44,7 @@ export function decodeDiagramDocumentSafe(raw: unknown): {
       ? (src.viewport as Record<string, unknown>)
       : ((repaired = true), {});
   const nodes: DiagramNode[] = nodesRaw
-    .map((row, idx) => {
+    .map((row, idx): DiagramNode | null => {
       if (!row || typeof row !== "object") return null;
       const r = row as Record<string, unknown>;
       const id = typeof r.id === "string" ? r.id.trim() : "";
@@ -66,12 +66,12 @@ export function decodeDiagramDocumentSafe(raw: unknown): {
           y: finite(pos.y, Math.floor(idx / 6) * 160),
         },
         data: { label, icon },
-      } satisfies DiagramNode;
+      };
     })
     .filter((v): v is DiagramNode => v != null);
   const nodeIds = new Set(nodes.map((n) => n.id));
   const edges: DiagramEdge[] = edgesRaw
-    .map((row, idx) => {
+    .map((row, idx): DiagramEdge | null => {
       if (!row || typeof row !== "object") return null;
       const r = row as Record<string, unknown>;
       const id = typeof r.id === "string" && r.id.trim() ? r.id : `e${idx + 1}`;
@@ -91,7 +91,7 @@ export function decodeDiagramDocumentSafe(raw: unknown): {
           ? r.type
           : "default";
       const label = typeof r.label === "string" ? r.label : undefined;
-      return { id, source, target, type, label } satisfies DiagramEdge;
+      return { id, source, target, type, label };
     })
     .filter((v): v is DiagramEdge => v != null);
   return {

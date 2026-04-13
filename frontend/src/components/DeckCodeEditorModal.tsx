@@ -204,7 +204,7 @@ export function DeckCodeEditorModal({
               height="100%"
               language={language}
               value={activeValue}
-              onChange={(value) => setActiveValue(value ?? "")}
+              onChange={(value: string | undefined) => setActiveValue(value ?? "")}
               options={{
                 automaticLayout: true,
                 minimap: { enabled: false },

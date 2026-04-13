@@ -20,6 +20,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$ROOT/scripts/pnpm.sh"
 
 cd "$ROOT/frontend"
+echo "Installing frontend dependencies (pnpm)"
+run_pnpm install --frozen-lockfile
 echo "Building frontend → frontend/dist"
 run_pnpm run build
 

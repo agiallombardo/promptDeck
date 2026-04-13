@@ -9,6 +9,7 @@ describe("FeedbackSidebar", () => {
       id: "550e8400-e29b-41d4-a716-446655440000",
       presentation_id: "550e8400-e29b-41d4-a716-446655440001",
       version_id: "550e8400-e29b-41d4-a716-446655440002",
+      target_kind: "slide",
       slide_index: 0,
       anchor_x: 0.5,
       anchor_y: 0.5,
