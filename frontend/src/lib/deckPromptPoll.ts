@@ -58,7 +58,7 @@ export async function pollDeckPromptJobUntilTerminal(
   let err: string | null = null;
   let pollSequence = 0;
 
-  for (let i = 0; i < MAX_POLLS && status !== "succeeded" && status !== "failed"; i++) {
+  for (let i = 0; i < MAX_POLLS; i++) {
     if (!(options?.firstPollImmediate && i === 0)) {
       await new Promise((r) => setTimeout(r, POLL_MS));
     }
@@ -67,6 +67,9 @@ export async function pollDeckPromptJobUntilTerminal(
     err = j.error ?? null;
     pollSequence += 1;
     options?.onProgress?.(deckPromptJobSnapshotFromApi(j, pollSequence));
+    if (status === "succeeded" || status === "failed") {
+      break;
+    }
   }
 
   return { status, error: err };

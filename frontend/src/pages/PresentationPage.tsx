@@ -588,7 +588,7 @@ export default function PresentationPage() {
     void (async () => {
       useToastStore.getState().pushToast({
         level: "info",
-        message: isDiagram ? "Finishing AI diagram generation…" : "Finishing AI deck generation…",
+        message: isDiagram ? "Continuing AI diagram generation…" : "Continuing AI deck generation…",
       });
       setDeckJobFollowSnapshot(null);
       try {
@@ -861,6 +861,7 @@ export default function PresentationPage() {
               <DeckPromptJobActivity
                 title={isDiagram ? "AI is generating your diagram" : "AI is generating your deck"}
                 snapshot={deckJobFollowSnapshot}
+                stepVariant={isDiagram ? "diagram" : "deck"}
                 waitingSubmit={false}
                 jobActive={Boolean(deckJobFromUrl && !deckJobFollowSnapshot)}
               />
