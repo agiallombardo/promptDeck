@@ -217,16 +217,50 @@ export default function PresentationPage() {
     deleteComment,
   } = useComments(id ?? "", accessToken ?? "", versionId);
 
+  const threadsError =
+    threads.error instanceof ApiError
+      ? threads.error.message +
+        (threads.error.requestId ? ` · Request ID: ${threads.error.requestId}` : "")
+      : threads.error instanceof Error
+        ? threads.error.message
+        : threads.error
+          ? String(threads.error)
+          : null;
+
+  const threadItems = threads.data?.items ?? [];
+  const threadsLoading = Boolean(versionId ? threads.isLoading : pres.isPending || pres.isLoading);
+  const showFeedbackChrome = useMemo(
+    () =>
+      canComment ||
+      threadsLoading ||
+      Boolean(threadsError) ||
+      threadItems.length > 0 ||
+      Boolean(pendingPin),
+    [canComment, threadsLoading, threadsError, threadItems.length, pendingPin],
+  );
+
+  useEffect(() => {
+    if (showFeedbackChrome) return;
+    setCommentMode(false);
+    setPendingPin(null);
+    setDraftNewThread("");
+    setMobileFeedbackOpen(false);
+    setCommentsHidden(false);
+  }, [showFeedbackChrome, setCommentMode, setPendingPin, setDraftNewThread]);
+
   const onManifest = useCallback(
     (count: number, _titles: string[]) => {
       void _titles;
       setSlideCount(Math.max(1, count));
       setSlideIndex(0);
       queueMicrotask(() =>
-        postSetCommentMode(iframeRef.current, commentsHidden ? false : commentMode),
+        postSetCommentMode(
+          iframeRef.current,
+          !showFeedbackChrome || commentsHidden ? false : commentMode,
+        ),
       );
     },
-    [commentMode, commentsHidden],
+    [commentMode, commentsHidden, showFeedbackChrome],
   );
 
   const onSlideClick = useCallback(
@@ -278,8 +312,11 @@ export default function PresentationPage() {
   }, [diagram.error, diagram.isError, isDiagram]);
 
   useEffect(() => {
-    postSetCommentMode(iframeRef.current, commentsHidden ? false : commentMode);
-  }, [commentMode, iframeSrc, commentsHidden]);
+    postSetCommentMode(
+      iframeRef.current,
+      !showFeedbackChrome || commentsHidden ? false : commentMode,
+    );
+  }, [commentMode, iframeSrc, commentsHidden, showFeedbackChrome]);
 
   useEffect(() => {
     function onFullscreenChange() {
@@ -660,16 +697,6 @@ export default function PresentationPage() {
     postSlideGoto(iframeRef.current, clamped);
   };
 
-  const threadsError =
-    threads.error instanceof ApiError
-      ? threads.error.message +
-        (threads.error.requestId ? ` · Request ID: ${threads.error.requestId}` : "")
-      : threads.error instanceof Error
-        ? threads.error.message
-        : threads.error
-          ? String(threads.error)
-          : null;
-
   function handleReply(threadId: string) {
     const body = (replyDrafts[threadId] ?? "").trim();
     if (!body) return;
@@ -692,7 +719,7 @@ export default function PresentationPage() {
 
   const onThreadSelectFromCanvas = useCallback(
     (threadId: string) => {
-      if (commentsHidden) return;
+      if (commentsHidden || !showFeedbackChrome) return;
       const narrow =
         typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
       if (narrow) {
@@ -702,7 +729,7 @@ export default function PresentationPage() {
         scrollThreadIntoView(threadId);
       }
     },
-    [commentsHidden, scrollThreadIntoView],
+    [commentsHidden, showFeedbackChrome, scrollThreadIntoView],
   );
 
   const handleToggleCommentsHidden = useCallback(() => {
@@ -721,9 +748,9 @@ export default function PresentationPage() {
   }, [setCommentMode, setDraftNewThread, setPendingPin]);
 
   const feedbackSidebarProps = {
-    threads: threads.data?.items ?? [],
+    threads: threadItems,
     // Avoid treating "no version yet" as thread loading — query is disabled; show empty state.
-    isLoading: Boolean(versionId ? threads.isLoading : pres.isPending || pres.isLoading),
+    isLoading: threadsLoading,
     isRefreshing: threads.isFetching && !threads.isLoading,
     error: threadsError,
     canComment,
@@ -823,7 +850,7 @@ export default function PresentationPage() {
           canNavigate={!isDiagram && Boolean(embed.data?.slide_count)}
           onPrev={() => go(slideIndex - 1)}
           onNext={() => go(slideIndex + 1)}
-          showCommentsVisibilityToggle={Boolean(versionId)}
+          showCommentsVisibilityToggle={Boolean(versionId && showFeedbackChrome)}
           commentsHidden={commentsHidden}
           onToggleCommentsHidden={handleToggleCommentsHidden}
         />
@@ -842,7 +869,7 @@ export default function PresentationPage() {
         ) : null}
 
         <div
-          className={`mx-auto grid w-full max-w-[min(100%,96rem)] gap-4 px-3 py-3 sm:gap-6 sm:px-4 sm:py-4 ${commentsHidden ? "" : "md:grid-cols-[minmax(0,1fr)_min(300px,32vw)]"}`}
+          className={`mx-auto grid w-full max-w-[min(100%,96rem)] gap-4 px-3 py-3 sm:gap-6 sm:px-4 sm:py-4 ${!showFeedbackChrome || commentsHidden ? "" : "md:grid-cols-[minmax(0,1fr)_min(300px,32vw)]"}`}
         >
           <section className="space-y-4">
             {isDiagram ? (
@@ -862,7 +889,7 @@ export default function PresentationPage() {
                       onPickTarget={commentsHidden ? undefined : onDiagramTargetPick}
                       threads={threads.data?.items ?? []}
                       onSelectThread={onThreadSelectFromCanvas}
-                      hideCommentMarkers={commentsHidden}
+                      hideCommentMarkers={commentsHidden || !showFeedbackChrome}
                       onDocumentChange={(doc) => {
                         setDiagramDoc(doc);
                         setDiagramDirty(true);
@@ -890,9 +917,9 @@ export default function PresentationPage() {
                 onExitFullscreen={() => {
                   void document.exitFullscreen();
                 }}
-                hideCommentMarkers={commentsHidden}
-                commentsHidden={commentsHidden}
-                onToggleCommentsHidden={handleToggleCommentsHidden}
+                hideCommentMarkers={commentsHidden || !showFeedbackChrome}
+                commentsHidden={commentsHidden && showFeedbackChrome}
+                onToggleCommentsHidden={showFeedbackChrome ? handleToggleCommentsHidden : undefined}
               />
             )}
             {isDiagram && diagramRenderError ? (
@@ -1029,14 +1056,14 @@ export default function PresentationPage() {
             ) : null}
           </section>
 
-          {!commentsHidden ? (
+          {!commentsHidden && showFeedbackChrome ? (
             <div className="hidden md:block">
               <FeedbackSidebar {...feedbackSidebarProps} />
             </div>
           ) : null}
         </div>
 
-        {!commentsHidden ? (
+        {!commentsHidden && showFeedbackChrome ? (
           <Drawer.Root open={mobileFeedbackOpen} onOpenChange={setMobileFeedbackOpen}>
             <Drawer.Portal>
               <Drawer.Overlay className="fixed inset-0 z-40 bg-scrim md:hidden" />
