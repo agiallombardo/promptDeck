@@ -6,8 +6,8 @@ from typing import Annotated
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models.deck_prompt_job import DeckPromptJob, DeckPromptJobStatus
-from app.db.models.presentation import Presentation, PresentationVersion
+from app.db.models.deck_prompt_job import DeckPromptJob, DeckPromptJobStatus, DeckPromptJobType
+from app.db.models.presentation import Presentation, PresentationKind, PresentationVersion
 from app.db.models.user import User
 from app.db.session import get_db
 from app.deps import PresentationGrant, get_current_user, get_presentation_editor
@@ -37,6 +37,11 @@ async def create_deck_prompt_job(
         raise HTTPException(status_code=403, detail="Forbidden")
 
     presentation = grant.presentation
+    if presentation.kind != PresentationKind.deck:
+        raise HTTPException(
+            status_code=400,
+            detail="Prompt editing is only available for deck HTML",
+        )
     if presentation.current_version_id is None:
         raise HTTPException(status_code=400, detail="No active version; upload HTML first")
 
@@ -53,6 +58,7 @@ async def create_deck_prompt_job(
         presentation_id=presentation.id,
         source_version_id=ver.id,
         prompt=body.prompt.strip(),
+        job_type=DeckPromptJobType.deck_edit,
         is_generation=False,
         status=DeckPromptJobStatus.queued,
         progress=0,

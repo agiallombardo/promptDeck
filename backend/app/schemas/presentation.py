@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from app.schemas.deck_prompt import DeckPromptJobRead
 from app.services.acl import PresentationAccess
@@ -10,6 +11,7 @@ from pydantic import BaseModel, Field
 
 class PresentationCreate(BaseModel):
     title: str = Field(min_length=1, max_length=500)
+    kind: str = Field(default="deck", pattern="^(deck|diagram)$")
     description: str | None = Field(default=None, max_length=10_000)
 
 
@@ -46,6 +48,7 @@ class PresentationRead(BaseModel):
     id: uuid.UUID
     owner_id: uuid.UUID
     title: str
+    kind: str
     description: str | None
     current_version_id: uuid.UUID | None
     created_at: datetime
@@ -76,3 +79,32 @@ class EmbedResponse(BaseModel):
     iframe_src: str
     version_id: uuid.UUID
     slide_count: int
+
+
+class DiagramDocumentRead(BaseModel):
+    version_id: uuid.UUID
+    document: dict[str, Any]
+
+
+class DiagramDocumentWrite(BaseModel):
+    document: dict[str, Any]
+
+
+class DiagramThumbnailResponse(BaseModel):
+    version_id: uuid.UUID
+    png_src: str
+    jpg_src: str
+
+
+class PresentationCodeRead(BaseModel):
+    version_id: uuid.UUID
+    html: str
+    css: str
+    js: str
+
+
+class PresentationCodeUpdate(BaseModel):
+    base_version_id: uuid.UUID
+    html: str = Field(min_length=1, max_length=2_000_000)
+    css: str = Field(default="", max_length=500_000)
+    js: str = Field(default="", max_length=500_000)

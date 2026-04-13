@@ -1,4 +1,5 @@
 import {
+  DIAGRAM_PROMPT_TEMPLATES_NEW_DIAGRAM,
   DECK_PROMPT_TEMPLATES_EDIT_DECK,
   DECK_PROMPT_TEMPLATES_NEW_DECK,
 } from "../lib/deckPromptTemplates";
@@ -8,7 +9,7 @@ type Props = {
   disabled?: boolean;
   className?: string;
   /** New-deck flow vs editing an existing deck */
-  variant?: "new_deck" | "edit_deck";
+  variant?: "new_deck" | "edit_deck" | "new_diagram";
 };
 
 export function DeckPromptTemplateChips({
@@ -18,7 +19,11 @@ export function DeckPromptTemplateChips({
   variant = "new_deck",
 }: Props) {
   const list =
-    variant === "edit_deck" ? DECK_PROMPT_TEMPLATES_EDIT_DECK : DECK_PROMPT_TEMPLATES_NEW_DECK;
+    variant === "edit_deck"
+      ? DECK_PROMPT_TEMPLATES_EDIT_DECK
+      : variant === "new_diagram"
+        ? DIAGRAM_PROMPT_TEMPLATES_NEW_DIAGRAM
+        : DECK_PROMPT_TEMPLATES_NEW_DECK;
   return (
     <div className={className ?? "flex flex-wrap gap-2"}>
       {list.map((t) => (

@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+import enum
 import uuid
 from datetime import datetime
 
 from app.db.base import Base
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+
+class PresentationKind(enum.StrEnum):
+    deck = "deck"
+    diagram = "diagram"
 
 
 class Presentation(Base):
@@ -19,6 +25,7 @@ class Presentation(Base):
         index=True,
     )
     title: Mapped[str] = mapped_column(String(500), nullable=False)
+    kind: Mapped[PresentationKind] = mapped_column(String(32), nullable=False, default="deck")
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Validated in app (avoid circular create_all FK: presentations <-> presentation_versions).
     current_version_id: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)

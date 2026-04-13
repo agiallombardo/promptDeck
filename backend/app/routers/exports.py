@@ -59,7 +59,10 @@ async def create_export_job(
     presentation = grant.presentation
     vid = body.version_id or presentation.current_version_id
     if vid is None:
-        raise HTTPException(status_code=400, detail="No version to export; upload a deck first")
+        raise HTTPException(
+            status_code=400,
+            detail="No version to export; create content first",
+        )
     ver = await db.get(PresentationVersion, vid)
     if ver is None or ver.presentation_id != presentation.id:
         raise HTTPException(status_code=400, detail="Invalid version for this presentation")

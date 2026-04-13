@@ -33,6 +33,8 @@ export function useComments(
         slide_index: args.pin.slide,
         anchor_x: args.pin.x,
         anchor_y: args.pin.y,
+        target_kind: args.pin.target_kind ?? "slide",
+        target_id: args.pin.target_id ?? null,
         first_comment: args.body,
       }),
     onSuccess: async () => {

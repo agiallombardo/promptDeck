@@ -16,6 +16,8 @@ class ThreadCreate(BaseModel):
     slide_index: int = Field(ge=0)
     anchor_x: float = Field(ge=0, le=1)
     anchor_y: float = Field(ge=0, le=1)
+    target_kind: str = Field(default="slide", pattern="^(slide|node|edge)$")
+    target_id: str | None = Field(default=None, max_length=255)
     first_comment: str = Field(min_length=1, max_length=50_000)
 
 
@@ -42,6 +44,8 @@ class ThreadRead(BaseModel):
     slide_index: int
     anchor_x: float
     anchor_y: float
+    target_kind: str = "slide"
+    target_id: str | None = None
     status: ThreadStatus
     created_by: uuid.UUID | None = None
     created_at: datetime

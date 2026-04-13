@@ -1,6 +1,12 @@
 import type { CommentDto, ThreadDto } from "../../lib/api";
 
-export type PendingPin = { slide: number; x: number; y: number };
+export type PendingPin = {
+  slide: number;
+  x: number;
+  y: number;
+  target_kind?: "slide" | "node" | "edge";
+  target_id?: string | null;
+};
 
 type FeedbackSidebarProps = {
   threads: ThreadDto[];
@@ -87,8 +93,11 @@ export function FeedbackSidebar({
         {pendingPin ? (
           <div className="rounded-sharp border border-primary/40 bg-bg-recessed p-3">
             <p className="font-mono text-xs text-primary">
-              New pin · slide {pendingPin.slide + 1} · ({pendingPin.x.toFixed(2)},{" "}
-              {pendingPin.y.toFixed(2)})
+              New pin ·{" "}
+              {pendingPin.target_kind && pendingPin.target_kind !== "slide"
+                ? `${pendingPin.target_kind} ${pendingPin.target_id ?? ""}`
+                : `slide ${pendingPin.slide + 1}`}{" "}
+              · ({pendingPin.x.toFixed(2)}, {pendingPin.y.toFixed(2)})
             </p>
             <textarea
               className="mt-2 w-full rounded-sharp border border-border bg-bg-void px-2 py-2 font-body text-sm text-text-main outline-none ring-primary focus:ring-1"
@@ -174,7 +183,10 @@ function ThreadCard({
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="font-mono text-xs text-text-muted">
-            Slide {thread.slide_index + 1} · {thread.status}
+            {thread.target_kind && thread.target_kind !== "slide"
+              ? `${thread.target_kind} ${thread.target_id ?? ""}`
+              : `Slide ${thread.slide_index + 1}`}{" "}
+            · {thread.status}
           </p>
           <p className="font-mono text-[10px] text-text-muted">
             ({thread.anchor_x.toFixed(2)}, {thread.anchor_y.toFixed(2)})

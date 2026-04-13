@@ -1,9 +1,9 @@
 from app.db.models.app_log import AppLog
 from app.db.models.audit_log import AuditLog
-from app.db.models.comment_thread import Comment, CommentThread, ThreadStatus
-from app.db.models.deck_prompt_job import DeckPromptJob, DeckPromptJobStatus
+from app.db.models.comment_thread import Comment, CommentTargetKind, CommentThread, ThreadStatus
+from app.db.models.deck_prompt_job import DeckPromptJob, DeckPromptJobStatus, DeckPromptJobType
 from app.db.models.export_job import ExportFormat, ExportJob, ExportStatus
-from app.db.models.presentation import Presentation, PresentationVersion, Slide
+from app.db.models.presentation import Presentation, PresentationKind, PresentationVersion, Slide
 from app.db.models.presentation_member import PresentationMember, PresentationMemberRole
 from app.db.models.refresh_session import RefreshSession
 from app.db.models.share_link import ShareLink, ShareRole
@@ -15,13 +15,16 @@ __all__ = [
     "AuditLog",
     "AuthProvider",
     "Comment",
+    "CommentTargetKind",
     "CommentThread",
     "DeckPromptJob",
     "DeckPromptJobStatus",
+    "DeckPromptJobType",
     "ExportFormat",
     "ExportJob",
     "ExportStatus",
     "Presentation",
+    "PresentationKind",
     "PresentationMember",
     "PresentationMemberRole",
     "PresentationVersion",

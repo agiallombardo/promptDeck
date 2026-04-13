@@ -9,8 +9,9 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.db.models.comment_thread import Comment, CommentThread, ThreadStatus
-from app.db.models.presentation import Presentation, PresentationVersion
+from app.config import Settings, get_settings
+from app.db.models.comment_thread import Comment, CommentTargetKind, CommentThread, ThreadStatus
+from app.db.models.presentation import Presentation, PresentationKind, PresentationVersion
 from app.db.models.share_link import ShareLink, ShareRole
 from app.db.models.user import User
 from app.db.session import get_db
@@ -31,6 +32,7 @@ from app.schemas.comment import (
     ThreadRead,
 )
 from app.services.acl import PresentationAccess, can_write_comments, resolve_access
+from app.services.diagram_version import read_diagram_document
 from app.services.keyset_cursor import decode_keyset_cursor, encode_keyset_cursor
 
 router = APIRouter(tags=["comments"])
@@ -109,6 +111,8 @@ def _thread_read(thread: CommentThread) -> ThreadRead:
         slide_index=thread.slide_index,
         anchor_x=thread.anchor_x,
         anchor_y=thread.anchor_y,
+        target_kind=str(thread.target_kind),
+        target_id=thread.target_id,
         status=thread.status,
         created_by=thread.created_by,
         created_at=thread.created_at,
@@ -167,6 +171,7 @@ async def list_threads(
 )
 async def create_thread(
     body: ThreadCreate,
+    settings: Annotated[Settings, Depends(get_settings)],
     db: Annotated[AsyncSession, Depends(get_db)],
     grant: Annotated[PresentationGrant, Depends(get_presentation_comment_writer)],
 ) -> ThreadRead:
@@ -174,12 +179,42 @@ async def create_thread(
     if ver is None or ver.presentation_id != grant.presentation.id:
         raise HTTPException(status_code=400, detail="Invalid version for this presentation")
 
+    target_kind = CommentTargetKind(body.target_kind)
+    target_id = body.target_id.strip() if body.target_id is not None else None
+    is_diagram = (
+        grant.presentation.kind == PresentationKind.diagram or ver.storage_kind == "xyflow_json"
+    )
+    if is_diagram:
+        if target_kind not in (CommentTargetKind.node, CommentTargetKind.edge):
+            raise HTTPException(
+                status_code=400,
+                detail="Diagram threads must target a node or edge",
+            )
+        if not target_id:
+            raise HTTPException(status_code=400, detail="Diagram thread target_id is required")
+        try:
+            doc = read_diagram_document(settings, ver)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+        if target_kind == CommentTargetKind.node:
+            known = {str(n.get("id")) for n in doc["nodes"]}
+        else:
+            known = {str(e.get("id")) for e in doc["edges"]}
+        if target_id not in known:
+            raise HTTPException(status_code=400, detail="Diagram target_id not found in version")
+    else:
+        if target_kind != CommentTargetKind.slide:
+            raise HTTPException(status_code=400, detail="Deck threads must use slide target kind")
+        target_id = None
+
     thread = CommentThread(
         presentation_id=grant.presentation.id,
         version_id=body.version_id,
-        slide_index=body.slide_index,
+        slide_index=0 if is_diagram else body.slide_index,
         anchor_x=body.anchor_x,
         anchor_y=body.anchor_y,
+        target_kind=target_kind,
+        target_id=target_id,
         status=ThreadStatus.open,
         created_by=grant.user.id if grant.user is not None else None,
     )

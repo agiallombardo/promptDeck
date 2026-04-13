@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import io
+import json
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -15,9 +16,10 @@ from app.config import Settings, get_settings
 from app.db.models.export_job import ExportFormat, ExportJob, ExportStatus
 from app.db.models.presentation import PresentationVersion, Slide
 from app.db.session import session_factory
+from app.services.diagram_export import render_diagram_html
 from app.services.html_bundle import inline_zip_entry_to_single_html
 from app.services.html_probe_inject import inject_probe_into_html
-from app.storage.local import safe_join, version_dir
+from app.storage.local import read_bytes_if_exists, safe_join, version_dir
 
 
 def _pdf_export_sync(
@@ -117,6 +119,85 @@ def _single_html_export_sync(
     return None
 
 
+def _load_diagram_html_bytes(settings: Settings, storage_prefix: str, entry_rel: str) -> bytes:
+    raw = read_bytes_if_exists(settings, storage_prefix, entry_rel)
+    if raw is None:
+        raise ValueError("Diagram file missing from storage")
+    try:
+        doc = json.loads(raw.decode("utf-8", errors="replace"))
+    except json.JSONDecodeError as e:
+        raise ValueError("Stored diagram is invalid JSON") from e
+    return render_diagram_html(doc)
+
+
+def _diagram_single_html_export_sync(
+    settings: Settings, storage_prefix: str, entry_rel: str, out_path: Path
+) -> str | None:
+    try:
+        html = _load_diagram_html_bytes(settings, storage_prefix, entry_rel)
+    except ValueError as e:
+        return str(e)[:2000]
+    try:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_bytes(html)
+    except OSError as e:
+        return str(e)[:500]
+    return None
+
+
+def _diagram_pdf_export_sync(
+    job_id: uuid.UUID,
+    settings: Settings,
+    storage_prefix: str,
+    entry_rel: str,
+    options: dict[str, Any],
+    out_path: Path,
+) -> str | None:
+    try:
+        html = _load_diagram_html_bytes(settings, storage_prefix, entry_rel)
+    except ValueError as e:
+        return str(e)[:2000]
+
+    preview = version_dir(settings, storage_prefix) / f".diagram_export_job_{job_id}.html"
+    try:
+        preview.write_bytes(html)
+        uri = preview.resolve().as_uri()
+    except OSError as e:
+        return str(e)[:500]
+
+    print_bg = bool(options.get("print_background", True))
+    landscape = bool(options.get("landscape", True))
+    width = str(options.get("page_width_css", "1280px"))
+    height = str(options.get("page_height_css", "720px"))
+
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            try:
+                page = browser.new_page()
+                page.goto(uri, wait_until="load", timeout=120_000)
+                blob = page.pdf(
+                    print_background=print_bg,
+                    landscape=landscape,
+                    width=width,
+                    height=height,
+                    margin={"top": "0", "right": "0", "bottom": "0", "left": "0"},
+                )
+            finally:
+                browser.close()
+    except Exception as e:  # noqa: BLE001
+        return f"PDF render failed: {e}"[:2000]
+    finally:
+        preview.unlink(missing_ok=True)
+
+    try:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_bytes(blob)
+    except OSError as e:
+        return str(e)[:500]
+    return None
+
+
 async def run_export_job(job_id: uuid.UUID) -> None:
     fac = session_factory()
     settings = get_settings()
@@ -126,6 +207,7 @@ async def run_export_job(job_id: uuid.UUID) -> None:
     slide_count = 1
     opts: dict[str, Any] = {}
     export_format: ExportFormat | None = None
+    storage_kind = ""
 
     async with fac() as session:
         job = await session.get(ExportJob, job_id)
@@ -144,6 +226,7 @@ async def run_export_job(job_id: uuid.UUID) -> None:
             else:
                 storage_prefix = ver.storage_prefix
                 entry_rel = ver.entry_path
+                storage_kind = ver.storage_kind
                 opts = dict(job.options) if job.options else {}
                 r = await session.execute(
                     select(Slide).where(Slide.version_id == ver.id).order_by(Slide.slide_index)
@@ -157,24 +240,44 @@ async def run_export_job(job_id: uuid.UUID) -> None:
 
     try:
         if err_msg is None:
-            if export_format == ExportFormat.pdf:
-                err_msg = await asyncio.to_thread(
-                    _pdf_export_sync,
-                    job_id,
-                    storage_prefix,
-                    entry_rel,
-                    slide_count,
-                    opts,
-                    out_path,
-                )
-            elif export_format == ExportFormat.single_html:
-                err_msg = await asyncio.to_thread(
-                    _single_html_export_sync,
-                    settings,
-                    storage_prefix,
-                    entry_rel,
-                    out_path,
-                )
+            if storage_kind == "xyflow_json":
+                if export_format == ExportFormat.pdf:
+                    err_msg = await asyncio.to_thread(
+                        _diagram_pdf_export_sync,
+                        job_id,
+                        settings,
+                        storage_prefix,
+                        entry_rel,
+                        opts,
+                        out_path,
+                    )
+                elif export_format == ExportFormat.single_html:
+                    err_msg = await asyncio.to_thread(
+                        _diagram_single_html_export_sync,
+                        settings,
+                        storage_prefix,
+                        entry_rel,
+                        out_path,
+                    )
+            else:
+                if export_format == ExportFormat.pdf:
+                    err_msg = await asyncio.to_thread(
+                        _pdf_export_sync,
+                        job_id,
+                        storage_prefix,
+                        entry_rel,
+                        slide_count,
+                        opts,
+                        out_path,
+                    )
+                elif export_format == ExportFormat.single_html:
+                    err_msg = await asyncio.to_thread(
+                        _single_html_export_sync,
+                        settings,
+                        storage_prefix,
+                        entry_rel,
+                        out_path,
+                    )
 
         async with fac() as session:
             job_final = await session.get(ExportJob, job_id)
