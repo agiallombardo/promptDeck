@@ -53,4 +53,9 @@ describe("PresentationDeckHeader", () => {
     expect(labelSpan?.className).toMatch(/hidden/);
     expect(labelSpan?.className).toMatch(/md:/);
   });
+
+  it("shows Diagram label when titleKind is diagram", () => {
+    wrap(<PresentationDeckHeader {...baseProps} titleKind="diagram" />);
+    expect(screen.getByText("Diagram")).toBeDefined();
+  });
 });

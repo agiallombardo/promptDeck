@@ -231,12 +231,11 @@ export default function PresentationPage() {
   const threadsLoading = Boolean(versionId ? threads.isLoading : pres.isPending || pres.isLoading);
   const showFeedbackChrome = useMemo(
     () =>
-      canComment ||
-      threadsLoading ||
       Boolean(threadsError) ||
       threadItems.length > 0 ||
-      Boolean(pendingPin),
-    [canComment, threadsLoading, threadsError, threadItems.length, pendingPin],
+      Boolean(pendingPin) ||
+      (canComment && (threadsLoading || Boolean(versionId))),
+    [canComment, threadsLoading, threadsError, threadItems.length, pendingPin, versionId],
   );
 
   useEffect(() => {
@@ -835,6 +834,7 @@ export default function PresentationPage() {
         ) : null}
         <PresentationDeckHeader
           title={pres.data?.title ?? "Presentation"}
+          titleKind={isDiagram ? "diagram" : "deck"}
           accessRole={accessRole}
           showShareAction={Boolean(canManage && accessToken)}
           showExportAction={Boolean(canManage && accessToken && pres.data?.current_version_id)}
