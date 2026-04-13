@@ -10,6 +10,7 @@ import {
   type Connection,
   type Edge,
   type EdgeChange,
+  type EdgeRemoveChange,
   type Node,
   type NodeChange,
   type NodeMouseHandler,
@@ -233,7 +234,10 @@ export function DiagramCanvas({
           if (readOnly) return;
           setNodes((prev) => {
             const next = prev.map((node) => {
-              const hit = changes.find((c: NodeChange) => c.id === node.id);
+              const hit = changes.find((c: NodeChange) => {
+                if (c.type !== "position") return false;
+                return c.id === node.id;
+              });
               if (!hit || hit.type !== "position" || !hit.position) return node;
               return { ...node, position: hit.position };
             });
@@ -245,7 +249,7 @@ export function DiagramCanvas({
           if (readOnly) return;
           setEdges((prev) => {
             const remove = new Set(
-              changes.filter((c: EdgeChange) => c.type === "remove").map((c: EdgeChange) => c.id),
+              changes.filter((c): c is EdgeRemoveChange => c.type === "remove").map((c) => c.id),
             );
             const next = prev.filter((e) => !remove.has(e.id));
             emit(nodes, next, viewport);
