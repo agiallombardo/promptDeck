@@ -189,10 +189,6 @@ export default function FileManagerPage() {
               on this step
             </p>
           </div>
-          <p className="mt-1 font-mono text-[10px] text-text-muted">
-            Creating the presentation and job on the server — you will jump to the document when the
-            API responds; live job status appears on the next page.
-          </p>
         </div>
       ) : null}
 
@@ -239,7 +235,13 @@ export default function FileManagerPage() {
         </div>
         {createKind === "deck" ? (
           <div className="mt-6 border-t border-border pt-6">
-            <label className="flex flex-col gap-1 font-mono text-xs text-text-muted">
+            <DeckPromptTemplateChips
+              variant="new_deck"
+              className="flex flex-wrap gap-2"
+              disabled={generateFromPrompt.isPending}
+              onPick={(body) => setDeckPrompt(body)}
+            />
+            <label className="mt-4 flex flex-col gap-1 font-mono text-xs text-text-muted">
               AI prompt
               <textarea
                 className="min-h-[100px] w-full resize-y rounded-sharp border border-border bg-bg-recessed px-3 py-2 font-body text-sm text-text-main outline-none ring-primary focus:ring-1"
@@ -250,17 +252,16 @@ export default function FileManagerPage() {
                 maxLength={16000}
               />
             </label>
-            <p className="mt-2 font-mono text-[11px] text-text-muted">Quick-start templates</p>
-            <DeckPromptTemplateChips
-              variant="new_deck"
-              className="mt-2 flex flex-wrap gap-2"
-              disabled={generateFromPrompt.isPending}
-              onPick={(body) => setDeckPrompt(body)}
-            />
           </div>
         ) : (
           <div className="mt-6 border-t border-border pt-6">
-            <label className="flex flex-col gap-1 font-mono text-xs text-text-muted">
+            <DeckPromptTemplateChips
+              variant="new_diagram"
+              className="flex flex-wrap gap-2"
+              disabled={generateDiagramFromPrompt.isPending}
+              onPick={(body) => setDiagramPrompt(body)}
+            />
+            <label className="mt-4 flex flex-col gap-1 font-mono text-xs text-text-muted">
               Diagram prompt
               <textarea
                 className="min-h-[100px] w-full resize-y rounded-sharp border border-border bg-bg-recessed px-3 py-2 font-body text-sm text-text-main outline-none ring-primary focus:ring-1"
@@ -271,13 +272,6 @@ export default function FileManagerPage() {
                 maxLength={16000}
               />
             </label>
-            <p className="mt-2 font-mono text-[11px] text-text-muted">Quick-start templates</p>
-            <DeckPromptTemplateChips
-              variant="new_diagram"
-              className="mt-2 flex flex-wrap gap-2"
-              disabled={generateDiagramFromPrompt.isPending}
-              onPick={(body) => setDiagramPrompt(body)}
-            />
           </div>
         )}
         <button

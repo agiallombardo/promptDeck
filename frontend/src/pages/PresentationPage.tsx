@@ -1089,10 +1089,6 @@ export default function PresentationPage() {
                 How should this file be used?
               </h2>
               <p className="mt-2 font-mono text-xs text-text-muted">{sourceIntentFile.name}</p>
-              <p className="mt-2 font-mono text-[11px] leading-relaxed text-text-muted">
-                Embed places content into generated slide HTML when practical. Inspire uses the file
-                only as reference context for the model.
-              </p>
               <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
                 <button
                   type="button"
@@ -1183,13 +1179,9 @@ export default function PresentationPage() {
               <h2 id="deck-prompt-title" className="font-heading text-base font-semibold">
                 Edit deck with AI
               </h2>
-              <p className="mt-1 font-mono text-[11px] text-text-muted">
-                Describe the change you want. A new version is created when the model finishes.
-              </p>
-              <p className="mt-2 font-mono text-[11px] text-text-muted">Quick-start templates</p>
               <DeckPromptTemplateChips
                 variant="edit_deck"
-                className="mt-1 flex flex-wrap gap-2"
+                className="mt-3 flex flex-wrap gap-2"
                 disabled={deckPromptBusy}
                 onPick={(body) => setDeckPromptText(body)}
               />
@@ -1202,10 +1194,7 @@ export default function PresentationPage() {
               />
               {!isDiagram && sourceArtifacts.data?.items?.length ? (
                 <div className="mt-3 rounded-sharp border border-border bg-bg-recessed/60 p-3">
-                  <p className="font-mono text-[11px] text-text-muted">
-                    Include source files for this run (optional)
-                  </p>
-                  <ul className="mt-2 space-y-2">
+                  <ul className="space-y-2">
                     {sourceArtifacts.data.items.map((a) => (
                       <li key={a.id} className="list-none">
                         <label className="flex cursor-pointer items-center gap-2 font-mono text-xs">

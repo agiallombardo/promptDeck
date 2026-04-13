@@ -93,16 +93,6 @@ export function DeckPromptJobActivity({
       {snapshot ? (
         <>
           <p className="mt-1 font-mono text-[11px] text-text-main">{snapshot.statusMessage}</p>
-          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 font-mono text-[10px] text-text-muted">
-            <span>Server checks: {snapshot.pollSequence}</span>
-            {snapshot.llmModel ? <span>Model: {snapshot.llmModel}</span> : null}
-            {snapshot.promptTokens != null ? (
-              <span>
-                Tokens in: {snapshot.promptTokens}
-                {snapshot.completionTokens != null ? ` · out: ${snapshot.completionTokens}` : ""}
-              </span>
-            ) : null}
-          </div>
           {steps ? (
             <ol className="mt-3 grid gap-1.5 font-mono text-[10px]">
               {steps.map((st) => (
@@ -120,15 +110,7 @@ export function DeckPromptJobActivity({
               ))}
             </ol>
           ) : null}
-          <p className="mt-2 font-mono text-[10px] leading-relaxed text-text-muted">
-            Progress and timing come from the server on each refresh. The bar may sit still while
-            the model runs; elapsed time and the step list show the job is still active.
-          </p>
         </>
-      ) : waitingSubmit ? (
-        <p className="mt-2 font-mono text-[10px] text-text-muted">Sending your request…</p>
-      ) : jobActive ? (
-        <p className="mt-2 font-mono text-[10px] text-text-muted">Fetching job status…</p>
       ) : null}
     </div>
   );
