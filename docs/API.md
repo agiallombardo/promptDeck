@@ -36,11 +36,15 @@ Regenerate with `just api-contract` after changing `backend/openapi.json`.
 | GET | `/api/v1/exports/{job_id}/file` | Download Export File |
 | GET | `/api/v1/presentations` | List Presentations |
 | POST | `/api/v1/presentations` | Create Presentation |
+| POST | `/api/v1/presentations/generate-diagram-from-prompt` | Generate Diagram From Prompt |
 | POST | `/api/v1/presentations/generate-from-prompt` | Generate Presentation From Prompt |
 | DELETE | `/api/v1/presentations/{presentation_id}` | Delete Presentation |
 | GET | `/api/v1/presentations/{presentation_id}` | Get Presentation Detail |
 | PATCH | `/api/v1/presentations/{presentation_id}` | Update Presentation |
 | POST | `/api/v1/presentations/{presentation_id}/deck-prompt-jobs` | Create Deck Prompt Job |
+| GET | `/api/v1/presentations/{presentation_id}/diagram` | Get Diagram Document |
+| PUT | `/api/v1/presentations/{presentation_id}/diagram` | Save Diagram Document |
+| GET | `/api/v1/presentations/{presentation_id}/diagram/thumbnail` | Get Diagram Thumbnail |
 | GET | `/api/v1/presentations/{presentation_id}/embed` | Embed Iframe |
 | POST | `/api/v1/presentations/{presentation_id}/exports` | Create Export Job |
 | GET | `/api/v1/presentations/{presentation_id}/members` | List Presentation Members |
@@ -54,6 +58,8 @@ Regenerate with `just api-contract` after changing `backend/openapi.json`.
 | POST | `/api/v1/presentations/{presentation_id}/threads` | Create Thread |
 | GET | `/api/v1/presentations/{presentation_id}/versions` | List Versions |
 | POST | `/api/v1/presentations/{presentation_id}/versions` | Upload Html Version |
+| GET | `/api/v1/presentations/{presentation_id}/versions/current/code` | Get Current Version Code |
+| PUT | `/api/v1/presentations/{presentation_id}/versions/current/code` | Save Current Version Code |
 | POST | `/api/v1/presentations/{presentation_id}/versions/{version_id}/activate` | Activate Version |
 | POST | `/api/v1/share-links/exchange` | Exchange Share Link |
 | PATCH | `/api/v1/threads/{thread_id}` | Patch Thread |

@@ -2,11 +2,14 @@ import { Drawer } from "vaul";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { DeckPromptJobActivity } from "../components/DeckPromptJobActivity";
+import { DeckCodeEditorModal, type DeckCodeBuffers } from "../components/DeckCodeEditorModal";
 import { DeckPromptTemplateChips } from "../components/DeckPromptTemplateChips";
 import {
   PresentationCanvas,
   type PresentationCanvasPlaceholder,
 } from "../components/canvas/PresentationCanvas";
+import { DiagramCanvas } from "../components/diagram/DiagramCanvas";
+import { DiagramCanvasErrorBoundary } from "../components/diagram/DiagramCanvasErrorBoundary";
 import { FeedbackSidebar } from "../components/feedback/FeedbackSidebar";
 import { RequireDeckAccess } from "../components/RequireDeckAccess";
 import { PresentationDeckHeader } from "../components/layout/PresentationDeckHeader";
@@ -15,6 +18,8 @@ import { useComments } from "../hooks/useComments";
 import { usePresentation } from "../hooks/usePresentation";
 import {
   ApiError,
+  apiPresentationCodeGet,
+  apiPresentationCodeSave,
   apiDeckPromptJobCreate,
   apiExportCreate,
   apiExportDownloadFile,
@@ -26,6 +31,12 @@ import {
   pollDeckPromptJobUntilTerminal,
   type DeckPromptJobProgressSnapshot,
 } from "../lib/deckPromptPoll";
+import {
+  blankDiagramDocument,
+  decodeDiagramDocument,
+  decodeDiagramDocumentSafe,
+  type DiagramDocument,
+} from "../lib/diagram";
 import { recordRecentDeck } from "../lib/recentDecks";
 import { shouldIgnoreDeckHotkeys } from "../lib/hotkeys";
 import { postSetCommentMode, postSlideGoto } from "../lib/slidePostMessage";
@@ -47,6 +58,14 @@ export default function PresentationPage() {
   const [deckPromptOpen, setDeckPromptOpen] = useState(false);
   const [deckPromptText, setDeckPromptText] = useState("");
   const [deckPromptBusy, setDeckPromptBusy] = useState(false);
+  const [codeEditOpen, setCodeEditOpen] = useState(false);
+  const [codeLoadBusy, setCodeLoadBusy] = useState(false);
+  const [codeSaveBusy, setCodeSaveBusy] = useState(false);
+  const [codeLoadError, setCodeLoadError] = useState<string | null>(null);
+  const [codeConflictError, setCodeConflictError] = useState<string | null>(null);
+  const [codeBaseVersionId, setCodeBaseVersionId] = useState<string | null>(null);
+  const [codeInitial, setCodeInitial] = useState<DeckCodeBuffers | null>(null);
+  const [codeDraft, setCodeDraft] = useState<DeckCodeBuffers>({ html: "", css: "", js: "" });
   const [deckPromptSnapshot, setDeckPromptSnapshot] =
     useState<DeckPromptJobProgressSnapshot | null>(null);
   const [deckJobFollowSnapshot, setDeckJobFollowSnapshot] =
@@ -56,12 +75,19 @@ export default function PresentationPage() {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const presentRootRef = useRef<HTMLDivElement | null>(null);
   const [canvasFullscreen, setCanvasFullscreen] = useState(false);
+  const [diagramDoc, setDiagramDoc] = useState<DiagramDocument>(blankDiagramDocument);
+  const [diagramDirty, setDiagramDirty] = useState(false);
+  const [diagramRenderError, setDiagramRenderError] = useState<string | null>(null);
 
   const [slideIndex, setSlideIndex] = useState(0);
   const [slideCount, setSlideCount] = useState(1);
 
-  const { pres, embed, upload, uploadError, iframeSrc, qc } = usePresentation(id, accessToken);
+  const { pres, embed, diagram, saveDiagram, upload, uploadError, iframeSrc, qc } = usePresentation(
+    id,
+    accessToken,
+  );
   const versionId = pres.data?.current_version_id;
+  const isDiagram = pres.data?.kind === "diagram";
 
   useEffect(() => {
     if (!id || !accessToken || !pres.isSuccess || !pres.data?.title) return;
@@ -113,7 +139,8 @@ export default function PresentationPage() {
     accessRole === "commenter" ||
     accessRole === "admin";
   const canManage = canComment;
-  const canPromptEdit = accessRole === "owner" || accessRole === "editor" || accessRole === "admin";
+  const canPromptJob = accessRole === "owner" || accessRole === "editor" || accessRole === "admin";
+  const canPromptEdit = canPromptJob && !isDiagram;
 
   const {
     threads,
@@ -150,6 +177,46 @@ export default function PresentationPage() {
     },
     [canComment, commentMode, setPendingPin],
   );
+
+  const onDiagramTargetPick = useCallback(
+    (target: { kind: "node" | "edge"; id: string; x: number; y: number }) => {
+      if (!commentMode || !canComment) return;
+      setPendingPin({
+        slide: 0,
+        x: Math.max(0, Math.min(1, target.x)),
+        y: Math.max(0, Math.min(1, target.y)),
+        target_kind: target.kind,
+        target_id: target.id,
+      });
+    },
+    [canComment, commentMode, setPendingPin],
+  );
+
+  useEffect(() => {
+    if (!isDiagram) return;
+    if (!diagram.data?.document) return;
+    const { document, repaired } = decodeDiagramDocumentSafe(diagram.data.document);
+    setDiagramDoc(document);
+    setDiagramDirty(false);
+    if (repaired) {
+      useToastStore.getState().pushToast({
+        level: "error",
+        message: "Diagram content was repaired for safe rendering.",
+      });
+    }
+  }, [diagram.data?.document, isDiagram]);
+
+  useEffect(() => {
+    if (!isDiagram || !diagram.isError) return;
+    const err = diagram.error;
+    const msg =
+      err instanceof ApiError
+        ? `${err.message}${err.requestId ? ` · Request ID: ${err.requestId}` : ""}`
+        : err instanceof Error
+          ? err.message
+          : "Could not load diagram content";
+    useToastStore.getState().pushToast({ level: "error", message: msg });
+  }, [diagram.error, diagram.isError, isDiagram]);
 
   useEffect(() => {
     postSetCommentMode(iframeRef.current, commentsHidden ? false : commentMode);
@@ -236,7 +303,7 @@ export default function PresentationPage() {
   );
 
   const runDeckPrompt = useCallback(async () => {
-    if (!id || !accessToken || !pres.data?.current_version_id) return;
+    if (!id || !accessToken || !pres.data?.current_version_id || isDiagram) return;
     const prompt = deckPromptText.trim();
     if (!prompt) {
       useToastStore.getState().pushToast({ level: "error", message: "Enter a prompt" });
@@ -286,12 +353,126 @@ export default function PresentationPage() {
       setDeckPromptBusy(false);
       setDeckPromptSnapshot(null);
     }
-  }, [accessToken, deckPromptText, id, pres.data?.current_version_id, qc]);
+  }, [accessToken, deckPromptText, id, isDiagram, pres.data?.current_version_id, qc]);
+
+  const runSaveDiagram = useCallback(async () => {
+    if (!id || !accessToken || !isDiagram) return;
+    try {
+      const saved = await saveDiagram.mutateAsync(diagramDoc as unknown as Record<string, unknown>);
+      setDiagramDoc(decodeDiagramDocument(saved.document));
+      setDiagramDirty(false);
+      useToastStore.getState().pushToast({ level: "info", message: "Diagram version saved" });
+    } catch (e) {
+      const msg =
+        e instanceof ApiError
+          ? `${e.message}${e.requestId ? ` · Request ID: ${e.requestId}` : ""}`
+          : e instanceof Error
+            ? e.message
+            : "Could not save diagram";
+      useToastStore.getState().pushToast({ level: "error", message: msg });
+    }
+  }, [accessToken, diagramDoc, id, isDiagram, saveDiagram]);
+
+  const codeDirty = useMemo(() => {
+    if (!codeInitial) return false;
+    return (
+      codeDraft.html !== codeInitial.html ||
+      codeDraft.css !== codeInitial.css ||
+      codeDraft.js !== codeInitial.js
+    );
+  }, [codeDraft.css, codeDraft.html, codeDraft.js, codeInitial]);
+
+  const loadCodeEditor = useCallback(async () => {
+    if (!id || !accessToken || isDiagram) return;
+    setCodeLoadBusy(true);
+    setCodeLoadError(null);
+    setCodeConflictError(null);
+    try {
+      const payload = await apiPresentationCodeGet(accessToken, id);
+      const next: DeckCodeBuffers = {
+        html: payload.html,
+        css: payload.css,
+        js: payload.js,
+      };
+      setCodeBaseVersionId(payload.version_id);
+      setCodeInitial(next);
+      setCodeDraft(next);
+    } catch (e) {
+      const msg =
+        e instanceof ApiError
+          ? `${e.message}${e.requestId ? ` · Request ID: ${e.requestId}` : ""}`
+          : e instanceof Error
+            ? e.message
+            : "Could not load deck code";
+      setCodeLoadError(msg);
+    } finally {
+      setCodeLoadBusy(false);
+    }
+  }, [accessToken, id, isDiagram]);
+
+  const openCodeEditor = useCallback(() => {
+    if (!canPromptEdit || !id || !accessToken || isDiagram) return;
+    setCodeEditOpen(true);
+    void loadCodeEditor();
+  }, [accessToken, canPromptEdit, id, isDiagram, loadCodeEditor]);
+
+  const closeCodeEditor = useCallback(() => {
+    if (codeSaveBusy) return;
+    setCodeEditOpen(false);
+    setCodeLoadError(null);
+    setCodeConflictError(null);
+  }, [codeSaveBusy]);
+
+  const saveCodeEditor = useCallback(async () => {
+    if (!id || !accessToken || !codeBaseVersionId || isDiagram) return;
+    setCodeSaveBusy(true);
+    setCodeConflictError(null);
+    try {
+      await apiPresentationCodeSave(accessToken, id, {
+        base_version_id: codeBaseVersionId,
+        html: codeDraft.html,
+        css: codeDraft.css,
+        js: codeDraft.js,
+      });
+      await qc.invalidateQueries({ queryKey: ["presentation", id, accessToken] });
+      await qc.invalidateQueries({ queryKey: ["presentation-embed", id, accessToken] });
+      useToastStore.getState().pushToast({
+        level: "info",
+        message: "Deck updated — preview refreshed",
+      });
+      setCodeEditOpen(false);
+      setCodeLoadError(null);
+      setCodeConflictError(null);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) {
+        setCodeConflictError("Deck changed since editor opened. Reload code and try saving again.");
+        return;
+      }
+      const msg =
+        e instanceof ApiError
+          ? `${e.message}${e.requestId ? ` · Request ID: ${e.requestId}` : ""}`
+          : e instanceof Error
+            ? e.message
+            : "Could not save deck code";
+      useToastStore.getState().pushToast({ level: "error", message: msg });
+    } finally {
+      setCodeSaveBusy(false);
+    }
+  }, [
+    accessToken,
+    codeBaseVersionId,
+    codeDraft.css,
+    codeDraft.html,
+    codeDraft.js,
+    id,
+    isDiagram,
+    qc,
+  ]);
 
   const deckJobFromUrl = searchParams.get("deckJob");
 
   useEffect(() => {
-    if (!deckJobFromUrl || !accessToken || !id || !canPromptEdit) {
+    if (!deckJobFromUrl || !accessToken || !id || !canPromptJob) {
       return undefined;
     }
 
@@ -300,7 +481,7 @@ export default function PresentationPage() {
     void (async () => {
       useToastStore.getState().pushToast({
         level: "info",
-        message: "Finishing AI deck generation…",
+        message: isDiagram ? "Finishing AI diagram generation…" : "Finishing AI deck generation…",
       });
       setDeckJobFollowSnapshot(null);
       try {
@@ -328,10 +509,16 @@ export default function PresentationPage() {
 
         if (status === "succeeded") {
           await qc.invalidateQueries({ queryKey: ["presentation", id, accessToken] });
-          await qc.invalidateQueries({ queryKey: ["presentation-embed", id, accessToken] });
+          if (isDiagram) {
+            await qc.invalidateQueries({ queryKey: ["presentation-diagram", id, accessToken] });
+          } else {
+            await qc.invalidateQueries({ queryKey: ["presentation-embed", id, accessToken] });
+          }
           useToastStore.getState().pushToast({
             level: "info",
-            message: "Deck updated — preview refreshed",
+            message: isDiagram
+              ? "Diagram updated — editor refreshed"
+              : "Deck updated — preview refreshed",
           });
         } else {
           const stillRunning = status === "running" || status === "queued";
@@ -368,9 +555,10 @@ export default function PresentationPage() {
     return () => {
       cancelled = true;
     };
-  }, [accessToken, canPromptEdit, deckJobFromUrl, id, qc, setSearchParams]);
+  }, [accessToken, canPromptJob, deckJobFromUrl, id, isDiagram, qc, setSearchParams]);
 
   useEffect(() => {
+    if (isDiagram) return undefined;
     function onKey(ev: KeyboardEvent) {
       if (shouldIgnoreDeckHotkeys(ev.target)) {
         return;
@@ -394,7 +582,7 @@ export default function PresentationPage() {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [slideCount]);
+  }, [isDiagram, slideCount]);
 
   const go = (next: number) => {
     const clamped = Math.max(0, Math.min(slideCount - 1, next));
@@ -479,10 +667,10 @@ export default function PresentationPage() {
     draftNewThread,
     onDraftNewThread: setDraftNewThread,
     onSubmitNewThread: () => {
-      if (!draftNewThread.trim() || !pendingPin || !embed.data) return;
+      if (!draftNewThread.trim() || !pendingPin || !versionId) return;
       createThread.mutate({
         pin: pendingPin,
-        versionId: embed.data.version_id,
+        versionId,
         body: draftNewThread.trim(),
       });
     },
@@ -557,12 +745,12 @@ export default function PresentationPage() {
           onExportPdf={() => void runExport("pdf")}
           onExportHtml={() => void runExport("single_html")}
           exportBusy={exportBusy}
-          showPresentAction={Boolean(iframeSrc && embed.data?.slide_count)}
+          showPresentAction={!isDiagram && Boolean(iframeSrc && embed.data?.slide_count)}
           onPresent={togglePresentFullscreen}
           isFullscreen={canvasFullscreen}
           slideIndex={slideIndex}
-          slideCount={slideCount}
-          canNavigate={Boolean(embed.data?.slide_count)}
+          slideCount={isDiagram ? 1 : slideCount}
+          canNavigate={!isDiagram && Boolean(embed.data?.slide_count)}
           onPrev={() => go(slideIndex - 1)}
           onNext={() => go(slideIndex + 1)}
           showCommentsVisibilityToggle={Boolean(versionId)}
@@ -570,11 +758,11 @@ export default function PresentationPage() {
           onToggleCommentsHidden={handleToggleCommentsHidden}
         />
 
-        {deckJobFollowSnapshot || (deckJobFromUrl && canPromptEdit) ? (
+        {deckJobFollowSnapshot || (deckJobFromUrl && canPromptJob) ? (
           <div className="mx-auto max-w-[min(100%,88rem)] px-4 pt-2">
             <div className="rounded-sharp border border-border bg-bg-elevated px-3 py-2 shadow-elevated">
               <DeckPromptJobActivity
-                title="AI is generating your deck"
+                title={isDiagram ? "AI is generating your diagram" : "AI is generating your deck"}
                 snapshot={deckJobFollowSnapshot}
                 waitingSubmit={false}
                 jobActive={Boolean(deckJobFromUrl && !deckJobFollowSnapshot)}
@@ -587,48 +775,110 @@ export default function PresentationPage() {
           className={`mx-auto grid w-full max-w-[min(100%,96rem)] gap-4 px-3 py-3 sm:gap-6 sm:px-4 sm:py-4 ${commentsHidden ? "" : "md:grid-cols-[minmax(0,1fr)_min(300px,32vw)]"}`}
         >
           <section className="space-y-4">
-            <PresentationCanvas
-              ref={presentRootRef}
-              iframeRef={iframeRef}
-              iframeSrc={iframeSrc}
-              iframeRemountKey={versionId ?? undefined}
-              noIframePlaceholder={noIframePlaceholder}
-              slideIndex={slideIndex}
-              commentMode={commentsHidden ? false : commentMode}
-              canComment={canComment}
-              threads={threads.data?.items ?? []}
-              onManifest={onManifest}
-              onSelectThread={onThreadSelectFromCanvas}
-              onSlideClick={commentsHidden ? undefined : onSlideClick}
-              onLongPressCommentMode={commentsHidden ? undefined : () => setCommentMode(true)}
-              showFullscreenExit={canvasFullscreen}
-              onExitFullscreen={() => {
-                void document.exitFullscreen();
-              }}
-              hideCommentMarkers={commentsHidden}
-              commentsHidden={commentsHidden}
-              onToggleCommentsHidden={handleToggleCommentsHidden}
-            />
-            {uploadError ? (
+            {isDiagram ? (
+              <div ref={presentRootRef}>
+                <DiagramCanvasErrorBoundary onError={setDiagramRenderError}>
+                  <DiagramCanvas
+                    document={diagramDoc}
+                    readOnly={!canManage}
+                    commentMode={commentsHidden ? false : commentMode}
+                    onPickTarget={commentsHidden ? undefined : onDiagramTargetPick}
+                    threads={threads.data?.items ?? []}
+                    onSelectThread={onThreadSelectFromCanvas}
+                    hideCommentMarkers={commentsHidden}
+                    onDocumentChange={(doc) => {
+                      setDiagramDoc(doc);
+                      setDiagramDirty(true);
+                    }}
+                  />
+                </DiagramCanvasErrorBoundary>
+              </div>
+            ) : (
+              <PresentationCanvas
+                ref={presentRootRef}
+                iframeRef={iframeRef}
+                iframeSrc={iframeSrc}
+                iframeRemountKey={versionId ?? undefined}
+                noIframePlaceholder={noIframePlaceholder}
+                slideIndex={slideIndex}
+                commentMode={commentsHidden ? false : commentMode}
+                canComment={canComment}
+                threads={threads.data?.items ?? []}
+                onManifest={onManifest}
+                onSelectThread={onThreadSelectFromCanvas}
+                onSlideClick={commentsHidden ? undefined : onSlideClick}
+                onLongPressCommentMode={commentsHidden ? undefined : () => setCommentMode(true)}
+                showFullscreenExit={canvasFullscreen}
+                onExitFullscreen={() => {
+                  void document.exitFullscreen();
+                }}
+                hideCommentMarkers={commentsHidden}
+                commentsHidden={commentsHidden}
+                onToggleCommentsHidden={handleToggleCommentsHidden}
+              />
+            )}
+            {isDiagram && diagramRenderError ? (
+              <p className="text-sm text-accent-warning" role="alert">
+                {diagramRenderError}
+              </p>
+            ) : null}
+            {!isDiagram && uploadError ? (
               <p className="text-sm text-accent-warning" role="alert">
                 {uploadError}
               </p>
             ) : null}
             {canManage && accessToken ? (
               <div className="flex flex-wrap items-center gap-2">
-                <label className="inline-flex cursor-pointer items-center gap-3 rounded-sharp border border-border px-3 py-2 font-mono text-xs text-text-muted hover:bg-bg-elevated">
-                  <span>{versionId ? "Upload new version" : "Upload HTML or zip"}</span>
-                  <input
-                    type="file"
-                    accept=".html,.htm,.zip,text/html,application/zip"
-                    className="hidden"
-                    onChange={(ev) => {
-                      const f = ev.target.files?.[0];
-                      ev.target.value = "";
-                      if (f) upload.mutate(f);
-                    }}
-                  />
-                </label>
+                {!isDiagram ? (
+                  <label className="inline-flex cursor-pointer items-center gap-3 rounded-sharp border border-border px-3 py-2 font-mono text-xs text-text-muted hover:bg-bg-elevated">
+                    <span>{versionId ? "Upload new version" : "Upload HTML or zip"}</span>
+                    <input
+                      type="file"
+                      accept=".html,.htm,.zip,text/html,application/zip"
+                      className="hidden"
+                      onChange={(ev) => {
+                        const f = ev.target.files?.[0];
+                        ev.target.value = "";
+                        if (f) upload.mutate(f);
+                      }}
+                    />
+                  </label>
+                ) : null}
+                {isDiagram ? (
+                  <label className="inline-flex cursor-pointer items-center gap-3 rounded-sharp border border-border px-3 py-2 font-mono text-xs text-text-muted hover:bg-bg-elevated">
+                    <span>Import diagram source</span>
+                    <input
+                      type="file"
+                      accept=".json,.pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,.svg,.drawio,.vsdx,.vdx,.graphml,.dot,.mmd,.puml,.uml,.xml,.yaml,.yml,.csv,.txt,.md,.zip"
+                      className="hidden"
+                      onChange={(ev) => {
+                        const f = ev.target.files?.[0];
+                        ev.target.value = "";
+                        if (f) upload.mutate(f);
+                      }}
+                    />
+                  </label>
+                ) : null}
+                {isDiagram ? (
+                  <button
+                    type="button"
+                    className="rounded-sharp border border-primary bg-primary/15 px-3 py-2 font-mono text-xs text-primary hover:bg-primary/25 disabled:opacity-50"
+                    disabled={!diagramDirty || saveDiagram.isPending}
+                    onClick={() => void runSaveDiagram()}
+                  >
+                    {saveDiagram.isPending ? "Saving…" : diagramDirty ? "Save diagram" : "Saved"}
+                  </button>
+                ) : null}
+                {canPromptEdit && versionId ? (
+                  <button
+                    type="button"
+                    className="rounded-sharp border border-border px-3 py-2 font-mono text-xs text-text-muted hover:bg-bg-elevated disabled:opacity-50"
+                    disabled={codeLoadBusy || codeSaveBusy}
+                    onClick={openCodeEditor}
+                  >
+                    Edit code
+                  </button>
+                ) : null}
                 {canPromptEdit && versionId ? (
                   <button
                     type="button"
@@ -673,6 +923,22 @@ export default function PresentationPage() {
               presentationId={id}
             />
           </>
+        ) : null}
+
+        {canPromptEdit ? (
+          <DeckCodeEditorModal
+            open={codeEditOpen}
+            loading={codeLoadBusy}
+            saving={codeSaveBusy}
+            loadError={codeLoadError}
+            conflictError={codeConflictError}
+            dirty={codeDirty}
+            buffers={codeDraft}
+            onBuffersChange={setCodeDraft}
+            onRequestClose={closeCodeEditor}
+            onSave={() => void saveCodeEditor()}
+            onReload={() => void loadCodeEditor()}
+          />
         ) : null}
 
         {deckPromptOpen ? (

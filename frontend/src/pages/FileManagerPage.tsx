@@ -8,6 +8,7 @@ import { ShareModal } from "../components/ShareModal";
 import {
   apiPresentationCreate,
   apiPresentationDelete,
+  apiPresentationGenerateDiagramFromPrompt,
   apiPresentationGenerateFromPrompt,
   apiPresentationsList,
   apiVersionUpload,
@@ -48,6 +49,8 @@ export default function FileManagerPage() {
   const uploadInputId = useId();
   const [title, setTitle] = useState("");
   const [generatePrompt, setGeneratePrompt] = useState("");
+  const [diagramTitle, setDiagramTitle] = useState("");
+  const [diagramPrompt, setDiagramPrompt] = useState("");
   const [recentDecks, setRecentDecks] = useState(readRecentDecks);
   const [error, setError] = useState<string | null>(null);
   const [sharePresentationId, setSharePresentationId] = useState<string | null>(null);
@@ -85,6 +88,22 @@ export default function FileManagerPage() {
     onError: (err: Error) => setError(err.message),
   });
 
+  const createAndImportDiagram = useMutation({
+    mutationFn: async (file: File) => {
+      setError(null);
+      const docTitle = deckTitleFromUpload(diagramTitle, file);
+      const pres = await apiPresentationCreate(token, docTitle, "diagram");
+      await apiVersionUpload(token, pres.id, file);
+      return pres.id;
+    },
+    onSuccess: async (presentationId) => {
+      setDiagramTitle("");
+      await qc.invalidateQueries({ queryKey: ["presentations", token] });
+      navigate(`/p/${presentationId}`);
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+
   const generateFromPrompt = useMutation({
     mutationFn: async () => {
       setError(null);
@@ -111,6 +130,32 @@ export default function FileManagerPage() {
 
   const generateSubmitElapsed = useWallClockElapsed(generateFromPrompt.isPending);
 
+  const generateDiagramFromPrompt = useMutation({
+    mutationFn: async () => {
+      setError(null);
+      const trimmedTitle = diagramTitle.trim();
+      if (!trimmedTitle) {
+        throw new Error("Enter a title for the new diagram.");
+      }
+      const p = diagramPrompt.trim();
+      if (!p) {
+        throw new Error("Enter a prompt describing the diagram you want.");
+      }
+      return apiPresentationGenerateDiagramFromPrompt(token, {
+        title: normalizeDeckTitle(diagramTitle),
+        prompt: p,
+      });
+    },
+    onSuccess: async (data) => {
+      setDiagramPrompt("");
+      await qc.invalidateQueries({ queryKey: ["presentations", token] });
+      navigate(`/p/${data.presentation.id}?deckJob=${data.job.id}`);
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+
+  const generateDiagramElapsed = useWallClockElapsed(generateDiagramFromPrompt.isPending);
+
   const remove = useMutation({
     mutationFn: async (presentationId: string) => {
       setError(null);
@@ -127,17 +172,26 @@ export default function FileManagerPage() {
     <main className="mx-auto w-full max-w-[min(100%,64rem)] px-4 py-8 sm:px-6 sm:py-10">
       <h1 className="font-heading text-[clamp(1.25rem,1rem+1vw,1.5rem)] font-semibold">Files</h1>
 
-      {generateFromPrompt.isPending ? (
+      {generateFromPrompt.isPending || generateDiagramFromPrompt.isPending ? (
         <div className="mt-4 rounded-sharp border border-border bg-bg-elevated px-3 py-2 shadow-elevated">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <p className="font-mono text-xs text-text-muted">Starting AI deck generation…</p>
+            <p className="font-mono text-xs text-text-muted">
+              {generateDiagramFromPrompt.isPending
+                ? "Starting AI diagram generation…"
+                : "Starting AI deck generation…"}
+            </p>
             <p className="font-mono text-[11px] text-primary tabular-nums">
-              {formatDurationSeconds(generateSubmitElapsed)} on this step
+              {formatDurationSeconds(
+                generateDiagramFromPrompt.isPending
+                  ? generateDiagramElapsed
+                  : generateSubmitElapsed,
+              )}{" "}
+              on this step
             </p>
           </div>
           <p className="mt-1 font-mono text-[10px] text-text-muted">
-            Creating the deck and job on the server — you will jump to the deck when the API
-            responds; live job status appears on the next page.
+            Creating the presentation and job on the server — you will jump to the document when the
+            API responds; live job status appears on the next page.
           </p>
         </div>
       ) : null}
@@ -179,7 +233,11 @@ export default function FileManagerPage() {
           />
           <button
             type="button"
-            disabled={createAndUpload.isPending || generateFromPrompt.isPending}
+            disabled={
+              createAndUpload.isPending ||
+              generateFromPrompt.isPending ||
+              generateDiagramFromPrompt.isPending
+            }
             onClick={() => generateFromPrompt.mutate()}
             className="mt-4 rounded-sharp border border-primary bg-primary/15 px-4 py-2 font-mono text-sm font-medium text-primary ring-1 ring-primary/40 hover:bg-primary/25 disabled:opacity-50"
           >
@@ -197,7 +255,11 @@ export default function FileManagerPage() {
             id={uploadInputId}
             type="file"
             accept=".html,.htm,.zip,text/html,application/zip"
-            disabled={createAndUpload.isPending || generateFromPrompt.isPending}
+            disabled={
+              createAndUpload.isPending ||
+              generateFromPrompt.isPending ||
+              generateDiagramFromPrompt.isPending
+            }
             className="mt-2 block w-full max-w-md font-body text-sm text-text-main file:mr-3 file:rounded-sharp file:border file:border-border file:bg-bg-recessed file:px-3 file:py-2"
             onChange={(ev) => {
               const f = ev.target.files?.[0];
@@ -216,11 +278,78 @@ export default function FileManagerPage() {
         ) : null}
       </div>
 
+      <div className="mt-6 rounded-sharp border border-border bg-bg-elevated p-4 shadow-elevated sm:mt-8 sm:p-6">
+        <h2 className="font-mono text-sm uppercase tracking-wide text-text-muted">
+          New diagram (XYFlow)
+        </h2>
+        <div className="mt-4 flex flex-wrap items-end gap-3">
+          <label className="flex min-w-[240px] flex-1 flex-col gap-1 font-mono text-xs text-text-muted">
+            Title
+            <input
+              className="rounded-sharp border border-border bg-bg-recessed px-3 py-2 font-body text-sm text-text-main outline-none ring-primary focus:ring-1"
+              value={diagramTitle}
+              onChange={(ev) => setDiagramTitle(ev.target.value)}
+              placeholder="Payments system architecture"
+              maxLength={MAX_TITLE_LEN}
+            />
+          </label>
+        </div>
+        <div className="mt-4">
+          <label className="flex flex-col gap-1 font-mono text-xs text-text-muted">
+            Diagram prompt
+            <textarea
+              className="min-h-[100px] w-full resize-y rounded-sharp border border-border bg-bg-recessed px-3 py-2 font-body text-sm text-text-main outline-none ring-primary focus:ring-1"
+              value={diagramPrompt}
+              onChange={(ev) => setDiagramPrompt(ev.target.value)}
+              placeholder="Describe the diagram scope, entities, and flows..."
+              disabled={generateDiagramFromPrompt.isPending}
+              maxLength={16000}
+            />
+          </label>
+          <p className="mt-2 font-mono text-[11px] text-text-muted">Quick-start templates</p>
+          <DeckPromptTemplateChips
+            variant="new_diagram"
+            className="mt-2 flex flex-wrap gap-2"
+            disabled={generateDiagramFromPrompt.isPending}
+            onPick={(body) => setDiagramPrompt(body)}
+          />
+          <button
+            type="button"
+            disabled={generateDiagramFromPrompt.isPending}
+            onClick={() => generateDiagramFromPrompt.mutate()}
+            className="mt-4 rounded-sharp border border-primary bg-primary/15 px-4 py-2 font-mono text-sm font-medium text-primary ring-1 ring-primary/40 hover:bg-primary/25 disabled:opacity-50"
+          >
+            {generateDiagramFromPrompt.isPending ? "Starting generation…" : "Generate diagram"}
+          </button>
+          <div className="mt-4 border-t border-border pt-4">
+            <label className="font-mono text-xs uppercase tracking-wide text-text-muted">
+              Or import source file
+            </label>
+            <input
+              type="file"
+              accept=".json,.pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,.svg,.drawio,.vsdx,.vdx,.graphml,.dot,.mmd,.puml,.uml,.xml,.yaml,.yml,.csv,.txt,.md,.zip"
+              disabled={createAndImportDiagram.isPending || generateDiagramFromPrompt.isPending}
+              className="mt-2 block w-full max-w-md font-body text-sm text-text-main file:mr-3 file:rounded-sharp file:border file:border-border file:bg-bg-recessed file:px-3 file:py-2"
+              onChange={(ev) => {
+                const f = ev.target.files?.[0];
+                ev.target.value = "";
+                if (f) createAndImportDiagram.mutate(f);
+              }}
+            />
+            {createAndImportDiagram.isPending ? (
+              <p className="mt-2 font-mono text-sm text-text-muted">
+                Creating diagram and importing…
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
       <RecentDeckPreviews accessToken={token} entries={recentDecks} />
 
       <div className="mt-10">
         <h2 className="font-mono text-sm uppercase tracking-wide text-text-muted">
-          Your decks and shares
+          Your presentations and shares
         </h2>
         {q.isLoading ? (
           <p className="mt-4 font-mono text-sm text-text-muted">Loading…</p>
@@ -237,8 +366,8 @@ export default function FileManagerPage() {
                   <div>
                     <p className="font-heading text-base font-medium">{p.title}</p>
                     <p className="font-mono text-xs text-text-muted">
-                      Role: {p.current_user_role ?? "user"} ·{" "}
-                      {p.current_version_id ? "Has version" : "No upload yet"}
+                      {(p.kind ?? "deck").toUpperCase()} · Role: {p.current_user_role ?? "user"} ·{" "}
+                      {p.current_version_id ? "Has version" : "No content yet"}
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">

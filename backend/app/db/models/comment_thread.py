@@ -15,6 +15,12 @@ class ThreadStatus(enum.StrEnum):
     resolved = "resolved"
 
 
+class CommentTargetKind(enum.StrEnum):
+    slide = "slide"
+    node = "node"
+    edge = "edge"
+
+
 class CommentThread(Base):
     __tablename__ = "comment_threads"
 
@@ -34,6 +40,12 @@ class CommentThread(Base):
     slide_index: Mapped[int] = mapped_column(Integer(), nullable=False)
     anchor_x: Mapped[float] = mapped_column(Float(), nullable=False)
     anchor_y: Mapped[float] = mapped_column(Float(), nullable=False)
+    target_kind: Mapped[CommentTargetKind] = mapped_column(
+        Enum(CommentTargetKind, values_callable=lambda c: [e.value for e in c], native_enum=False),
+        nullable=False,
+        default=CommentTargetKind.slide,
+    )
+    target_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status: Mapped[ThreadStatus] = mapped_column(
         Enum(ThreadStatus, values_callable=lambda c: [e.value for e in c], native_enum=False),
         nullable=False,

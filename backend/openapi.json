@@ -1622,6 +1622,16 @@
             "title": "Is Generation",
             "type": "boolean"
           },
+          "job_type": {
+            "default": "deck_edit",
+            "enum": [
+              "deck_edit",
+              "deck_generate",
+              "diagram_generate"
+            ],
+            "title": "Job Type",
+            "type": "string"
+          },
           "llm_model": {
             "anyOf": [
               {
@@ -1733,6 +1743,64 @@
         ],
         "title": "DeckPromptJobStatus",
         "type": "string"
+      },
+      "DiagramDocumentRead": {
+        "properties": {
+          "document": {
+            "additionalProperties": true,
+            "title": "Document",
+            "type": "object"
+          },
+          "version_id": {
+            "format": "uuid",
+            "title": "Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version_id",
+          "document"
+        ],
+        "title": "DiagramDocumentRead",
+        "type": "object"
+      },
+      "DiagramDocumentWrite": {
+        "properties": {
+          "document": {
+            "additionalProperties": true,
+            "title": "Document",
+            "type": "object"
+          }
+        },
+        "required": [
+          "document"
+        ],
+        "title": "DiagramDocumentWrite",
+        "type": "object"
+      },
+      "DiagramThumbnailResponse": {
+        "properties": {
+          "jpg_src": {
+            "title": "Jpg Src",
+            "type": "string"
+          },
+          "png_src": {
+            "title": "Png Src",
+            "type": "string"
+          },
+          "version_id": {
+            "format": "uuid",
+            "title": "Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version_id",
+          "png_src",
+          "jpg_src"
+        ],
+        "title": "DiagramThumbnailResponse",
+        "type": "object"
       },
       "DirectoryUserListResponse": {
         "properties": {
@@ -2046,6 +2114,68 @@
         "title": "PresentationAccess",
         "type": "string"
       },
+      "PresentationCodeRead": {
+        "properties": {
+          "css": {
+            "title": "Css",
+            "type": "string"
+          },
+          "html": {
+            "title": "Html",
+            "type": "string"
+          },
+          "js": {
+            "title": "Js",
+            "type": "string"
+          },
+          "version_id": {
+            "format": "uuid",
+            "title": "Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version_id",
+          "html",
+          "css",
+          "js"
+        ],
+        "title": "PresentationCodeRead",
+        "type": "object"
+      },
+      "PresentationCodeUpdate": {
+        "properties": {
+          "base_version_id": {
+            "format": "uuid",
+            "title": "Base Version Id",
+            "type": "string"
+          },
+          "css": {
+            "default": "",
+            "maxLength": 500000,
+            "title": "Css",
+            "type": "string"
+          },
+          "html": {
+            "maxLength": 2000000,
+            "minLength": 1,
+            "title": "Html",
+            "type": "string"
+          },
+          "js": {
+            "default": "",
+            "maxLength": 500000,
+            "title": "Js",
+            "type": "string"
+          }
+        },
+        "required": [
+          "base_version_id",
+          "html"
+        ],
+        "title": "PresentationCodeUpdate",
+        "type": "object"
+      },
       "PresentationCreate": {
         "properties": {
           "description": {
@@ -2059,6 +2189,12 @@
               }
             ],
             "title": "Description"
+          },
+          "kind": {
+            "default": "deck",
+            "pattern": "^(deck|diagram)$",
+            "title": "Kind",
+            "type": "string"
           },
           "title": {
             "maxLength": 500,
@@ -2384,6 +2520,10 @@
             "title": "Id",
             "type": "string"
           },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
           "owner_id": {
             "format": "uuid",
             "title": "Owner Id",
@@ -2403,6 +2543,7 @@
           "id",
           "owner_id",
           "title",
+          "kind",
           "description",
           "current_version_id",
           "created_at",
@@ -2756,6 +2897,24 @@
             "title": "Slide Index",
             "type": "integer"
           },
+          "target_id": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Id"
+          },
+          "target_kind": {
+            "default": "slide",
+            "pattern": "^(slide|node|edge)$",
+            "title": "Target Kind",
+            "type": "string"
+          },
           "version_id": {
             "format": "uuid",
             "title": "Version Id",
@@ -2874,6 +3033,22 @@
           },
           "status": {
             "$ref": "#/components/schemas/ThreadStatus"
+          },
+          "target_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Id"
+          },
+          "target_kind": {
+            "default": "slide",
+            "title": "Target Kind",
+            "type": "string"
           },
           "version_id": {
             "format": "uuid",
@@ -4802,6 +4977,52 @@
         ]
       }
     },
+    "/api/v1/presentations/generate-diagram-from-prompt": {
+      "post": {
+        "operationId": "generate_diagram_from_prompt_api_v1_presentations_generate_diagram_from_prompt_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PresentationGenerateFromPromptCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresentationGenerateFromPromptResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Generate Diagram From Prompt",
+        "tags": [
+          "presentations"
+        ]
+      }
+    },
     "/api/v1/presentations/generate-from-prompt": {
       "post": {
         "operationId": "generate_presentation_from_prompt_api_v1_presentations_generate_from_prompt_post",
@@ -5046,6 +5267,177 @@
         "summary": "Create Deck Prompt Job",
         "tags": [
           "deck-prompt-jobs"
+        ]
+      }
+    },
+    "/api/v1/presentations/{presentation_id}/diagram": {
+      "get": {
+        "operationId": "get_diagram_document_api_v1_presentations__presentation_id__diagram_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "presentation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Presentation Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional version id",
+            "in": "query",
+            "name": "version_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional version id",
+              "title": "Version Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiagramDocumentRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Diagram Document",
+        "tags": [
+          "presentations"
+        ]
+      },
+      "put": {
+        "operationId": "save_diagram_document_api_v1_presentations__presentation_id__diagram_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "presentation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Presentation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiagramDocumentWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiagramDocumentRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Save Diagram Document",
+        "tags": [
+          "presentations"
+        ]
+      }
+    },
+    "/api/v1/presentations/{presentation_id}/diagram/thumbnail": {
+      "get": {
+        "operationId": "get_diagram_thumbnail_api_v1_presentations__presentation_id__diagram_thumbnail_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "presentation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Presentation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiagramThumbnailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Diagram Thumbnail",
+        "tags": [
+          "presentations"
         ]
       }
     },
@@ -5787,6 +6179,110 @@
           }
         ],
         "summary": "Upload Html Version",
+        "tags": [
+          "versions"
+        ]
+      }
+    },
+    "/api/v1/presentations/{presentation_id}/versions/current/code": {
+      "get": {
+        "operationId": "get_current_version_code_api_v1_presentations__presentation_id__versions_current_code_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "presentation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Presentation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresentationCodeRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Current Version Code",
+        "tags": [
+          "versions"
+        ]
+      },
+      "put": {
+        "operationId": "save_current_version_code_api_v1_presentations__presentation_id__versions_current_code_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "presentation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Presentation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PresentationCodeUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Save Current Version Code",
         "tags": [
           "versions"
         ]

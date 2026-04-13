@@ -18,6 +18,7 @@ export type AuthConfig = {
 };
 
 export type PresentationSummary = components["schemas"]["PresentationRead"];
+export type PresentationCodeDto = components["schemas"]["PresentationCodeRead"];
 export type ThreadDto = components["schemas"]["ThreadRead"];
 export type CommentDto = components["schemas"]["CommentRead"];
 export type ExportJobDto = components["schemas"]["ExportJobRead"];
@@ -214,12 +215,13 @@ export async function apiPresentationsList(accessToken: string) {
 export async function apiPresentationCreate(
   accessToken: string,
   title: string,
+  kind: "deck" | "diagram" = "deck",
   description?: string,
 ) {
   return jsonFetch<PresentationSummary>(`${API}/presentations`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
-    body: JSON.stringify({ title, description: description ?? null }),
+    body: JSON.stringify({ title, kind, description: description ?? null }),
   });
 }
 
@@ -229,6 +231,20 @@ export async function apiPresentationGenerateFromPrompt(
 ) {
   return jsonFetch<components["schemas"]["PresentationGenerateFromPromptResponse"]>(
     `${API}/presentations/generate-from-prompt`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export async function apiPresentationGenerateDiagramFromPrompt(
+  accessToken: string,
+  body: components["schemas"]["PresentationGenerateFromPromptCreate"],
+) {
+  return jsonFetch<components["schemas"]["PresentationGenerateFromPromptResponse"]>(
+    `${API}/presentations/generate-diagram-from-prompt`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
@@ -255,6 +271,68 @@ export async function apiPresentationEmbed(accessToken: string, presentationId: 
     `${API}/presentations/${presentationId}/embed`,
     {
       headers: { ...authHeaders(accessToken) },
+    },
+  );
+}
+
+export async function apiPresentationDiagramGet(
+  accessToken: string,
+  presentationId: string,
+  versionId?: string | null,
+) {
+  const qs = versionId ? `?version_id=${encodeURIComponent(versionId)}` : "";
+  return jsonFetch<components["schemas"]["DiagramDocumentRead"]>(
+    `${API}/presentations/${presentationId}/diagram${qs}`,
+    {
+      headers: { ...authHeaders(accessToken) },
+    },
+  );
+}
+
+export async function apiPresentationDiagramThumbnail(accessToken: string, presentationId: string) {
+  return jsonFetch<components["schemas"]["DiagramThumbnailResponse"]>(
+    `${API}/presentations/${presentationId}/diagram/thumbnail`,
+    {
+      headers: { ...authHeaders(accessToken) },
+    },
+  );
+}
+
+export async function apiPresentationDiagramSave(
+  accessToken: string,
+  presentationId: string,
+  document: Record<string, unknown>,
+) {
+  return jsonFetch<components["schemas"]["DiagramDocumentRead"]>(
+    `${API}/presentations/${presentationId}/diagram`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
+      body: JSON.stringify({ document }),
+    },
+  );
+}
+
+export async function apiPresentationCodeGet(accessToken: string, presentationId: string) {
+  return jsonFetch<PresentationCodeDto>(
+    `${API}/presentations/${presentationId}/versions/current/code`,
+    {
+      headers: { ...authHeaders(accessToken) },
+    },
+  );
+}
+
+export async function apiPresentationCodeSave(
+  accessToken: string,
+  presentationId: string,
+  body: components["schemas"]["PresentationCodeUpdate"],
+) {
+  return jsonFetch<components["schemas"]["VersionRead"]>(
+    `${API}/presentations/${presentationId}/versions/current/code`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
+      body: JSON.stringify(body),
     },
   );
 }
@@ -291,6 +369,8 @@ export async function apiThreadCreate(
     slide_index: number;
     anchor_x: number;
     anchor_y: number;
+    target_kind?: "slide" | "node" | "edge";
+    target_id?: string | null;
     first_comment: string;
   },
 ) {

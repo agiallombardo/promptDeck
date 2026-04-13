@@ -468,6 +468,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/presentations/generate-diagram-from-prompt": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Generate Diagram From Prompt */
+    post: operations["generate_diagram_from_prompt_api_v1_presentations_generate_diagram_from_prompt_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/presentations/generate-from-prompt": {
     parameters: {
       query?: never;
@@ -515,6 +532,41 @@ export interface paths {
     put?: never;
     /** Create Deck Prompt Job */
     post: operations["create_deck_prompt_job_api_v1_presentations__presentation_id__deck_prompt_jobs_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/presentations/{presentation_id}/diagram": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Diagram Document */
+    get: operations["get_diagram_document_api_v1_presentations__presentation_id__diagram_get"];
+    /** Save Diagram Document */
+    put: operations["save_diagram_document_api_v1_presentations__presentation_id__diagram_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/presentations/{presentation_id}/diagram/thumbnail": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Diagram Thumbnail */
+    get: operations["get_diagram_thumbnail_api_v1_presentations__presentation_id__diagram_thumbnail_get"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -656,6 +708,24 @@ export interface paths {
     put?: never;
     /** Upload Html Version */
     post: operations["upload_html_version_api_v1_presentations__presentation_id__versions_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/presentations/{presentation_id}/versions/current/code": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Current Version Code */
+    get: operations["get_current_version_code_api_v1_presentations__presentation_id__versions_current_code_get"];
+    /** Save Current Version Code */
+    put: operations["save_current_version_code_api_v1_presentations__presentation_id__versions_current_code_put"];
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -1368,6 +1438,12 @@ export interface components {
        * @default false
        */
       is_generation: boolean;
+      /**
+       * Job Type
+       * @default deck_edit
+       * @enum {string}
+       */
+      job_type: "deck_edit" | "deck_generate" | "diagram_generate";
       /** Llm Model */
       llm_model?: string | null;
       /**
@@ -1399,6 +1475,37 @@ export interface components {
      * @enum {string}
      */
     DeckPromptJobStatus: "queued" | "running" | "succeeded" | "failed";
+    /** DiagramDocumentRead */
+    DiagramDocumentRead: {
+      /** Document */
+      document: {
+        [key: string]: unknown;
+      };
+      /**
+       * Version Id
+       * Format: uuid
+       */
+      version_id: string;
+    };
+    /** DiagramDocumentWrite */
+    DiagramDocumentWrite: {
+      /** Document */
+      document: {
+        [key: string]: unknown;
+      };
+    };
+    /** DiagramThumbnailResponse */
+    DiagramThumbnailResponse: {
+      /** Jpg Src */
+      jpg_src: string;
+      /** Png Src */
+      png_src: string;
+      /**
+       * Version Id
+       * Format: uuid
+       */
+      version_id: string;
+    };
     /** DirectoryUserListResponse */
     DirectoryUserListResponse: {
       /** Items */
@@ -1528,10 +1635,49 @@ export interface components {
      * @enum {string}
      */
     PresentationAccess: "admin" | "owner" | "editor" | "commenter" | "user";
+    /** PresentationCodeRead */
+    PresentationCodeRead: {
+      /** Css */
+      css: string;
+      /** Html */
+      html: string;
+      /** Js */
+      js: string;
+      /**
+       * Version Id
+       * Format: uuid
+       */
+      version_id: string;
+    };
+    /** PresentationCodeUpdate */
+    PresentationCodeUpdate: {
+      /**
+       * Base Version Id
+       * Format: uuid
+       */
+      base_version_id: string;
+      /**
+       * Css
+       * @default
+       */
+      css: string;
+      /** Html */
+      html: string;
+      /**
+       * Js
+       * @default
+       */
+      js: string;
+    };
     /** PresentationCreate */
     PresentationCreate: {
       /** Description */
       description?: string | null;
+      /**
+       * Kind
+       * @default deck
+       */
+      kind: string;
       /** Title */
       title: string;
     };
@@ -1644,6 +1790,8 @@ export interface components {
        * Format: uuid
        */
       id: string;
+      /** Kind */
+      kind: string;
       /**
        * Owner Id
        * Format: uuid
@@ -1784,6 +1932,13 @@ export interface components {
       first_comment: string;
       /** Slide Index */
       slide_index: number;
+      /** Target Id */
+      target_id?: string | null;
+      /**
+       * Target Kind
+       * @default slide
+       */
+      target_kind: string;
       /**
        * Version Id
        * Format: uuid
@@ -1834,6 +1989,13 @@ export interface components {
       /** Slide Index */
       slide_index: number;
       status: components["schemas"]["ThreadStatus"];
+      /** Target Id */
+      target_id?: string | null;
+      /**
+       * Target Kind
+       * @default slide
+       */
+      target_kind: string;
       /**
        * Version Id
        * Format: uuid
@@ -2937,6 +3099,39 @@ export interface operations {
       };
     };
   };
+  generate_diagram_from_prompt_api_v1_presentations_generate_diagram_from_prompt_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PresentationGenerateFromPromptCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PresentationGenerateFromPromptResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   generate_presentation_from_prompt_api_v1_presentations_generate_from_prompt_post: {
     parameters: {
       query?: never;
@@ -3087,6 +3282,106 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["DeckPromptJobRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_diagram_document_api_v1_presentations__presentation_id__diagram_get: {
+    parameters: {
+      query?: {
+        /** @description Optional version id */
+        version_id?: string | null;
+      };
+      header?: never;
+      path: {
+        presentation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DiagramDocumentRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  save_diagram_document_api_v1_presentations__presentation_id__diagram_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        presentation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DiagramDocumentWrite"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DiagramDocumentRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_diagram_thumbnail_api_v1_presentations__presentation_id__diagram_thumbnail_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        presentation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DiagramThumbnailResponse"];
         };
       };
       /** @description Validation Error */
@@ -3509,6 +3804,72 @@ export interface operations {
     requestBody: {
       content: {
         "multipart/form-data": components["schemas"]["Body_upload_html_version_api_v1_presentations__presentation_id__versions_post"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VersionRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_current_version_code_api_v1_presentations__presentation_id__versions_current_code_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        presentation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PresentationCodeRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  save_current_version_code_api_v1_presentations__presentation_id__versions_current_code_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        presentation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PresentationCodeUpdate"];
       };
     };
     responses: {

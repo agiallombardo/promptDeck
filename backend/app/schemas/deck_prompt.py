@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from app.db.models.deck_prompt_job import DeckPromptJobStatus
 from pydantic import BaseModel, Field
@@ -15,6 +16,7 @@ class DeckPromptJobRead(BaseModel):
     id: uuid.UUID
     presentation_id: uuid.UUID
     source_version_id: uuid.UUID
+    job_type: Literal["deck_edit", "deck_generate", "diagram_generate"] = "deck_edit"
     is_generation: bool = False
     status: DeckPromptJobStatus
     status_message: str | None

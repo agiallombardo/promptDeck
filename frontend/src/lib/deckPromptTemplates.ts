@@ -71,3 +71,37 @@ export const DECK_PROMPT_TEMPLATES_EDIT_DECK: readonly DeckPromptTemplate[] = [
     body: "Improve color contrast for text on backgrounds, increase minimum font sizes where too small, and add concise alt text for key images.",
   },
 ];
+
+/** Suggestions for generating a brand-new XYFlow diagram from the file manager. */
+export const DIAGRAM_PROMPT_TEMPLATES_NEW_DIAGRAM: readonly DeckPromptTemplate[] = [
+  {
+    id: "diagram-architecture",
+    label: "Architecture",
+    body: "Create a software architecture diagram with clear layers (clients, edge/API, services, data stores, integrations), primary request/data paths, and concise labels.",
+  },
+  {
+    id: "diagram-business-process",
+    label: "Business process",
+    body: "Create a business process diagram from intake to completion with roles, decision points, handoffs, and exceptions. Keep the flow left-to-right and easy to scan.",
+  },
+  {
+    id: "diagram-automation",
+    label: "Automation flow",
+    body: "Create an automation workflow diagram showing trigger, validation, branching rules, actions, retries, notifications, and completion states.",
+  },
+  {
+    id: "diagram-data-flow",
+    label: "Data flow",
+    body: "Create a data flow diagram that traces source systems, ingestion, transformation, storage, serving layers, and consumers with directional edges.",
+  },
+  {
+    id: "diagram-org-chart",
+    label: "Org chart",
+    body: "Create an organizational chart showing leadership hierarchy, teams, and reporting lines with role labels.",
+  },
+  {
+    id: "diagram-erd",
+    label: "ERD / Database",
+    body: "Create a high-level database design diagram with key entities/tables, primary relationships, and a short label for each relationship.",
+  },
+];

@@ -16,6 +16,12 @@ class DeckPromptJobStatus(enum.StrEnum):
     failed = "failed"
 
 
+class DeckPromptJobType(enum.StrEnum):
+    deck_edit = "deck_edit"
+    deck_generate = "deck_generate"
+    diagram_generate = "diagram_generate"
+
+
 class DeckPromptJob(Base):
     __tablename__ = "deck_prompt_jobs"
 
@@ -33,6 +39,9 @@ class DeckPromptJob(Base):
         index=True,
     )
     prompt: Mapped[str] = mapped_column(Text(), nullable=False)
+    job_type: Mapped[DeckPromptJobType] = mapped_column(
+        String(32), nullable=False, default=DeckPromptJobType.deck_edit
+    )
     is_generation: Mapped[bool] = mapped_column(Boolean(), nullable=False, default=False)
     status: Mapped[DeckPromptJobStatus] = mapped_column(String(32), nullable=False)
     status_message: Mapped[str | None] = mapped_column(Text(), nullable=True)

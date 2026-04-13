@@ -1,6 +1,13 @@
 import { useQueries } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { apiPresentationEmbed, apiPresentationGet, iframeSrcForDev } from "../lib/api";
+import {
+  apiPresentationDiagramGet,
+  apiPresentationDiagramThumbnail,
+  apiPresentationEmbed,
+  apiPresentationGet,
+  iframeSrcForDev,
+} from "../lib/api";
+import { decodeDiagramDocument } from "../lib/diagram";
 import type { RecentDeckEntry } from "../lib/recentDecks";
 
 type Props = {
@@ -29,6 +36,42 @@ export function RecentDeckPreviews({ accessToken, entries }: Props) {
       queryFn: () => apiPresentationEmbed(accessToken, e.id),
       enabled:
         Boolean(accessToken) &&
+        presQueries[i]?.data?.kind === "deck" &&
+        Boolean(presQueries[i]?.data?.current_version_id) &&
+        presQueries[i]?.isSuccess === true,
+    })),
+  });
+
+  const diagramQueries = useQueries({
+    queries: entries.map((e, i) => ({
+      queryKey: [
+        "presentation-diagram",
+        e.id,
+        accessToken,
+        presQueries[i]?.data?.current_version_id ?? null,
+      ],
+      queryFn: () =>
+        apiPresentationDiagramGet(accessToken, e.id, presQueries[i]?.data?.current_version_id),
+      enabled:
+        Boolean(accessToken) &&
+        presQueries[i]?.data?.kind === "diagram" &&
+        Boolean(presQueries[i]?.data?.current_version_id) &&
+        presQueries[i]?.isSuccess === true,
+    })),
+  });
+
+  const diagramThumbQueries = useQueries({
+    queries: entries.map((e, i) => ({
+      queryKey: [
+        "presentation-diagram-thumb",
+        e.id,
+        accessToken,
+        presQueries[i]?.data?.current_version_id ?? null,
+      ],
+      queryFn: () => apiPresentationDiagramThumbnail(accessToken, e.id),
+      enabled:
+        Boolean(accessToken) &&
+        presQueries[i]?.data?.kind === "diagram" &&
         Boolean(presQueries[i]?.data?.current_version_id) &&
         presQueries[i]?.isSuccess === true,
     })),
@@ -47,10 +90,18 @@ export function RecentDeckPreviews({ accessToken, entries }: Props) {
           const embed = embedQueries[i];
           const title = pres?.data?.title ?? entry.title;
           const err = pres?.isError === true;
+          const isDiagram = pres?.data?.kind === "diagram";
           const iframeSrc =
             embed?.data?.iframe_src != null && embed.data.iframe_src !== ""
               ? iframeSrcForDev(embed.data.iframe_src)
               : "";
+          const diagram = diagramQueries[i]?.data?.document
+            ? decodeDiagramDocument(diagramQueries[i]?.data?.document)
+            : null;
+          const nodesCount = diagram?.nodes.length ?? 0;
+          const diagramThumbSrc = diagramThumbQueries[i]?.data?.png_src
+            ? iframeSrcForDev(diagramThumbQueries[i]!.data!.png_src)
+            : "";
 
           return (
             <Link
@@ -67,6 +118,25 @@ export function RecentDeckPreviews({ accessToken, entries }: Props) {
                   <div className="flex h-full items-center justify-center font-mono text-[10px] text-text-muted">
                     …
                   </div>
+                ) : isDiagram ? (
+                  diagramThumbSrc ? (
+                    <img
+                      title={`Preview: ${title}`}
+                      src={diagramThumbSrc}
+                      loading="lazy"
+                      alt={`Diagram preview: ${title}`}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full flex-col items-center justify-center gap-1 bg-[linear-gradient(160deg,#eef3ff,#f7f9fc)] px-2 text-center">
+                      <p className="font-mono text-[10px] uppercase tracking-wide text-primary/80">
+                        Diagram
+                      </p>
+                      <p className="font-mono text-[10px] text-text-muted">
+                        {nodesCount} node{nodesCount === 1 ? "" : "s"}
+                      </p>
+                    </div>
+                  )
                 ) : iframeSrc ? (
                   <iframe
                     title={`Preview: ${title}`}
