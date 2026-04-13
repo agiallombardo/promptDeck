@@ -174,6 +174,8 @@ def _dev_loopback_origin_match(expected_origin: str, actual_origin: str) -> bool
 def _assert_same_origin_for_cookie_auth(request: Request, settings: Settings) -> None:
     if settings.environment == "test":
         return
+    if not settings.enforce_auth_cookie_origin:
+        return
     expected = _normalized_origin(settings.public_app_url)
     if expected is None:
         return

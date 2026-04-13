@@ -1,15 +1,14 @@
 import { Drawer } from "vaul";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { DeckPromptJobActivity } from "../components/DeckPromptJobActivity";
-import { DeckCodeEditorModal, type DeckCodeBuffers } from "../components/DeckCodeEditorModal";
+import type { DeckCodeBuffers } from "../components/DeckCodeEditorModal";
 import { DeckPromptTemplateChips } from "../components/DeckPromptTemplateChips";
 import {
   PresentationCanvas,
   type PresentationCanvasPlaceholder,
 } from "../components/canvas/PresentationCanvas";
-import { DiagramCanvas } from "../components/diagram/DiagramCanvas";
 import { DiagramCanvasErrorBoundary } from "../components/diagram/DiagramCanvasErrorBoundary";
 import { FeedbackSidebar } from "../components/feedback/FeedbackSidebar";
 import { RequireDeckAccess } from "../components/RequireDeckAccess";
@@ -47,6 +46,14 @@ import { shouldIgnoreDeckHotkeys } from "../lib/hotkeys";
 import { postSetCommentMode, postSlideGoto } from "../lib/slidePostMessage";
 import { useAuthStore } from "../stores/auth";
 import { useToastStore } from "../stores/toasts";
+
+const DeckCodeEditorModal = lazy(() =>
+  import("../components/DeckCodeEditorModal").then((m) => ({ default: m.DeckCodeEditorModal })),
+);
+
+const DiagramCanvas = lazy(() =>
+  import("../components/diagram/DiagramCanvas").then((m) => ({ default: m.DiagramCanvas })),
+);
 
 export default function PresentationPage() {
   const { id } = useParams<{ id: string }>();
@@ -841,19 +848,27 @@ export default function PresentationPage() {
             {isDiagram ? (
               <div ref={presentRootRef}>
                 <DiagramCanvasErrorBoundary onError={setDiagramRenderError}>
-                  <DiagramCanvas
-                    document={diagramDoc}
-                    readOnly={!canManage}
-                    commentMode={commentsHidden ? false : commentMode}
-                    onPickTarget={commentsHidden ? undefined : onDiagramTargetPick}
-                    threads={threads.data?.items ?? []}
-                    onSelectThread={onThreadSelectFromCanvas}
-                    hideCommentMarkers={commentsHidden}
-                    onDocumentChange={(doc) => {
-                      setDiagramDoc(doc);
-                      setDiagramDirty(true);
-                    }}
-                  />
+                  <Suspense
+                    fallback={
+                      <div className="flex h-[min(82vh,72vw)] min-h-[320px] items-center justify-center rounded-sharp border border-border bg-bg-recessed font-mono text-xs text-text-muted">
+                        Loading diagram…
+                      </div>
+                    }
+                  >
+                    <DiagramCanvas
+                      document={diagramDoc}
+                      readOnly={!canManage}
+                      commentMode={commentsHidden ? false : commentMode}
+                      onPickTarget={commentsHidden ? undefined : onDiagramTargetPick}
+                      threads={threads.data?.items ?? []}
+                      onSelectThread={onThreadSelectFromCanvas}
+                      hideCommentMarkers={commentsHidden}
+                      onDocumentChange={(doc) => {
+                        setDiagramDoc(doc);
+                        setDiagramDirty(true);
+                      }}
+                    />
+                  </Suspense>
                 </DiagramCanvasErrorBoundary>
               </div>
             ) : (
@@ -1096,20 +1111,32 @@ export default function PresentationPage() {
           </>
         ) : null}
 
-        {canPromptEdit ? (
-          <DeckCodeEditorModal
-            open={codeEditOpen}
-            loading={codeLoadBusy}
-            saving={codeSaveBusy}
-            loadError={codeLoadError}
-            conflictError={codeConflictError}
-            dirty={codeDirty}
-            buffers={codeDraft}
-            onBuffersChange={setCodeDraft}
-            onRequestClose={closeCodeEditor}
-            onSave={() => void saveCodeEditor()}
-            onReload={() => void loadCodeEditor()}
-          />
+        {canPromptEdit && codeEditOpen ? (
+          <Suspense
+            fallback={
+              <div
+                className="fixed inset-0 z-[110] flex items-center justify-center bg-scrim p-4"
+                role="alert"
+                aria-busy="true"
+              >
+                <p className="font-mono text-sm text-text-muted">Loading code editor…</p>
+              </div>
+            }
+          >
+            <DeckCodeEditorModal
+              open
+              loading={codeLoadBusy}
+              saving={codeSaveBusy}
+              loadError={codeLoadError}
+              conflictError={codeConflictError}
+              dirty={codeDirty}
+              buffers={codeDraft}
+              onBuffersChange={setCodeDraft}
+              onRequestClose={closeCodeEditor}
+              onSave={() => void saveCodeEditor()}
+              onReload={() => void loadCodeEditor()}
+            />
+          </Suspense>
         ) : null}
 
         {deckPromptOpen ? (

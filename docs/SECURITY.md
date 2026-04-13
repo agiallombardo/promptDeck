@@ -1,7 +1,7 @@
 # Security notes (v1 direction)
 
 - Sandboxed iframe, strict CSP on asset routes, signed asset URLs (HMAC) — implemented in M2+.
-- Passwords: argon2id; JWT access + HttpOnly refresh — M1.
+- Passwords: argon2id; JWT access + HttpOnly refresh — M1. Login/refresh/logout compare `Origin`/`Referer` to `PUBLIC_APP_URL` unless **`ENFORCE_AUTH_COOKIE_ORIGIN=false`** (lab only; weakens CSRF protection for the refresh cookie).
 - Zip uploads: zip-slip guards and size caps — M4.
 - Share links: random bytes, store hash; exchange endpoint issues short-lived signed access JWTs.
 - Rate limits on auth and sensitive endpoints — M7 (slowapi: login, refresh, share exchange).

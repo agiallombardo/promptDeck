@@ -54,6 +54,13 @@ class Settings(BaseSettings):
             "Origin for absolute embed URLs (no trailing slash); defaults to Vite dev server"
         ),
     )
+    enforce_auth_cookie_origin: bool = Field(
+        default=True,
+        description=(
+            "If true, login/refresh/logout require Origin/Referer to match public_app_url "
+            "(CSRF mitigation for HttpOnly refresh cookies). Set false only in trusted lab setups."
+        ),
+    )
     public_api_url: str = Field(
         default="http://127.0.0.1:8005",
         description="Public API origin for OAuth callbacks (no trailing slash)",

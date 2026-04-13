@@ -211,6 +211,40 @@ async def test_login_rejects_cross_site_origin(
 
 
 @pytest.mark.asyncio
+async def test_refresh_allows_mismatched_origin_when_cookie_origin_check_disabled(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ENVIRONMENT", "development")
+    monkeypatch.setenv("PUBLIC_APP_URL", "http://app.local")
+    monkeypatch.setenv("ENFORCE_AUTH_COOKIE_ORIGIN", "false")
+    get_settings.cache_clear()
+
+    uid = uuid.uuid4()
+    async with session_factory()() as session:
+        session.add(
+            User(
+                id=uid,
+                email="csrf-off@example.com",
+                display_name="No origin check",
+                password_hash=hash_password("secret-pass-off"),
+                role=UserRole.user,
+            )
+        )
+        await session.commit()
+
+    login = await client.post(
+        "/api/v1/auth/login",
+        headers={"Origin": "http://app.local"},
+        json={"email": "csrf-off@example.com", "password": "secret-pass-off"},
+    )
+    assert login.status_code == 200
+
+    refresh = await client.post("/api/v1/auth/refresh", headers={"Origin": "http://evil.local"})
+    assert refresh.status_code == 200
+    assert refresh.json()["user"]["email"] == "csrf-off@example.com"
+
+
+@pytest.mark.asyncio
 async def test_refresh_rejects_reused_token_after_rotation(client: AsyncClient) -> None:
     uid = uuid.uuid4()
     async with session_factory()() as session:
