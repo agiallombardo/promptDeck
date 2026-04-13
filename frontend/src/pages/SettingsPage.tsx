@@ -118,11 +118,6 @@ export default function SettingsPage() {
       <h1 className="font-heading text-[clamp(1.5rem,1.2rem+1.4vw,1.875rem)] font-semibold">
         Settings
       </h1>
-      <p className="mt-2 text-sm text-text-muted">
-        Optional personal LLM credentials override the organization defaults for AI deck edits. Keys
-        are encrypted on the server and never shown again after you save.
-      </p>
-
       {settings.isLoading ? (
         <p className="mt-10 font-mono text-sm text-text-muted">Loading…</p>
       ) : settings.isError ? (

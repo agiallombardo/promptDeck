@@ -47,9 +47,9 @@ export default function FileManagerPage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const uploadInputId = useId();
+  const [createKind, setCreateKind] = useState<"deck" | "diagram">("deck");
   const [title, setTitle] = useState("");
-  const [generatePrompt, setGeneratePrompt] = useState("");
-  const [diagramTitle, setDiagramTitle] = useState("");
+  const [deckPrompt, setDeckPrompt] = useState("");
   const [diagramPrompt, setDiagramPrompt] = useState("");
   const [recentDecks, setRecentDecks] = useState(readRecentDecks);
   const [error, setError] = useState<string | null>(null);
@@ -91,13 +91,13 @@ export default function FileManagerPage() {
   const createAndImportDiagram = useMutation({
     mutationFn: async (file: File) => {
       setError(null);
-      const docTitle = deckTitleFromUpload(diagramTitle, file);
+      const docTitle = deckTitleFromUpload(title, file);
       const pres = await apiPresentationCreate(token, docTitle, "diagram");
       await apiVersionUpload(token, pres.id, file);
       return pres.id;
     },
     onSuccess: async (presentationId) => {
-      setDiagramTitle("");
+      setTitle("");
       await qc.invalidateQueries({ queryKey: ["presentations", token] });
       navigate(`/p/${presentationId}`);
     },
@@ -111,7 +111,7 @@ export default function FileManagerPage() {
       if (!trimmedTitle) {
         throw new Error("Enter a title for the new deck.");
       }
-      const p = generatePrompt.trim();
+      const p = deckPrompt.trim();
       if (!p) {
         throw new Error("Enter a prompt describing the deck you want.");
       }
@@ -121,7 +121,7 @@ export default function FileManagerPage() {
       });
     },
     onSuccess: async (data) => {
-      setGeneratePrompt("");
+      setDeckPrompt("");
       await qc.invalidateQueries({ queryKey: ["presentations", token] });
       navigate(`/p/${data.presentation.id}?deckJob=${data.job.id}`);
     },
@@ -133,7 +133,7 @@ export default function FileManagerPage() {
   const generateDiagramFromPrompt = useMutation({
     mutationFn: async () => {
       setError(null);
-      const trimmedTitle = diagramTitle.trim();
+      const trimmedTitle = title.trim();
       if (!trimmedTitle) {
         throw new Error("Enter a title for the new diagram.");
       }
@@ -142,7 +142,7 @@ export default function FileManagerPage() {
         throw new Error("Enter a prompt describing the diagram you want.");
       }
       return apiPresentationGenerateDiagramFromPrompt(token, {
-        title: normalizeDeckTitle(diagramTitle),
+        title: normalizeDeckTitle(title),
         prompt: p,
       });
     },
@@ -198,8 +198,33 @@ export default function FileManagerPage() {
 
       <div className="mt-6 rounded-sharp border border-border bg-bg-elevated p-4 shadow-elevated sm:mt-8 sm:p-6">
         <h2 className="font-mono text-sm uppercase tracking-wide text-text-muted">
-          New presentation
+          New presentation or diagram
         </h2>
+        <fieldset className="mt-4">
+          <legend className="sr-only">What to create</legend>
+          <div className="flex flex-wrap gap-4 font-mono text-xs text-text-main">
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="radio"
+                name="createKind"
+                checked={createKind === "deck"}
+                onChange={() => setCreateKind("deck")}
+                disabled={generateFromPrompt.isPending || generateDiagramFromPrompt.isPending}
+              />
+              Presentation
+            </label>
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="radio"
+                name="createKind"
+                checked={createKind === "diagram"}
+                onChange={() => setCreateKind("diagram")}
+                disabled={generateFromPrompt.isPending || generateDiagramFromPrompt.isPending}
+              />
+              Diagram
+            </label>
+          </div>
+        </fieldset>
         <div className="mt-4 flex flex-wrap items-end gap-3">
           <label className="flex min-w-[240px] flex-1 flex-col gap-1 font-mono text-xs text-text-muted">
             Title
@@ -207,56 +232,95 @@ export default function FileManagerPage() {
               className="rounded-sharp border border-border bg-bg-recessed px-3 py-2 font-body text-sm text-text-main outline-none ring-primary focus:ring-1"
               value={title}
               onChange={(ev) => setTitle(ev.target.value)}
-              placeholder="Q4 narrative"
+              placeholder={createKind === "deck" ? "Q4 narrative" : "Payments system architecture"}
               maxLength={MAX_TITLE_LEN}
             />
           </label>
         </div>
-        <div className="mt-6 border-t border-border pt-6">
-          <label className="flex flex-col gap-1 font-mono text-xs text-text-muted">
-            AI prompt
-            <textarea
-              className="min-h-[100px] w-full resize-y rounded-sharp border border-border bg-bg-recessed px-3 py-2 font-body text-sm text-text-main outline-none ring-primary focus:ring-1"
-              value={generatePrompt}
-              onChange={(ev) => setGeneratePrompt(ev.target.value)}
-              placeholder="Describe the deck you want — audience, sections, tone, slide count…"
+        {createKind === "deck" ? (
+          <div className="mt-6 border-t border-border pt-6">
+            <label className="flex flex-col gap-1 font-mono text-xs text-text-muted">
+              AI prompt
+              <textarea
+                className="min-h-[100px] w-full resize-y rounded-sharp border border-border bg-bg-recessed px-3 py-2 font-body text-sm text-text-main outline-none ring-primary focus:ring-1"
+                value={deckPrompt}
+                onChange={(ev) => setDeckPrompt(ev.target.value)}
+                placeholder="Describe the deck you want — audience, sections, tone, slide count…"
+                disabled={generateFromPrompt.isPending}
+                maxLength={16000}
+              />
+            </label>
+            <p className="mt-2 font-mono text-[11px] text-text-muted">Quick-start templates</p>
+            <DeckPromptTemplateChips
+              variant="new_deck"
+              className="mt-2 flex flex-wrap gap-2"
               disabled={generateFromPrompt.isPending}
-              maxLength={16000}
+              onPick={(body) => setDeckPrompt(body)}
             />
-          </label>
-          <p className="mt-2 font-mono text-[11px] text-text-muted">Quick-start templates</p>
-          <DeckPromptTemplateChips
-            variant="new_deck"
-            className="mt-2 flex flex-wrap gap-2"
-            disabled={generateFromPrompt.isPending}
-            onPick={(body) => setGeneratePrompt(body)}
-          />
-          <button
-            type="button"
-            disabled={
-              createAndUpload.isPending ||
-              generateFromPrompt.isPending ||
-              generateDiagramFromPrompt.isPending
-            }
-            onClick={() => generateFromPrompt.mutate()}
-            className="mt-4 rounded-sharp border border-primary bg-primary/15 px-4 py-2 font-mono text-sm font-medium text-primary ring-1 ring-primary/40 hover:bg-primary/25 disabled:opacity-50"
-          >
-            {generateFromPrompt.isPending ? "Starting generation…" : "Generate with AI"}
-          </button>
-        </div>
+          </div>
+        ) : (
+          <div className="mt-6 border-t border-border pt-6">
+            <label className="flex flex-col gap-1 font-mono text-xs text-text-muted">
+              Diagram prompt
+              <textarea
+                className="min-h-[100px] w-full resize-y rounded-sharp border border-border bg-bg-recessed px-3 py-2 font-body text-sm text-text-main outline-none ring-primary focus:ring-1"
+                value={diagramPrompt}
+                onChange={(ev) => setDiagramPrompt(ev.target.value)}
+                placeholder="Describe the diagram scope, entities, and flows..."
+                disabled={generateDiagramFromPrompt.isPending}
+                maxLength={16000}
+              />
+            </label>
+            <p className="mt-2 font-mono text-[11px] text-text-muted">Quick-start templates</p>
+            <DeckPromptTemplateChips
+              variant="new_diagram"
+              className="mt-2 flex flex-wrap gap-2"
+              disabled={generateDiagramFromPrompt.isPending}
+              onPick={(body) => setDiagramPrompt(body)}
+            />
+          </div>
+        )}
+        <button
+          type="button"
+          disabled={
+            createAndUpload.isPending ||
+            createAndImportDiagram.isPending ||
+            generateFromPrompt.isPending ||
+            generateDiagramFromPrompt.isPending
+          }
+          onClick={() =>
+            createKind === "deck" ? generateFromPrompt.mutate() : generateDiagramFromPrompt.mutate()
+          }
+          className="mt-4 rounded-sharp border border-primary bg-primary/15 px-4 py-2 font-mono text-sm font-medium text-primary ring-1 ring-primary/40 hover:bg-primary/25 disabled:opacity-50"
+        >
+          {createKind === "deck"
+            ? generateFromPrompt.isPending
+              ? "Starting generation…"
+              : "Generate with AI"
+            : generateDiagramFromPrompt.isPending
+              ? "Starting generation…"
+              : "Generate diagram"}
+        </button>
         <div className="mt-4 border-t border-border pt-4">
           <label
             htmlFor={uploadInputId}
             className="font-mono text-xs uppercase tracking-wide text-text-muted"
           >
-            Upload HTML or zip bundle
+            {createKind === "deck" ? "Upload HTML or zip bundle" : "Or import source file"}
           </label>
           <input
+            key={createKind}
             id={uploadInputId}
             type="file"
-            accept=".html,.htm,.zip,text/html,application/zip"
+            accept={
+              createKind === "deck"
+                ? ".html,.htm,.zip,text/html,application/zip"
+                : ".json,.pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,.svg,.drawio,.vsdx,.vdx,.graphml,.dot,.mmd,.puml,.uml,.xml,.yaml,.yml,.csv,.txt,.md,.zip"
+            }
             disabled={
-              createAndUpload.isPending ||
+              (createKind === "deck"
+                ? createAndUpload.isPending
+                : createAndImportDiagram.isPending) ||
               generateFromPrompt.isPending ||
               generateDiagramFromPrompt.isPending
             }
@@ -264,11 +328,21 @@ export default function FileManagerPage() {
             onChange={(ev) => {
               const f = ev.target.files?.[0];
               ev.target.value = "";
-              if (f) createAndUpload.mutate(f);
+              if (!f) return;
+              if (createKind === "deck") {
+                createAndUpload.mutate(f);
+              } else {
+                createAndImportDiagram.mutate(f);
+              }
             }}
           />
-          {createAndUpload.isPending ? (
+          {createKind === "deck" && createAndUpload.isPending ? (
             <p className="mt-2 font-mono text-sm text-text-muted">Creating deck and uploading…</p>
+          ) : null}
+          {createKind === "diagram" && createAndImportDiagram.isPending ? (
+            <p className="mt-2 font-mono text-sm text-text-muted">
+              Creating diagram and importing…
+            </p>
           ) : null}
         </div>
         {error ? (
@@ -276,73 +350,6 @@ export default function FileManagerPage() {
             {error}
           </p>
         ) : null}
-      </div>
-
-      <div className="mt-6 rounded-sharp border border-border bg-bg-elevated p-4 shadow-elevated sm:mt-8 sm:p-6">
-        <h2 className="font-mono text-sm uppercase tracking-wide text-text-muted">
-          New diagram (XYFlow)
-        </h2>
-        <div className="mt-4 flex flex-wrap items-end gap-3">
-          <label className="flex min-w-[240px] flex-1 flex-col gap-1 font-mono text-xs text-text-muted">
-            Title
-            <input
-              className="rounded-sharp border border-border bg-bg-recessed px-3 py-2 font-body text-sm text-text-main outline-none ring-primary focus:ring-1"
-              value={diagramTitle}
-              onChange={(ev) => setDiagramTitle(ev.target.value)}
-              placeholder="Payments system architecture"
-              maxLength={MAX_TITLE_LEN}
-            />
-          </label>
-        </div>
-        <div className="mt-4">
-          <label className="flex flex-col gap-1 font-mono text-xs text-text-muted">
-            Diagram prompt
-            <textarea
-              className="min-h-[100px] w-full resize-y rounded-sharp border border-border bg-bg-recessed px-3 py-2 font-body text-sm text-text-main outline-none ring-primary focus:ring-1"
-              value={diagramPrompt}
-              onChange={(ev) => setDiagramPrompt(ev.target.value)}
-              placeholder="Describe the diagram scope, entities, and flows..."
-              disabled={generateDiagramFromPrompt.isPending}
-              maxLength={16000}
-            />
-          </label>
-          <p className="mt-2 font-mono text-[11px] text-text-muted">Quick-start templates</p>
-          <DeckPromptTemplateChips
-            variant="new_diagram"
-            className="mt-2 flex flex-wrap gap-2"
-            disabled={generateDiagramFromPrompt.isPending}
-            onPick={(body) => setDiagramPrompt(body)}
-          />
-          <button
-            type="button"
-            disabled={generateDiagramFromPrompt.isPending}
-            onClick={() => generateDiagramFromPrompt.mutate()}
-            className="mt-4 rounded-sharp border border-primary bg-primary/15 px-4 py-2 font-mono text-sm font-medium text-primary ring-1 ring-primary/40 hover:bg-primary/25 disabled:opacity-50"
-          >
-            {generateDiagramFromPrompt.isPending ? "Starting generation…" : "Generate diagram"}
-          </button>
-          <div className="mt-4 border-t border-border pt-4">
-            <label className="font-mono text-xs uppercase tracking-wide text-text-muted">
-              Or import source file
-            </label>
-            <input
-              type="file"
-              accept=".json,.pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,.svg,.drawio,.vsdx,.vdx,.graphml,.dot,.mmd,.puml,.uml,.xml,.yaml,.yml,.csv,.txt,.md,.zip"
-              disabled={createAndImportDiagram.isPending || generateDiagramFromPrompt.isPending}
-              className="mt-2 block w-full max-w-md font-body text-sm text-text-main file:mr-3 file:rounded-sharp file:border file:border-border file:bg-bg-recessed file:px-3 file:py-2"
-              onChange={(ev) => {
-                const f = ev.target.files?.[0];
-                ev.target.value = "";
-                if (f) createAndImportDiagram.mutate(f);
-              }}
-            />
-            {createAndImportDiagram.isPending ? (
-              <p className="mt-2 font-mono text-sm text-text-muted">
-                Creating diagram and importing…
-              </p>
-            ) : null}
-          </div>
-        </div>
       </div>
 
       <RecentDeckPreviews accessToken={token} entries={recentDecks} />
@@ -392,7 +399,7 @@ export default function FileManagerPage() {
                         disabled={remove.isPending}
                         className="rounded-sharp border border-border px-3 py-1.5 font-mono text-sm text-accent-warning hover:bg-accent-warning/10 disabled:opacity-50"
                         onClick={() => {
-                          if (!window.confirm(`Delete deck “${p.title}”? This cannot be undone.`)) {
+                          if (!window.confirm(`Delete “${p.title}”? This cannot be undone.`)) {
                             return;
                           }
                           remove.mutate(p.id);

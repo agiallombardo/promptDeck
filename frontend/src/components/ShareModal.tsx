@@ -166,10 +166,6 @@ export function ShareModal({ open, onClose, accessToken, presentationId }: Props
             <h2 id="share-modal-title" className="font-heading text-lg font-semibold">
               Share deck
             </h2>
-            <p className="mt-1 text-sm text-text-muted">
-              Invited editors and viewers are listed below; the owner always has access. Search your
-              directory to add someone new.
-            </p>
           </div>
           <button
             type="button"
@@ -239,10 +235,6 @@ export function ShareModal({ open, onClose, accessToken, presentationId }: Props
 
         <div className="mt-6 border-t border-border pt-6">
           <h3 className="font-mono text-xs uppercase tracking-wide text-text-muted">Share links</h3>
-          <p className="mt-1 text-sm text-text-muted">
-            Create link-based access for external reviewers. Link tokens are revocable and never
-            stored in plaintext.
-          </p>
           <div className="mt-4 grid gap-3 md:grid-cols-4">
             <label className="grid gap-1 font-mono text-xs uppercase tracking-wide text-text-muted">
               Role
@@ -357,10 +349,6 @@ export function ShareModal({ open, onClose, accessToken, presentationId }: Props
 
         <div className="mt-6 border-t border-border pt-6">
           <h3 className="font-mono text-xs uppercase tracking-wide text-text-muted">Invite</h3>
-          <p className="mt-1 text-sm text-text-muted">
-            Search by name or email (at least two characters). Search runs after you pause typing.
-            Pick someone, choose Viewer or Editor, then add them.
-          </p>
           {!directorySearchAvailable ? (
             <p className="mt-3 rounded-sharp border border-accent-warning/40 bg-accent-warning/10 px-3 py-2 text-sm text-accent-warning">
               Directory search needs a Microsoft Entra sign-in (local accounts cannot call the

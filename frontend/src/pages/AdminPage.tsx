@@ -327,16 +327,6 @@ export default function AdminPage() {
         )
       ) : tab === "logs" ? (
         <div className="mt-6 space-y-4">
-          <p className="text-sm text-text-muted">
-            Persisted <span className="font-mono text-text-main">app_logs</span> across channels:{" "}
-            <span className="font-mono text-text-main">http</span> (requests),{" "}
-            <span className="font-mono text-text-main">auth</span>,{" "}
-            <span className="font-mono text-text-main">audit</span> (admin and security-adjacent
-            events), and <span className="font-mono text-text-main">script</span> (jobs/smoke).
-            Leave channel on <span className="font-mono text-text-main">All</span> for everything.
-            Filter by event substring (e.g. <span className="font-mono">login</span>,{" "}
-            <span className="font-mono">upload</span>).
-          </p>
           <div className="flex flex-wrap gap-3 font-mono text-xs text-text-muted">
             <label className="flex items-center gap-2">
               Channel
@@ -780,12 +770,6 @@ function AdminEntraPanel({
 
   return (
     <div className="mt-8 max-w-xl space-y-6">
-      <p className="text-sm text-text-muted">
-        Values here are stored in the database and merged with environment variables (env wins when
-        set). Use the redirect URI below when registering the app in Microsoft Entra. See also{" "}
-        <span className="font-mono text-text-main">scripts/azure-entra-app-registration.sh</span>.
-      </p>
-
       <div className="rounded-sharp border border-border bg-bg-elevated p-4 shadow-elevated space-y-4">
         <label className="flex cursor-pointer items-center gap-2 font-mono text-xs text-text-main">
           <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
@@ -931,23 +915,6 @@ function AdminSmtpPanel({
 
   return (
     <div className="mt-8 max-w-xl space-y-6">
-      <p className="text-sm text-text-muted">
-        Passwords are never shown again after save: they are encrypted at rest (same Fernet key as
-        Entra token secrets). TLS is required whenever SMTP is enabled—plain SMTP is blocked.
-        Typical{" "}
-        <a
-          className="text-primary underline-offset-2 hover:underline"
-          href="https://learn.microsoft.com/en-us/exchange/mail-flow-best-practices/how-to-set-up-a-multifunction-device-or-application-to-send-email-using-microsoft-365-or-office-365"
-          rel="noreferrer"
-          target="_blank"
-        >
-          Microsoft 365 SMTP client submission
-        </a>
-        : host <span className="font-mono text-text-main">smtp.office365.com</span>, port{" "}
-        <span className="font-mono text-text-main">587</span>, enable STARTTLS, disable implicit
-        TLS, authenticate with a licensed mailbox (username is usually the full email address).
-      </p>
-
       <div className="rounded-sharp border border-border bg-bg-elevated p-4 shadow-elevated space-y-4">
         <label className="flex cursor-pointer items-center gap-2 font-mono text-xs text-text-main">
           <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
@@ -1244,19 +1211,6 @@ function AdminLlmPanel({
 
   return (
     <div className="mt-8 max-w-xl space-y-6">
-      <p className="text-sm text-text-muted">
-        Choose how deck AI edits call the model:{" "}
-        <span className="font-mono text-text-main">OpenAI</span> and{" "}
-        <span className="font-mono text-text-main">Claude</span> use the official Python SDKs.{" "}
-        <span className="font-mono text-text-main">LiteLLM</span> uses an OpenAI-compatible HTTP
-        endpoint (your proxy or gateway). Environment variables still apply as fallbacks; database
-        values override where noted. Keys are encrypted and never returned. Model ids default per
-        provider (see <span className="font-mono text-text-main">DECK_LLM_MODEL_OPENAI</span>,{" "}
-        <span className="font-mono text-text-main">DECK_LLM_MODEL_ANTHROPIC</span>,{" "}
-        <span className="font-mono text-text-main">DECK_LLM_MODEL_LITELLM</span>, or a single{" "}
-        <span className="font-mono text-text-main">DECK_LLM_MODEL</span> for all).
-      </p>
-
       <div className="rounded-sharp border border-border bg-bg-elevated p-4 shadow-elevated space-y-4">
         <p className="font-mono text-[10px] uppercase tracking-wide text-text-muted">Summary</p>
         <p className="font-mono text-xs text-text-main">

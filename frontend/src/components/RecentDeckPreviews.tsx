@@ -1,6 +1,8 @@
 import { useQueries } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import {
+  ApiError,
   apiPresentationDiagramGet,
   apiPresentationDiagramThumbnail,
   apiPresentationEmbed,
@@ -8,7 +10,7 @@ import {
   iframeSrcForDev,
 } from "../lib/api";
 import { decodeDiagramDocument } from "../lib/diagram";
-import type { RecentDeckEntry } from "../lib/recentDecks";
+import { removeRecentDeck, type RecentDeckEntry } from "../lib/recentDecks";
 
 type Props = {
   accessToken: string;
@@ -39,6 +41,7 @@ export function RecentDeckPreviews({ accessToken, entries }: Props) {
         presQueries[i]?.data?.kind === "deck" &&
         Boolean(presQueries[i]?.data?.current_version_id) &&
         presQueries[i]?.isSuccess === true,
+      retry: false,
     })),
   });
 
@@ -57,6 +60,7 @@ export function RecentDeckPreviews({ accessToken, entries }: Props) {
         presQueries[i]?.data?.kind === "diagram" &&
         Boolean(presQueries[i]?.data?.current_version_id) &&
         presQueries[i]?.isSuccess === true,
+      retry: false,
     })),
   });
 
@@ -74,8 +78,60 @@ export function RecentDeckPreviews({ accessToken, entries }: Props) {
         presQueries[i]?.data?.kind === "diagram" &&
         Boolean(presQueries[i]?.data?.current_version_id) &&
         presQueries[i]?.isSuccess === true,
+      retry: false,
     })),
   });
+
+  const entryIds = entries.map((e) => e.id).join("\0");
+  const presErrStatuses = presQueries
+    .map((q) => (q.error instanceof ApiError ? q.error.status : 0))
+    .join(",");
+  const embedErrStatuses = embedQueries
+    .map((q) => (q.error instanceof ApiError ? q.error.status : 0))
+    .join(",");
+  const diagramErrStatuses = diagramQueries
+    .map((q) => (q.error instanceof ApiError ? q.error.status : 0))
+    .join(",");
+  const diagramThumbErrStatuses = diagramThumbQueries
+    .map((q) => (q.error instanceof ApiError ? q.error.status : 0))
+    .join(",");
+
+  const removed404 = useRef(new Set<string>());
+  useEffect(() => {
+    removed404.current.clear();
+  }, [entryIds]);
+
+  useEffect(() => {
+    const ids = entryIds.split("\0").filter(Boolean);
+    if (!ids.length) return;
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i]!;
+      if (removed404.current.has(id)) continue;
+      const checks = [
+        presQueries[i]?.error,
+        embedQueries[i]?.error,
+        diagramQueries[i]?.error,
+        diagramThumbQueries[i]?.error,
+      ];
+      for (const err of checks) {
+        if (err instanceof ApiError && err.status === 404) {
+          removed404.current.add(id);
+          removeRecentDeck(id);
+          break;
+        }
+      }
+    }
+  }, [
+    entryIds,
+    presErrStatuses,
+    embedErrStatuses,
+    diagramErrStatuses,
+    diagramThumbErrStatuses,
+    presQueries,
+    embedQueries,
+    diagramQueries,
+    diagramThumbQueries,
+  ]);
 
   if (!entries.length) {
     return null;

@@ -107,13 +107,15 @@ async function jsonFetch<T>(
 export function iframeSrcForDev(iframeSrc: string): string {
   if (!import.meta.env.DEV) return iframeSrc;
   try {
-    const base =
+    const pageOrigin =
       typeof window !== "undefined" && window.location?.origin
         ? window.location.origin
         : "http://127.0.0.1:5174";
-    const u = new URL(iframeSrc, base);
+    const u = new URL(iframeSrc, pageOrigin);
     if (u.pathname.startsWith("/a/")) {
-      return `${u.pathname}${u.search}`;
+      // Use the dev server origin (Vite proxies `/a`). Normalize host/port so
+      // `localhost` vs `127.0.0.1` or API `:8005` vs Vite `:5174` cannot break iframe loading.
+      return `${pageOrigin}${u.pathname}${u.search}`;
     }
   } catch {
     /* ignore */
