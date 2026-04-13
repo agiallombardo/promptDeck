@@ -1,4 +1,5 @@
 import type { components } from "./api/schema";
+import { handleApiUnauthorized } from "./sessionInvalidation";
 import { pushToastFromApiError } from "../stores/toasts";
 
 const API = "/api/v1";
@@ -95,6 +96,9 @@ async function jsonFetch<T>(
     const body = await r.json().catch(() => ({}));
     const detail = (body as { detail?: string }).detail;
     const err = new ApiError({ status: r.status, detail, requestId });
+    if (r.status === 401) {
+      handleApiUnauthorized(path);
+    }
     if (!opts?.skipErrorToast) {
       pushToastFromApiError(err);
     }
@@ -644,7 +648,11 @@ export async function apiExportDownloadFile(accessToken: string, jobId: string):
   if (!r.ok) {
     const body = await r.json().catch(() => ({}));
     const detail = (body as { detail?: string }).detail;
-    throw new ApiError({ status: r.status, detail, requestId });
+    const err = new ApiError({ status: r.status, detail, requestId });
+    if (r.status === 401) {
+      handleApiUnauthorized(`${API}/exports/${jobId}/file`);
+    }
+    throw err;
   }
   return r.blob();
 }
