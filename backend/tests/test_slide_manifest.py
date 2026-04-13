@@ -32,4 +32,3 @@ def test_manifest_uses_counter_fallback_when_no_slide_nodes() -> None:
     manifest = build_slide_manifest(html)
     assert len(manifest) == 6
     assert manifest[0]["selector"] == "virtual-counter"
-

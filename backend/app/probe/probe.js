@@ -78,9 +78,10 @@
     return { slides: [{ index: 0, el: body, title: "" }], current: 0 };
   }
 
-  const deckState = findDeckState();
-  const slides = deckState.slides;
-  const titles = slides.map((s) => s.title || "");
+  let deckState = findDeckState();
+  let slides = deckState.slides;
+  let titles = slides.map((s) => s.title || "");
+  let lastManifestSig = "";
 
   function showOnly(active) {
     const uniqueEls = new Set(slides.map((s) => s.el));
@@ -90,8 +91,35 @@
     });
   }
 
+  function postManifestIfChanged() {
+    titles = slides.map((s) => s.title || "");
+    const sig = `${slides.length}|${titles.join("\u241f")}`;
+    if (sig === lastManifestSig) return;
+    lastManifestSig = sig;
+    post({
+      type: "manifest",
+      count: slides.length,
+      titles,
+    });
+  }
+
   let commentMode = false;
   let current = Math.max(0, Math.min(deckState.current, slides.length - 1));
+
+  function recomputeDeckState() {
+    const next = findDeckState();
+    slides = next.slides;
+    if (slides.length <= 1) {
+      current = 0;
+    } else if (next.current >= 0 && next.current < slides.length) {
+      // Keep in sync with decks that expose an in-slide counter (e.g. "2 / 6").
+      current = next.current;
+    } else {
+      current = Math.max(0, Math.min(current, slides.length - 1));
+    }
+    showOnly(current);
+    postManifestIfChanged();
+  }
 
   window.addEventListener("message", (ev) => {
     const d = ev.data;
@@ -123,11 +151,39 @@
     true,
   );
 
-  post({
-    type: "manifest",
-    count: slides.length,
-    titles,
-  });
+  let rescanTimer = null;
+  function scheduleRescan() {
+    if (rescanTimer != null) window.clearTimeout(rescanTimer);
+    rescanTimer = window.setTimeout(() => {
+      rescanTimer = null;
+      recomputeDeckState();
+    }, 120);
+  }
 
-  showOnly(0);
+  if (typeof MutationObserver !== "undefined") {
+    const observer = new MutationObserver(() => scheduleRescan());
+    const root = document.body || document.documentElement;
+    if (root) {
+      observer.observe(root, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        characterData: true,
+      });
+    }
+  }
+
+  window.addEventListener("load", () => scheduleRescan(), { once: true });
+
+  // Some decks render slide chrome asynchronously after script load.
+  let rescansLeft = 12;
+  const interval = window.setInterval(() => {
+    rescansLeft -= 1;
+    recomputeDeckState();
+    if (rescansLeft <= 0) {
+      window.clearInterval(interval);
+    }
+  }, 500);
+
+  recomputeDeckState();
 })();
