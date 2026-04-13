@@ -41,6 +41,7 @@ import {
   decodeDiagramDocumentSafe,
   type DiagramDocument,
 } from "../lib/diagram";
+import { shouldShowFeedbackUi, visibleCommentThreads } from "../lib/commentThreads";
 import { recordRecentDeck } from "../lib/recentDecks";
 import { shouldIgnoreDeckHotkeys } from "../lib/hotkeys";
 import { postSetCommentMode, postSlideGoto } from "../lib/slidePostMessage";
@@ -216,6 +217,18 @@ export default function PresentationPage() {
     resolveThread,
     deleteComment,
   } = useComments(id ?? "", accessToken ?? "", versionId);
+  const commentThreads = useMemo(
+    () => visibleCommentThreads(threads.data?.items ?? []),
+    [threads.data?.items],
+  );
+  const hasVisibleComments = commentThreads.length > 0;
+  const showFeedbackUi = shouldShowFeedbackUi({
+    commentsHidden,
+    hasVisibleComments,
+    commentMode,
+    hasPendingPin: Boolean(pendingPin),
+    draftNewThread,
+  });
 
   const threadsError =
     threads.error instanceof ApiError
@@ -227,25 +240,7 @@ export default function PresentationPage() {
           ? String(threads.error)
           : null;
 
-  const threadItems = threads.data?.items ?? [];
   const threadsLoading = Boolean(versionId ? threads.isLoading : pres.isPending || pres.isLoading);
-  const showFeedbackChrome = useMemo(
-    () =>
-      Boolean(threadsError) ||
-      threadItems.length > 0 ||
-      Boolean(pendingPin) ||
-      (canComment && (threadsLoading || Boolean(versionId))),
-    [canComment, threadsLoading, threadsError, threadItems.length, pendingPin, versionId],
-  );
-
-  useEffect(() => {
-    if (showFeedbackChrome) return;
-    setCommentMode(false);
-    setPendingPin(null);
-    setDraftNewThread("");
-    setMobileFeedbackOpen(false);
-    setCommentsHidden(false);
-  }, [showFeedbackChrome, setCommentMode, setPendingPin, setDraftNewThread]);
 
   const onManifest = useCallback(
     (count: number, _titles: string[]) => {
@@ -253,13 +248,10 @@ export default function PresentationPage() {
       setSlideCount(Math.max(1, count));
       setSlideIndex(0);
       queueMicrotask(() =>
-        postSetCommentMode(
-          iframeRef.current,
-          !showFeedbackChrome || commentsHidden ? false : commentMode,
-        ),
+        postSetCommentMode(iframeRef.current, commentsHidden ? false : commentMode),
       );
     },
-    [commentMode, commentsHidden, showFeedbackChrome],
+    [commentMode, commentsHidden],
   );
 
   const onSlideClick = useCallback(
@@ -311,11 +303,8 @@ export default function PresentationPage() {
   }, [diagram.error, diagram.isError, isDiagram]);
 
   useEffect(() => {
-    postSetCommentMode(
-      iframeRef.current,
-      !showFeedbackChrome || commentsHidden ? false : commentMode,
-    );
-  }, [commentMode, iframeSrc, commentsHidden, showFeedbackChrome]);
+    postSetCommentMode(iframeRef.current, commentsHidden ? false : commentMode);
+  }, [commentMode, iframeSrc, commentsHidden]);
 
   useEffect(() => {
     function onFullscreenChange() {
@@ -718,7 +707,7 @@ export default function PresentationPage() {
 
   const onThreadSelectFromCanvas = useCallback(
     (threadId: string) => {
-      if (commentsHidden || !showFeedbackChrome) return;
+      if (commentsHidden || !showFeedbackUi) return;
       const narrow =
         typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
       if (narrow) {
@@ -728,7 +717,7 @@ export default function PresentationPage() {
         scrollThreadIntoView(threadId);
       }
     },
-    [commentsHidden, showFeedbackChrome, scrollThreadIntoView],
+    [commentsHidden, showFeedbackUi, scrollThreadIntoView],
   );
 
   const handleToggleCommentsHidden = useCallback(() => {
@@ -746,8 +735,19 @@ export default function PresentationPage() {
     });
   }, [setCommentMode, setDraftNewThread, setPendingPin]);
 
+  const handleStartFirstComment = useCallback(() => {
+    if (commentsHidden) {
+      setCommentsHidden(false);
+    }
+    setCommentMode(true);
+    const narrow = typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
+    if (narrow) {
+      setMobileFeedbackOpen(true);
+    }
+  }, [commentsHidden, setCommentMode]);
+
   const feedbackSidebarProps = {
-    threads: threadItems,
+    threads: commentThreads,
     // Avoid treating "no version yet" as thread loading — query is disabled; show empty state.
     isLoading: threadsLoading,
     isRefreshing: threads.isFetching && !threads.isLoading,
@@ -850,9 +850,11 @@ export default function PresentationPage() {
           canNavigate={!isDiagram && Boolean(embed.data?.slide_count)}
           onPrev={() => go(slideIndex - 1)}
           onNext={() => go(slideIndex + 1)}
-          showCommentsVisibilityToggle={Boolean(versionId && showFeedbackChrome)}
+          showCommentsVisibilityToggle={Boolean(versionId && hasVisibleComments)}
           commentsHidden={commentsHidden}
           onToggleCommentsHidden={handleToggleCommentsHidden}
+          showCommentAction={Boolean(versionId && canComment && !hasVisibleComments)}
+          onStartComment={handleStartFirstComment}
         />
 
         {deckJobFollowSnapshot || (deckJobFromUrl && canPromptJob) ? (
@@ -870,7 +872,7 @@ export default function PresentationPage() {
         ) : null}
 
         <div
-          className={`mx-auto grid w-full max-w-[min(100%,96rem)] gap-4 px-3 py-3 sm:gap-6 sm:px-4 sm:py-4 ${!showFeedbackChrome || commentsHidden ? "" : "md:grid-cols-[minmax(0,1fr)_min(300px,32vw)]"}`}
+          className={`mx-auto grid w-full max-w-[min(100%,96rem)] gap-4 px-3 py-3 sm:gap-6 sm:px-4 sm:py-4 ${showFeedbackUi ? "md:grid-cols-[minmax(0,1fr)_min(300px,32vw)]" : ""}`}
         >
           <section className="space-y-4">
             {isDiagram ? (
@@ -888,9 +890,9 @@ export default function PresentationPage() {
                       readOnly={!canManage}
                       commentMode={commentsHidden ? false : commentMode}
                       onPickTarget={commentsHidden ? undefined : onDiagramTargetPick}
-                      threads={threads.data?.items ?? []}
+                      threads={commentThreads}
                       onSelectThread={onThreadSelectFromCanvas}
-                      hideCommentMarkers={commentsHidden || !showFeedbackChrome}
+                      hideCommentMarkers={commentsHidden}
                       onDocumentChange={(doc) => {
                         setDiagramDoc(doc);
                         setDiagramDirty(true);
@@ -909,7 +911,7 @@ export default function PresentationPage() {
                 slideIndex={slideIndex}
                 commentMode={commentsHidden ? false : commentMode}
                 canComment={canComment}
-                threads={threads.data?.items ?? []}
+                threads={commentThreads}
                 onManifest={onManifest}
                 onSelectThread={onThreadSelectFromCanvas}
                 onSlideClick={commentsHidden ? undefined : onSlideClick}
@@ -918,9 +920,9 @@ export default function PresentationPage() {
                 onExitFullscreen={() => {
                   void document.exitFullscreen();
                 }}
-                hideCommentMarkers={commentsHidden || !showFeedbackChrome}
-                commentsHidden={commentsHidden && showFeedbackChrome}
-                onToggleCommentsHidden={showFeedbackChrome ? handleToggleCommentsHidden : undefined}
+                hideCommentMarkers={commentsHidden}
+                commentsHidden={commentsHidden}
+                onToggleCommentsHidden={hasVisibleComments ? handleToggleCommentsHidden : undefined}
               />
             )}
             {isDiagram && diagramRenderError ? (
@@ -1057,14 +1059,14 @@ export default function PresentationPage() {
             ) : null}
           </section>
 
-          {!commentsHidden && showFeedbackChrome ? (
+          {showFeedbackUi ? (
             <div className="hidden md:block">
               <FeedbackSidebar {...feedbackSidebarProps} />
             </div>
           ) : null}
         </div>
 
-        {!commentsHidden && showFeedbackChrome ? (
+        {showFeedbackUi ? (
           <Drawer.Root open={mobileFeedbackOpen} onOpenChange={setMobileFeedbackOpen}>
             <Drawer.Portal>
               <Drawer.Overlay className="fixed inset-0 z-40 bg-scrim md:hidden" />

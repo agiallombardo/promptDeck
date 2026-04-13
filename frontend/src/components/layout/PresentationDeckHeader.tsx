@@ -25,6 +25,8 @@ type Props = {
   showCommentsVisibilityToggle?: boolean;
   commentsHidden?: boolean;
   onToggleCommentsHidden?: () => void;
+  showCommentAction?: boolean;
+  onStartComment?: () => void;
 };
 
 /* ── Inline SVG icons (16×16, stroke-based, currentColor) ──────────── */
@@ -288,6 +290,8 @@ export function PresentationDeckHeader({
   showCommentsVisibilityToggle = false,
   commentsHidden = false,
   onToggleCommentsHidden,
+  showCommentAction = false,
+  onStartComment,
 }: Props) {
   const prevDisabled = !canNavigate || slideIndex <= 0;
   const nextDisabled = !canNavigate || slideIndex >= slideCount - 1;
@@ -336,13 +340,25 @@ export function PresentationDeckHeader({
           )}
 
           {/* Zone B — Presentation mode */}
-          {(showPresentAction || (showCommentsVisibilityToggle && onToggleCommentsHidden)) && (
+          {(showPresentAction ||
+            showCommentAction ||
+            (showCommentsVisibilityToggle && onToggleCommentsHidden)) && (
             <>
               <div className="flex items-center gap-1.5">
                 {showPresentAction ? (
                   <button type="button" className={primaryBtn} onClick={onPresent}>
                     {isFullscreen ? <IconMinimize /> : <IconPlay />}
                     <span>{isFullscreen ? "Exit" : "Present"}</span>
+                  </button>
+                ) : null}
+                {showCommentAction && onStartComment ? (
+                  <button
+                    type="button"
+                    className={ghostBtn}
+                    onClick={onStartComment}
+                    title="Add first comment"
+                  >
+                    <span>Add comment</span>
                   </button>
                 ) : null}
                 {showCommentsVisibilityToggle && onToggleCommentsHidden ? (

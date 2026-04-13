@@ -58,4 +58,31 @@ describe("PresentationDeckHeader", () => {
     wrap(<PresentationDeckHeader {...baseProps} titleKind="diagram" />);
     expect(screen.getByText("Diagram")).toBeDefined();
   });
+
+  it("renders Add comment action and calls onStartComment", () => {
+    const onStartComment = vi.fn();
+    wrap(
+      <PresentationDeckHeader {...baseProps} showCommentAction onStartComment={onStartComment} />,
+    );
+
+    const addBtn = screen.getByRole("button", { name: /Add comment/i });
+    fireEvent.click(addBtn);
+    expect(onStartComment).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders comments visibility toggle when configured", () => {
+    const onToggleCommentsHidden = vi.fn();
+    wrap(
+      <PresentationDeckHeader
+        {...baseProps}
+        showCommentsVisibilityToggle
+        commentsHidden={false}
+        onToggleCommentsHidden={onToggleCommentsHidden}
+      />,
+    );
+
+    const toggle = screen.getByRole("button", { name: /Hide/i });
+    fireEvent.click(toggle);
+    expect(onToggleCommentsHidden).toHaveBeenCalledTimes(1);
+  });
 });

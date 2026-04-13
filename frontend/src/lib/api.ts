@@ -109,21 +109,14 @@ async function jsonFetch<T>(
 }
 
 export function iframeSrcForDev(iframeSrc: string): string {
-  if (!import.meta.env.DEV) return iframeSrc;
   try {
     const pageOrigin =
       typeof window !== "undefined" && window.location?.origin
         ? window.location.origin
         : "http://127.0.0.1:5174";
-    const override = (import.meta.env.VITE_DEV_EMBED_ORIGIN as string | undefined)?.trim();
-    const rewriteOrigin = override && override.length > 0 ? override : pageOrigin;
     const u = new URL(iframeSrc, pageOrigin);
     if (u.pathname.startsWith("/a/")) {
-      // Use the dev server origin (Vite proxies `/a`). Normalize host/port so
-      // `localhost` vs `127.0.0.1` or API `:8005` vs Vite `:5174` cannot break iframe loading.
-      // Optional `VITE_DEV_EMBED_ORIGIN` forces the iframe base when the shell is opened from
-      // another origin (e.g. file:// or a different host) but assets are still served via Vite.
-      return `${rewriteOrigin}${u.pathname}${u.search}`;
+      return `${u.pathname}${u.search}${u.hash}`;
     }
   } catch {
     /* ignore */
