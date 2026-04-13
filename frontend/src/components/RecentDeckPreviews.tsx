@@ -208,7 +208,7 @@ export function RecentDeckPreviews({ accessToken, entries }: Props) {
                 )}
               </div>
               <p
-                className="mt-1.5 truncate font-mono text-[11px] text-text-muted group-hover:text-primary"
+                className="mt-2.5 truncate font-mono text-xs text-text-main group-hover:text-primary"
                 title={title}
               >
                 {title}
