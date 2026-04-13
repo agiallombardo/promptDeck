@@ -1090,8 +1090,8 @@ export default function PresentationPage() {
                             })
                           }
                         >
-                          <option value="embed">Embedded (include directly)</option>
-                          <option value="inspire">Inspiration only (reference)</option>
+                          <option value="embed">Embedded content</option>
+                          <option value="inspire">Inspiration reference</option>
                         </select>
                         <button
                           type="button"
@@ -1142,14 +1142,73 @@ export default function PresentationPage() {
                 How should AI use this file?
               </h2>
               <p className="mt-2 font-mono text-xs text-text-muted">{sourceIntentFile.name}</p>
-              <p className="mt-2 text-sm text-text-muted">
-                Pick one mode:
-                <span className="font-medium text-text-main"> Embedded</span> includes content from
-                this file in the deck.
-                <span className="font-medium text-text-main"> Inspiration only</span> uses it as
-                reference without directly embedding content.
-              </p>
-              <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+              <p className="mt-2 text-sm text-text-muted">Choose exactly one source mode.</p>
+              <div className="mt-4 grid gap-2">
+                <button
+                  type="button"
+                  className="group flex w-full items-start gap-3 rounded-sharp border border-border bg-bg-recessed px-3 py-3 text-left hover:bg-bg-elevated disabled:opacity-50"
+                  disabled={uploadSourceArtifact.isPending}
+                  onClick={() =>
+                    uploadSourceArtifact.mutate({ file: sourceIntentFile, intent: "inspire" })
+                  }
+                >
+                  <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-sm border border-border text-text-muted group-hover:text-text-main">
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M8 2.5 9.3 5l2.7.4-1.9 1.9.4 2.7L8 8.7 5.5 10l.5-2.7L4 5.4 6.7 5z" />
+                    </svg>
+                  </span>
+                  <span>
+                    <span className="block font-mono text-xs text-text-main">
+                      Inspiration reference
+                    </span>
+                    <span className="block text-xs text-text-muted">
+                      Use this file for style, tone, and ideas. Do not directly pull content into
+                      slides.
+                    </span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="group flex w-full items-start gap-3 rounded-sharp border border-primary bg-primary/10 px-3 py-3 text-left hover:bg-primary/15 disabled:opacity-50"
+                  disabled={uploadSourceArtifact.isPending}
+                  onClick={() =>
+                    uploadSourceArtifact.mutate({ file: sourceIntentFile, intent: "embed" })
+                  }
+                >
+                  <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-sm border border-primary/50 text-primary">
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M4 2.5h5l3 3V13a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1Z" />
+                      <path d="M9 2.5V6h3" />
+                      <path d="M5.5 10h5M5.5 12h5" />
+                    </svg>
+                  </span>
+                  <span>
+                    <span className="block font-mono text-xs text-primary">Embedded content</span>
+                    <span className="block text-xs text-text-muted">
+                      Allow AI to directly include or adapt content from this file in the deck.
+                    </span>
+                  </span>
+                </button>
+              </div>
+              <div className="mt-4 flex justify-end">
                 <button
                   type="button"
                   className="rounded-sharp border border-border px-3 py-1.5 font-mono text-xs hover:bg-bg-recessed disabled:opacity-50"
@@ -1157,26 +1216,6 @@ export default function PresentationPage() {
                   onClick={() => setSourceIntentFile(null)}
                 >
                   Cancel
-                </button>
-                <button
-                  type="button"
-                  className="rounded-sharp border border-border bg-bg-recessed px-3 py-1.5 font-mono text-xs hover:bg-bg-elevated disabled:opacity-50"
-                  disabled={uploadSourceArtifact.isPending}
-                  onClick={() =>
-                    uploadSourceArtifact.mutate({ file: sourceIntentFile, intent: "inspire" })
-                  }
-                >
-                  Inspiration only (reference)
-                </button>
-                <button
-                  type="button"
-                  className="rounded-sharp border border-primary bg-primary/15 px-3 py-1.5 font-mono text-xs text-primary hover:bg-primary/25 disabled:opacity-50"
-                  disabled={uploadSourceArtifact.isPending}
-                  onClick={() =>
-                    uploadSourceArtifact.mutate({ file: sourceIntentFile, intent: "embed" })
-                  }
-                >
-                  Embedded (include directly)
                 </button>
               </div>
             </div>
@@ -1279,7 +1318,7 @@ export default function PresentationPage() {
                                 : "shrink-0 rounded-sm bg-bg-elevated px-1.5 py-0.5 text-[10px] text-text-muted"
                             }
                           >
-                            {a.intent === "embed" ? "Embedded" : "Inspiration"}
+                            {a.intent === "embed" ? "Embedded content" : "Inspiration reference"}
                           </span>
                         </label>
                       </li>

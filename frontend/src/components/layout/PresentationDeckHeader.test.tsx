@@ -27,43 +27,64 @@ const baseProps = {
 };
 
 describe("PresentationDeckHeader", () => {
-  it("renders Actions dropdown and reveals menu items", () => {
+  it("renders standalone actions and grouped export dropdown", () => {
     wrap(
       <PresentationDeckHeader
         {...baseProps}
         actionMenuItems={[
           { id: "share", label: "Share", onSelect: vi.fn() },
           { id: "export-pdf", label: "Export PDF", onSelect: vi.fn() },
+          { id: "export-html", label: "Export Single-file HTML", onSelect: vi.fn() },
         ]}
       />,
     );
 
-    const actionsBtn = screen.getByRole("button", { name: /Actions/i });
-    expect(actionsBtn).toBeDefined();
-    expect(actionsBtn.getAttribute("aria-haspopup")).toBe("menu");
-    expect(screen.queryByRole("menu")).toBeNull();
+    expect(screen.getByRole("button", { name: "Share" })).toBeDefined();
+    const exportBtn = screen.getByRole("button", { name: /Export/i });
+    expect(exportBtn).toBeDefined();
+    expect(exportBtn.getAttribute("aria-haspopup")).toBe("menu");
 
-    fireEvent.click(actionsBtn);
+    fireEvent.click(exportBtn);
 
-    expect(screen.getByRole("menu")).toBeDefined();
-    expect(screen.getByRole("menuitem", { name: "Share" })).toBeDefined();
     expect(screen.getByRole("menuitem", { name: "Export PDF" })).toBeDefined();
+    expect(screen.getByRole("menuitem", { name: "Export Single-file HTML" })).toBeDefined();
   });
 
-  it("runs action handlers and closes the menu", () => {
-    const onShare = vi.fn();
+  it("groups edit actions into one top-bar control", () => {
+    const onCode = vi.fn();
     wrap(
       <PresentationDeckHeader
         {...baseProps}
-        actionMenuItems={[{ id: "share", label: "Share", onSelect: onShare }]}
+        actionMenuItems={[
+          { id: "edit-code", label: "Edit code", onSelect: onCode },
+          { id: "edit-with-prompt", label: "Edit with prompt", onSelect: vi.fn() },
+        ]}
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /Actions/i }));
-    fireEvent.click(screen.getByRole("menuitem", { name: "Share" }));
+    const editBtn = screen.getByRole("button", { name: /Edit/i });
+    fireEvent.click(editBtn);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Edit code" }));
 
-    expect(onShare).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole("menu")).toBeNull();
+    expect(onCode).toHaveBeenCalledTimes(1);
+  });
+
+  it("groups upload actions into one top-bar control", () => {
+    wrap(
+      <PresentationDeckHeader
+        {...baseProps}
+        actionMenuItems={[
+          { id: "upload-version", label: "Upload new version", onSelect: vi.fn() },
+          { id: "upload-source", label: "Upload source", onSelect: vi.fn() },
+        ]}
+      />,
+    );
+
+    const uploadBtn = screen.getByRole("button", { name: /Upload/i });
+    fireEvent.click(uploadBtn);
+
+    expect(screen.getByRole("menuitem", { name: "Upload new version" })).toBeDefined();
+    expect(screen.getByRole("menuitem", { name: "Upload source" })).toBeDefined();
   });
 
   it("keeps Present as standalone action", () => {
@@ -76,7 +97,7 @@ describe("PresentationDeckHeader", () => {
     expect(onPresent).toHaveBeenCalledTimes(1);
   });
 
-  it("does not render hidden menu items", () => {
+  it("does not render hidden actions", () => {
     wrap(
       <PresentationDeckHeader
         {...baseProps}
@@ -87,13 +108,11 @@ describe("PresentationDeckHeader", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /Actions/i }));
-
-    expect(screen.getByRole("menuitem", { name: "Visible" })).toBeDefined();
-    expect(screen.queryByRole("menuitem", { name: "Hidden" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Visible" })).toBeDefined();
+    expect(screen.queryByRole("button", { name: "Hidden" })).toBeNull();
   });
 
-  it("does not invoke disabled menu items", () => {
+  it("does not invoke disabled actions", () => {
     const onDisabled = vi.fn();
     wrap(
       <PresentationDeckHeader
@@ -104,8 +123,7 @@ describe("PresentationDeckHeader", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /Actions/i }));
-    fireEvent.click(screen.getByRole("menuitem", { name: "Disabled" }));
+    fireEvent.click(screen.getByRole("button", { name: "Disabled" }));
 
     expect(onDisabled).not.toHaveBeenCalled();
   });
